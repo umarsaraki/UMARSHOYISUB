@@ -199,7 +199,7 @@ async function paymentReturn(req, env) {
 
 // Flutterwave -> us. Set the URL in Flutterwave dashboard: https://YOUR-DOMAIN/api/webhook/flutterwave
 async function flutterwaveWebhook(req, env) {
-  if (!env.FLW_WEBHOOK_HASH) return fail('Webhook not configured.', 503);
+  if (!env.FLW_WEBHOOK_HASH || String(env.FLW_WEBHOOK_HASH).length < 16) return fail('Webhook secret missing or too short (min 16 characters).', 503);
   if (!safeEq(req.headers.get('verif-hash') || '', env.FLW_WEBHOOK_HASH)) return fail('Invalid signature.', 401);
   const evt = await body(req), d = evt.data || {};
   try {
@@ -485,11 +485,12 @@ async function route(req, env) {
   if (method === 'OPTIONS') return json({ ok: true });
   await ensureSchema(env);
 
-  if (path === '/api/health') return json({ ok: true, service: env.APP_NAME || 'Worker', database: 'connected', auth: !!env.AUTH_SECRET, flutterwave: !!env.FLW_SECRET_KEY, webhook: !!env.FLW_WEBHOOK_HASH, test_mode: env.TEST_MODE === '1' });
+  if (path === '/api/health') return json({ ok: true, service: env.APP_NAME || 'Worker', database: 'connected', auth: String(env.AUTH_SECRET || '').length >= 32, flutterwave: !!env.FLW_SECRET_KEY, webhook: String(env.FLW_WEBHOOK_HASH || '').length >= 16, test_mode: env.TEST_MODE === '1' });
   if (path === '/api/payment/return' && method === 'GET') return paymentReturn(req, env);
   if (path === '/api/webhook/flutterwave' && method === 'POST') return flutterwaveWebhook(req, env);
 
   if (path.startsWith('/api/auth/') && !env.AUTH_SECRET) return fail('AUTH_SECRET is not configured in Cloudflare Worker secrets.', 503);
+  if (path.startsWith('/api/auth/') && String(env.AUTH_SECRET).length < 32) return fail('AUTH_SECRET is too weak. Use a random value of at least 32 characters.', 503);
   if (path === '/api/auth/signup' && method === 'POST') return signup(req, env);
   if (path === '/api/auth/login' && method === 'POST') return login(req, env);
 

@@ -1,4 +1,4 @@
-name = "umarshoyi-sub"
+name = "umarshoyisub"
 main = "worker.js"
 compatibility_date = "2026-11-08"
 
@@ -10,7 +10,7 @@ run_worker_first = ["/api/*"]
 [[d1_databases]]
 binding = "DB"
 database_name = "umarshoyi-db"
-database_id = "REPLACE_WITH_D1_DATABASE_ID"
+database_id = "2b79c9f4-2682-4e95-85bc-0a7e92d8fd19"
 
 [vars]
 APP_NAME = "UMARSHOYI-SUB"

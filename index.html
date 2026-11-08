@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<script src="/data-plans.js"></script>
 <title>UMARSHOYI-SUB — Data & Airtime</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
@@ -1227,9 +1228,29 @@ function setNetwork(id){
     document.getElementById('planPickerArea').style.display = 'none';
   }
 }
-function revealDataPlans(){
+let liveDataPlans = null; // cached raw plans fetched from Sabildata this session
+async function revealDataPlans(){
   document.getElementById('viewPlansRow').style.display = 'none';
   document.getElementById('planPickerArea').style.display = 'block';
+  document.getElementById('categoryTabs').innerHTML = '';
+  document.getElementById('planList').innerHTML = '<div class="empty-note">Loading current plans…</div>';
+
+  if(!liveDataPlans){
+    const { data, errMsg } = await invokeFn('get-sabildata-plans', { body: { action: 'data' } });
+    if(errMsg){ document.getElementById('planList').innerHTML = '<div class="empty-note">Could not load plans. Please try again.</div>'; return; }
+    liveDataPlans = data.plans || [];
+  }
+
+  // TEMPORARY DEBUG: show the raw first plan + count so we can see
+  // Sabildata's real field names without needing Chrome DevTools.
+  if(window.location.hash === '#debug'){
+    document.getElementById('planList').innerHTML =
+      `<div style="font-size:11px; white-space:pre-wrap; word-break:break-all; background:#111; color:#0f0; padding:12px; border-radius:8px;">` +
+      `Count: ${liveDataPlans.length}\n\nFirst item:\n${JSON.stringify(liveDataPlans[0], null, 2)}` +
+      `</div>`;
+    return;
+  }
+
   renderCategoryTabs();
 }
 
@@ -1243,22 +1264,31 @@ function showManualNetworkPicker(){
       <div class="net-name">${n.name}</div></div>`).join('');
 }
 
+// Plan normalization is provided by public/data-plans.js.
+function getPlansForCurrentNetwork(){
+  const netName = { mtn:'MTN', glo:'GLO', airtel:'AIRTEL', '9mobile':'9MOBILE' }[selectedNetwork];
+  return (liveDataPlans || [])
+    .filter(p => (p.network ?? '').toString().toUpperCase() === netName)
+    .map(normalizePlan);
+}
+
 function renderCategoryTabs(){
-  const cats = Object.keys(DATA_PLANS[selectedNetwork] || {});
-  if(!selectedCategory) selectedCategory = cats[0];
+  const plans = getPlansForCurrentNetwork();
+  const cats = [...new Set(plans.map(p => p.category))];
+  if(!selectedCategory || !cats.includes(selectedCategory)) selectedCategory = cats[0];
   document.getElementById('categoryTabs').innerHTML = cats.map(c => `
-    <div onclick="selectCategory('${c}')" style="white-space:nowrap; padding:8px 16px; border-radius:20px; font-size:12px; font-weight:700; cursor:pointer;
+    <div onclick="selectCategory('${c.replace(/'/g,"\\'")}')" style="white-space:nowrap; padding:8px 16px; border-radius:20px; font-size:12px; font-weight:700; cursor:pointer;
       background:${c===selectedCategory?'var(--blue-1)':'#eef1fb'}; color:${c===selectedCategory?'#fff':'var(--text)'};">${c}</div>`).join('');
   renderPlans();
 }
 function selectCategory(c){ selectedCategory = c; selectedPlan = null; renderCategoryTabs(); }
 
 function renderPlans(){
-  const plans = (DATA_PLANS[selectedNetwork] && DATA_PLANS[selectedNetwork][selectedCategory]) || [];
-  document.getElementById('planList').innerHTML = plans.map((p,i) => `
+  const plans = getPlansForCurrentNetwork().filter(p => p.category === selectedCategory);
+  document.getElementById('planList').innerHTML = plans.length ? plans.map((p,i) => `
     <div class="plan-row ${selectedPlan===i?'selected':''}" onclick="selectPlan(${i})">
       <div><div class="plan-size">${p.size}</div><div class="plan-valid">Valid for ${p.valid}</div></div>
-      <div class="plan-price">₦${p.price.toLocaleString()}</div></div>`).join('');
+      <div class="plan-price">₦${p.price.toLocaleString()}</div></div>`).join('') : '<div class="empty-note">No plans in this category.</div>';
 }
 function selectPlan(i){ selectedPlan = i; renderPlans(); }
 function openStub(name){ document.getElementById('stubTitle').textContent = name; showPage('stub'); }
@@ -1454,9 +1484,9 @@ async function confirmPurchase(){
   let functionName, body, label;
   if(purchaseMode === 'data'){
     if(selectedPlan === null){ errEl.textContent = 'Select a data plan'; return; }
-    const plan = DATA_PLANS[selectedNetwork][selectedCategory][selectedPlan];
+    const plan = getPlansForCurrentNetwork().filter(p => p.category === selectedCategory)[selectedPlan];
     functionName = 'buy-data';
-    body = { network: selectedNetwork, phone, planCode: plan.code, amount: plan.price, cost: plan.cost, pin };
+    body = { network: selectedNetwork, phone, planCode: plan.code, amount: plan.price, pin };
     label = `${plan.size} ${selectedNetwork.toUpperCase()}`;
   } else {
     const amt = parseFloat(document.getElementById('airtimeAmount').value);

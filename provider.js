@@ -44,7 +44,7 @@ export async function sendSms(env, phone, text) {
 // Airtime-to-cash conversion. Returns { ok:true, credited:<naira> }
 export async function convertAirtimeToCash(env, { phone, network, amount }) {
   if (env.TEST_MODE === '1') {
-    const rate = Number(env.A2C_RATE || 0.8);
+    const rate = Number(env.A2C_RATE || 0.7)  // the app says N30 fee per N100 -> customer gets 70%;
     return { ok: true, ref: 'TEST-' + rnd(8), credited: Math.round(amount * rate * 100) / 100 };
   }
   return NOT_CONNECTED;

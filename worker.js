@@ -137,6 +137,23 @@ async function flw(env, method, path, payload) {
   return { ok: r.ok && data.status === 'success', data };
 }
 
+// Refer & Earn: when a referred user makes their FIRST deposit, the referrer gets N10 per N1,000 deposited.
+async function referralBonus(env, userId, amount) {
+  const bonus = Math.floor(amount / 1000) * 10;
+  if (bonus <= 0) return;
+  const me = await env.DB.prepare('SELECT referral_code_used c FROM profiles WHERE id=?').bind(userId).first();
+  if (!me?.c) return;
+  const first = await env.DB.prepare("SELECT COUNT(*) n FROM transactions WHERE user_id=? AND type='fund' AND status='successful'").bind(userId).first();
+  if (first.n !== 1) return;                                   // only the first deposit counts
+  const ref = await env.DB.prepare('SELECT id FROM profiles WHERE referral_code=?').bind(String(me.c).trim().toUpperCase()).first();
+  if (!ref || ref.id === userId) return;
+  const key = 'refbonus-' + userId;
+  await env.DB.batch([
+    env.DB.prepare('UPDATE profiles SET balance_ngn=balance_ngn+? WHERE id=? AND NOT EXISTS(SELECT 1 FROM transactions WHERE provider_ref=?)').bind(bonus, ref.id, key),
+    env.DB.prepare("INSERT INTO transactions(id,user_id,type,label,amount,direction,status,provider_ref) SELECT ?,?,'referral-bonus','Referral bonus',?,'in','successful',? WHERE NOT EXISTS(SELECT 1 FROM transactions WHERE provider_ref=?)").bind(uid(), ref.id, bonus, key, key),
+  ]);
+}
+
 // Step 1 of card/USSD funding: create a hosted payment link.
 async function initiatePayment(req, env, user) {
   const n = Number((await body(req)).amount);
@@ -169,7 +186,9 @@ async function settleFlutterwave(env, flwId) {
       env.DB.prepare("UPDATE profiles SET balance_ngn=balance_ngn+? WHERE id=? AND EXISTS(SELECT 1 FROM transactions WHERE id=? AND status='pending')").bind(pending.amount, pending.user_id, pending.id),
       env.DB.prepare("UPDATE transactions SET status='successful' WHERE id=? AND status='pending'").bind(pending.id),
     ]);
-    return { ok: true, credited: r[1].meta.changes === 1 };
+    const credited = r[1].meta.changes === 1;
+    if (credited) await referralBonus(env, pending.user_id, pending.amount);
+    return { ok: true, credited };
   }
   // bank transfer into a user's virtual account
   let userId = (await env.DB.prepare('SELECT user_id FROM virtual_accounts WHERE tx_ref=?').bind(d.tx_ref).first())?.user_id;
@@ -181,7 +200,9 @@ async function settleFlutterwave(env, flwId) {
     env.DB.prepare('UPDATE profiles SET balance_ngn=balance_ngn+? WHERE id=? AND EXISTS(SELECT 1 FROM payment_events WHERE id=?)').bind(paid, userId, evId),
     env.DB.prepare("INSERT INTO transactions(id,user_id,type,label,amount,direction,status,provider_ref,metadata) SELECT ?,?,'fund','Bank transfer funding',?,'in','successful',?,? WHERE EXISTS(SELECT 1 FROM payment_events WHERE id=?)").bind(uid(), userId, paid, 'flw-' + d.id, JSON.stringify({ provider: 'flutterwave', via: 'virtual-account' }), evId),
   ]);
-  return { ok: true, credited: r[0].meta.changes === 1 };
+  const credited = r[0].meta.changes === 1;
+  if (credited) await referralBonus(env, userId, paid);
+  return { ok: true, credited };
 }
 
 // The browser comes back here after paying on Flutterwave's page.

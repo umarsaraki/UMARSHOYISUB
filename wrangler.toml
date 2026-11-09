@@ -2,6 +2,9 @@ name = "umarshoyisub"
 main = "worker.js"
 compatibility_date = "2025-11-01"
 
+# Keep variables/secrets you add in the Cloudflare dashboard when GitHub redeploys.
+keep_vars = true
+
 [assets]
 directory = "./public"
 binding = "ASSETS"
@@ -12,14 +15,21 @@ binding = "DB"
 database_name = "umarshoyi-db"
 database_id = "2b79c9f4-2682-4e95-85bc-0a7e92d8fd19"
 
+[triggers]
+# Every 5 minutes: settle purchases that are still "pending" at VTUAgent
+crons = ["*/5 * * * *"]
+
 [observability]
 enabled = true
 
+# ---------------------------------------------------------------------------
+# Plain (NOT secret) settings. It is safe to keep these here: they stay after every deploy.
+# NEVER write secret keys in this file: your GitHub repo can be read by others.
+# Secrets (add in Cloudflare -> Variables and Secrets, type "Secret"):
+#   AUTH_SECRET, FLW_SECRET_KEY, FLW_WEBHOOK_HASH, VTUAGENT_API_KEY
+# ---------------------------------------------------------------------------
 [vars]
 APP_NAME = "UMARSHOYI-SUB"
-# Put your own admin email(s) here, comma separated. They become admin when they register/login.
-ADMIN_EMAILS = ""
-# Optional fee (naira) charged on Airtime-to-Cash bank withdrawals
+ADMIN_EMAILS = "umarsaraki96@gmail.com"
 ATC_BANK_FEE = "0"
-# "1" = pretend purchases succeed, so you can test every screen. Keep "0" for real customers!
-TEST_MODE = "0"
+PRICE_MARKUP_PERCENT = "12"

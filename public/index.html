@@ -133,6 +133,18 @@
   .toast.error{background:var(--danger);}
   .spinner{width:16px; height:16px; border:2px solid rgba(255,255,255,.3); border-top-color:#fff; border-radius:50%; display:inline-block; animation:spin .7s linear infinite; vertical-align:middle; margin-right:6px;}
   @keyframes spin{to{transform:rotate(360deg);}}
+
+  .atabs{display:flex; gap:8px; overflow-x:auto; padding:12px 20px; background:var(--card); border-bottom:1px solid var(--line);}
+  .atab{flex:0 0 auto; padding:8px 14px; border-radius:20px; border:1px solid var(--line); background:#fff; font-size:13px; font-weight:700; color:var(--sub); cursor:pointer;}
+  .atab.on{background:var(--blue-1); color:#fff; border-color:var(--blue-1);}
+  .chips{display:flex; gap:8px; overflow-x:auto; margin-bottom:12px;}
+  .admin-count{font-size:12px; color:var(--sub); margin:0 0 8px;}
+  .field select{width:100%; padding:14px 16px; background:var(--card); border:1px solid var(--line); border-radius:12px; color:var(--text); font-size:15px;}
+  .btn-sm{padding:8px 12px; border-radius:10px; border:none; font-weight:700; font-size:12px; cursor:pointer; color:#fff;}
+  .badge{display:inline-block; font-size:10px; font-weight:800; padding:2px 7px; border-radius:8px; margin-left:6px; color:#fff; vertical-align:middle;}
+  .arow{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:10px; cursor:pointer;}
+  .arow .top{display:flex; justify-content:space-between; gap:10px; font-weight:700; font-size:14px;}
+  .arow .sub{font-size:12px; color:var(--sub); margin-top:4px; word-break:break-word;}
 </style>
 </head>
 <body>
@@ -554,9 +566,46 @@
 <!-- ===================== ADMIN PANEL PAGE ===================== -->
 <div class="page" id="page-admin-panel">
   <div class="page-head"><button class="back-btn" onclick="closePage('admin-panel')">←</button><div class="page-title">Admin Panel</div></div>
+  <div class="atabs" id="adminTabs">
+    <button class="atab on" data-tab="overview" onclick="adminSetTab('overview')">Overview</button>
+    <button class="atab" data-tab="users" onclick="adminSetTab('users')">Users</button>
+    <button class="atab" data-tab="tx" onclick="adminSetTab('tx')">Transactions</button>
+    <button class="atab" data-tab="log" onclick="adminSetTab('log')">Activity</button>
+  </div>
   <div class="page-body">
-    <div class="field"><label>Search Users (name, email, username, phone)</label><input id="adminSearchQuery" placeholder="Type to search…" oninput="adminSearchUsers()"></div>
-    <div id="adminUserList"></div>
+    <div id="atab-overview">
+      <div class="profit-grid" id="aStats"><div class="empty-note">Loading…</div></div>
+      <button class="btn-primary" style="margin-top:18px; background:#eef1fb; color:var(--blue-1);" onclick="adminSetupWebhook()">🔗 Connect VTUAgent webhook</button>
+      <div class="hint" style="background:#eef1fb; border-radius:12px; padding:14px; font-size:12px; color:var(--sub); line-height:1.6; margin-top:18px;">
+        Tip: open <b>Transactions → Pending</b> to review payments or purchases that are stuck. You can confirm them, or fail them and refund the customer.
+      </div>
+    </div>
+    <div id="atab-users" style="display:none;">
+      <div class="field"><input id="adminSearchQuery" placeholder="Search name, email, username, phone…" oninput="adminSearchDebounced()"></div>
+      <div class="chips" id="adminUserChips">
+        <button class="atab on" data-f="all" onclick="adminSetUserFilter('all')">All</button>
+        <button class="atab" data-f="funded" onclick="adminSetUserFilter('funded')">With balance</button>
+        <button class="atab" data-f="banned" onclick="adminSetUserFilter('banned')">Banned</button>
+        <button class="atab" data-f="admins" onclick="adminSetUserFilter('admins')">Admins</button>
+      </div>
+      <div class="admin-count" id="adminUserCount"></div>
+      <div id="adminUserList"></div>
+      <button class="btn-primary" id="adminUserMore" style="display:none; background:#eef1fb; color:var(--blue-1);" onclick="adminLoadUsers(false)">Load more</button>
+    </div>
+    <div id="atab-tx" style="display:none;">
+      <div class="chips" id="adminTxChips">
+        <button class="atab on" data-f="pending" onclick="adminSetTxFilter('pending')">Pending</button>
+        <button class="atab" data-f="all" onclick="adminSetTxFilter('all')">All</button>
+        <button class="atab" data-f="successful" onclick="adminSetTxFilter('successful')">Successful</button>
+        <button class="atab" data-f="failed" onclick="adminSetTxFilter('failed')">Failed</button>
+      </div>
+      <div class="admin-count" id="adminTxCount"></div>
+      <div id="adminTxList"></div>
+      <button class="btn-primary" id="adminTxMore" style="display:none; background:#eef1fb; color:var(--blue-1);" onclick="adminLoadTx(false)">Load more</button>
+    </div>
+    <div id="atab-log" style="display:none;">
+      <div id="adminLogList"></div>
+    </div>
   </div>
 </div>
 
@@ -564,24 +613,36 @@
 <div class="page" id="page-admin-user">
   <div class="page-head"><button class="back-btn" onclick="closePage('admin-user')">←</button><div class="page-title">Manage User</div></div>
   <div class="page-body">
-    <div class="settings-list" style="margin-bottom:20px;">
-      <div class="settings-row"><span>Name</span><span id="auName" style="color:var(--text); font-weight:600;">—</span></div>
-      <div class="settings-row"><span>Username</span><span id="auUsername" style="color:var(--text); font-weight:600;">—</span></div>
-      <div class="settings-row"><span>Email</span><span id="auEmail" style="color:var(--text); font-weight:600; font-size:12px;">—</span></div>
-      <div class="settings-row"><span>Phone</span><span id="auPhone" style="color:var(--text); font-weight:600;">—</span></div>
+    <div id="auHeader" style="margin-bottom:16px;"></div>
+    <div class="profit-grid" id="auStats" style="margin-bottom:8px;"></div>
+
+    <div class="section-title" style="padding:0; margin:22px 0 10px;">Adjust Balance</div>
+    <div class="field"><label>Wallet</label><select id="auWallet"><option value="main">Main wallet</option><option value="atc">Airtime-to-Cash wallet</option></select></div>
+    <div class="field"><label>Amount (₦)</label><input id="auAmount" type="number" inputmode="decimal" placeholder="e.g. 500"></div>
+    <div class="field"><label>Reason (saved in Activity log)</label><input id="auReason" placeholder="e.g. Refund for failed data"></div>
+    <div class="err-text" id="auBalanceErr"></div>
+    <div class="field-row">
+      <button class="btn-primary" id="auCreditBtn" style="background:var(--green);" onclick="adminAdjust('credit')">＋ Credit</button>
+      <button class="btn-primary" id="auDebitBtn" style="background:var(--danger);" onclick="adminAdjust('debit')">－ Debit</button>
     </div>
 
-    <div class="field"><label>Wallet Balance (₦)</label><input id="auBalance" type="number"></div>
-    <div class="err-text" id="auBalanceErr"></div>
-    <button class="btn-primary" id="auSaveBalanceBtn" onclick="adminSaveBalance()">Update Balance</button>
+    <div class="section-title" style="padding:0; margin:26px 0 10px;">Edit Details</div>
+    <div class="field"><label>Full name</label><input id="auEditName"></div>
+    <div class="field"><label>Username</label><input id="auEditUsername" autocapitalize="none"></div>
+    <div class="field"><label>Email</label><input id="auEditEmail" type="email" autocapitalize="none"></div>
+    <div class="field"><label>Phone</label><input id="auEditPhone" inputmode="tel"></div>
+    <div class="err-text" id="auEditErr"></div>
+    <button class="btn-primary" id="auSaveBtn" onclick="adminSaveUser()">Save Details</button>
 
-    <div class="section-title" style="padding:0; margin:26px 0 10px;">Account Status</div>
+    <div class="section-title" style="padding:0; margin:26px 0 10px;">Account & Security</div>
     <button class="btn-primary" id="auBanBtn" style="margin-top:0;" onclick="adminToggleBan()">Ban User</button>
-
-    <div class="section-title" style="padding:0; margin:26px 0 10px;">Reset Password</div>
-    <div class="field"><label>New Password</label><input id="auNewPassword" type="password" placeholder="Min 6 characters"></div>
+    <button class="btn-primary" id="auAdminBtn" style="background:#6b5bd6;" onclick="adminToggleAdmin()">Make Admin</button>
+    <div class="field" style="margin-top:16px;"><label>New transaction PIN (4 digits) — also unlocks a locked PIN</label><input id="auNewPin" type="password" inputmode="numeric" maxlength="4" placeholder="••••"></div>
+    <div class="err-text" id="auPinErr"></div>
+    <button class="btn-primary" id="auResetPinBtn" onclick="adminResetPin()">Reset Transaction PIN</button>
+    <div class="field" style="margin-top:16px;"><label>New password</label><input id="auNewPassword" type="password" placeholder="Min 6 characters"></div>
     <div class="err-text" id="auPassErr"></div>
-    <button class="btn-primary" id="auResetPassBtn" onclick="adminResetPassword()">Reset User's Password</button>
+    <button class="btn-primary" id="auResetPassBtn" onclick="adminResetPassword()">Reset Password</button>
 
     <div class="section-title" style="padding:0; margin:26px 0 10px;">Transaction History</div>
     <div id="auTxList"></div>
@@ -880,49 +941,20 @@ const DATA_PLANS = {
   }
 };
 
-const CABLE_PLANS = {
-  dstv: [
-    { code:'6', name:'DStv Yanga', price:6500, cost:6000.0 },
-    { code:'7', name:'DStv Compact', price:19800, cost:19000.0 },
-    { code:'9', name:'DStv Premium', price:51300, cost:50500.0 },
-    { code:'20', name:'DStv Padi', price:4700, cost:4400.0 },
-    { code:'47', name:'DStv Confam', price:11500, cost:11000.0 },
-  ],
-  gotv: [
-    { code:'2', name:'GOtv Max', price:9000, cost:8500.0 },
-    { code:'16', name:'GOtv Jinja', price:4200, cost:3900.0 },
-    { code:'17', name:'GOtv Jolli', price:6100, cost:5800.0 },
-    { code:'34', name:'GOtv Smallie - Monthly', price:4800, cost:4500.0 },
-  ],
-  startimes: [
-    { code:'11', name:'Classic - 1 Month', price:6100, cost:5800.0 },
-    { code:'12', name:'Basic - 1 Month', price:4250, cost:3950.0 },
-    { code:'13', name:'Smart - 1 Month', price:5200, cost:4900.0 },
-    { code:'14', name:'Nova - 1 Month', price:2200, cost:2000.0 },
-    { code:'15', name:'Super - 1 Month', price:9500, cost:9000.0 },
-    { code:'37', name:'Nova - 1 Week', price:800, cost:700.0 },
-    { code:'38', name:'Basic - 1 Week', price:5100, cost:4800.0 },
-    { code:'39', name:'Smart - 1 Week', price:5150, cost:4850.0 },
-    { code:'40', name:'Classic - 1 Week', price:2700, cost:2500.0 },
-    { code:'41', name:'Super - 1 Week', price:3400, cost:3100.0 },
-  ]
-};
-
+const CABLE_PLANS = { dstv: [], gotv: [], startimes: [] }; // loaded live from the server
 const ELECTRICITY_DISCOS = [
-  { code:'01', name:'Eko Electric (EKEDC)' },
-  { code:'02', name:'Ikeja Electric (IKEDC)' },
-  { code:'03', name:'Abuja Electric (AEDC)' },
-  { code:'04', name:'Kano Electric (KEDC)' },
-  { code:'05', name:'Portharcourt Electric (PHEDC)' },
-  { code:'06', name:'Jos Electric (JEDC)' },
-  { code:'07', name:'Ibadan Electric (IBEDC)' },
-  { code:'08', name:'Kaduna Electric (KAEDC)' },
-  { code:'09', name:'Enugu Electric (EEDC)' },
-  { code:'10', name:'Benin Electric (BEDC)' },
-  { code:'11', name:'Yola Electric (YEDC)' },
-  { code:'12', name:'Aba Electric (APLE)' },
+  { code:'ikeja-electric', name:'Ikeja Electric (IKEDC)' },
+  { code:'eko-electric', name:'Eko Electric (EKEDC)' },
+  { code:'abuja-electric', name:'Abuja Electric (AEDC)' },
+  { code:'ibadan-electric', name:'Ibadan Electric (IBEDC)' },
+  { code:'kano-electric', name:'Kano Electric (KEDCO)' },
+  { code:'portharcourt-electric', name:'Port Harcourt Electric (PHED)' },
+  { code:'enugu-electric', name:'Enugu Electric (EEDC)' },
+  { code:'jos-electric', name:'Jos Electric (JED)' },
+  { code:'kaduna-electric', name:'Kaduna Electric (KAEDCO)' },
+  { code:'benin-electric', name:'Benin Electric (BEDC)' },
 ];
-const ELECTRICITY_DISCOUNT_RATE = 0.995; // ClubKonnect charges 99.5% of the amount (0.5% discount)
+const ELECTRICITY_DISCOUNT_RATE = 0.995; 
 const ELECTRICITY_MIN = 1000;
 const ELECTRICITY_MAX = 200000;
 
@@ -1069,7 +1101,7 @@ function txRowHtml(t){
   const canDownload = (t.type === 'data-card' || t.type === 'airtime-card' || t.type === 'exam') && t.provider_ref && t.status === 'successful';
   return `<div class="tx-row" onclick="showTxReceipt('${t.id}')" style="cursor:pointer;">
     <div class="tx-left"><div class="tx-icon">${txIcon(t.type)}</div>
-      <div><div class="tx-name">${t.label}</div><div class="tx-date">${new Date(t.created_at).toLocaleString()}</div></div></div>
+      <div><div class="tx-name">${esc(t.label)}</div><div class="tx-date">${new Date(t.created_at).toLocaleString()}</div></div></div>
     <div style="text-align:right;">
       <div class="tx-amt ${t.direction}">${sign}₦${Number(t.amount).toLocaleString()}</div>
       <div class="tx-status">${t.status}</div>
@@ -1089,11 +1121,11 @@ function showTxReceipt(id){
       <div style="color:${statusColor}; font-weight:700; text-transform:uppercase; font-size:12px; margin-top:4px;">${t.status}</div>
     </div>
     <div class="settings-list">
-      <div class="settings-row"><span>Description</span><span style="color:var(--text); font-weight:600;">${t.label}</span></div>
+      <div class="settings-row"><span>Description</span><span style="color:var(--text); font-weight:600;">${esc(t.label)}</span></div>
       <div class="settings-row"><span>Type</span><span style="color:var(--text); font-weight:600; text-transform:capitalize;">${t.type.replace('-',' ')}</span></div>
       <div class="settings-row"><span>Date</span><span style="color:var(--text); font-weight:600;">${new Date(t.created_at).toLocaleDateString()}</span></div>
       <div class="settings-row"><span>Time</span><span style="color:var(--text); font-weight:600;">${new Date(t.created_at).toLocaleTimeString()}</span></div>
-      <div class="settings-row"><span>Reference</span><span style="color:var(--text); font-weight:600; font-size:11px;">${t.provider_ref && !t.provider_ref.startsWith('[') && !t.provider_ref.startsWith('{') ? t.provider_ref : t.id}</span></div>
+      <div class="settings-row"><span>${t.type === 'electricity' && String(t.provider_ref || '').startsWith('Token:') ? 'Token' : 'Reference'}</span><span style="color:var(--text); font-weight:600; font-size:11px; word-break:break-all; text-align:right;">${t.provider_ref && !t.provider_ref.startsWith('[') && !t.provider_ref.startsWith('{') ? t.provider_ref : t.id}</span></div>
     </div>
     <div class="hint" style="background:#eef1fb; border-radius:12px; padding:14px; font-size:12px; color:var(--sub); line-height:1.6; margin-top:16px;">
       Having an issue with this transaction? Take a screenshot of this receipt and send it to support.
@@ -1144,8 +1176,9 @@ async function fundWallet(){
   setLoading('fundBtn', true);
   const { data, errMsg } = await invokeFn('initiate-payment', { body: { amount: amt } });
   setLoading('fundBtn', false, 'Continue to Pay');
-  if(errMsg || data?.status !== 'success'){ errEl.textContent = errMsg || 'Could not start payment'; return; }
-  window.location.href = data.data.link;
+  const link = data?.link || data?.data?.link;
+  if(errMsg || !link){ errEl.textContent = errMsg || 'Could not start payment'; return; }
+  window.location.href = link;
 }
 
 let vaLoaded = false;
@@ -1350,20 +1383,30 @@ async function confirmExamPurchase(){
 function openExamStub(name){ document.getElementById('stubTitle').textContent = name + ' e-PIN'; showPage('stub'); }
 
 /* ---------- Cable TV ---------- */
-let selectedCableProvider = 'dstv', selectedCablePlan = null;
+let selectedCableProvider = 'dstv', selectedCablePlan = null, cableLoading = false, cableLoadError = '';
 function renderCableProviderTabs(){
   const providers = Object.keys(CABLE_PLANS);
   document.getElementById('cableProviderTabs').innerHTML = providers.map(p => `
     <div onclick="selectCableProvider('${p}')" style="white-space:nowrap; padding:8px 16px; border-radius:20px; font-size:12px; font-weight:700; cursor:pointer;
       background:${p===selectedCableProvider?'var(--blue-1)':'#eef1fb'}; color:${p===selectedCableProvider?'#fff':'var(--text)'};">${p}</div>`).join('');
   renderCablePlans();
+  if(!CABLE_PLANS[selectedCableProvider].length && !cableLoading) loadCablePlans(selectedCableProvider);
+}
+async function loadCablePlans(p){
+  cableLoading = true; cableLoadError = ''; renderCablePlans();
+  const { data, errMsg } = await invokeFn('get-cable-plans', { body: { provider: p } });
+  cableLoading = false;
+  if(errMsg){ cableLoadError = errMsg; } else { CABLE_PLANS[p] = data.plans || []; }
+  if(p === selectedCableProvider) renderCablePlans();
 }
 function selectCableProvider(p){ selectedCableProvider = p; selectedCablePlan = null; renderCableProviderTabs(); }
 function renderCablePlans(){
-  const plans = CABLE_PLANS[selectedCableProvider];
-  document.getElementById('cablePlanList').innerHTML = plans.map((p,i) => `
+  const box = document.getElementById('cablePlanList'), plans = CABLE_PLANS[selectedCableProvider];
+  if(cableLoading){ box.innerHTML = '<div class="empty-note">Loading packages…</div>'; return; }
+  if(cableLoadError && !plans.length){ box.innerHTML = `<div class="empty-note">${esc(cableLoadError)}<br><br><button class="btn-sm" style="background:var(--blue-1);" onclick="loadCablePlans('${selectedCableProvider}')">Try again</button></div>`; return; }
+  box.innerHTML = plans.map((p,i) => `
     <div class="plan-row ${selectedCablePlan===i?'selected':''}" onclick="selectCablePlan(${i})">
-      <div><div class="plan-size">${p.name}</div></div>
+      <div><div class="plan-size">${esc(p.name)}</div></div>
       <div class="plan-price">₦${p.price.toLocaleString()}</div></div>`).join('');
 }
 function selectCablePlan(i){ selectedCablePlan = i; renderCablePlans(); }
@@ -1378,12 +1421,17 @@ async function confirmCablePurchase(){
   const plan = CABLE_PLANS[selectedCableProvider][selectedCablePlan];
 
   setLoading('cableBtn', true);
-  const { data, errMsg } = await invokeFn('buy-cable', {
-    body: { provider: selectedCableProvider, planCode: plan.code, smartcard, amount: plan.price, cost: plan.cost, pin }
-  });
+  // Step 1: check who owns this smartcard, so the customer never pays for the wrong card
+  const v = await invokeFn('verify-smartcard', { body: { provider: selectedCableProvider, smartcard } });
+  if(v.errMsg){ setLoading('cableBtn', false, 'Confirm Purchase'); errEl.textContent = v.errMsg; return; }
+  if(!confirm(`Smartcard owner: ${v.data.name || 'unknown'}\n\nPay ₦${plan.price.toLocaleString()} for ${plan.name}?`)){ setLoading('cableBtn', false, 'Confirm Purchase'); return; }
+  // Step 2: pay (the server uses its own price, not the one on screen)
+  const { data, errMsg } = await invokeFn('buy-cable', { body: { provider: selectedCableProvider, planCode: plan.code, smartcard, pin } });
   setLoading('cableBtn', false, 'Confirm Purchase');
   if(errMsg){ errEl.textContent = errMsg; return; }
-  showToast(`${plan.name} activated on ${smartcard}`, 'success');
+  if(data?.pending){ showToast(data.message, 'success'); }
+  else showToast(`${plan.name} activated on ${smartcard}`, 'success');
+  document.getElementById('cablePin').value = '';
   await loadProfile(); await renderTx(); closePage('cable');
 }
 
@@ -1410,15 +1458,20 @@ async function confirmElectricityPurchase(){
   if(!meterNumber){ errEl.textContent = 'Enter meter number'; return; }
   if(!unitsAmount || unitsAmount < ELECTRICITY_MIN || unitsAmount > ELECTRICITY_MAX){ errEl.textContent = `Amount must be between ₦${ELECTRICITY_MIN.toLocaleString()} and ₦${ELECTRICITY_MAX.toLocaleString()}`; return; }
   if(!/^\d{4}$/.test(pin)){ errEl.textContent = 'Enter your 4-digit transaction PIN'; return; }
+  const total = unitsAmount + Math.floor(unitsAmount / 1000) * 100;
 
   setLoading('electricityBtn', true);
-  const { data, errMsg } = await invokeFn('buy-electricity', {
-    body: { discoCode: disco, meterType, meterNumber, unitsAmount, pin }
-  });
+  const v = await invokeFn('verify-meter', { body: { discoCode: disco, meterType, meterNumber } });
+  if(v.errMsg){ setLoading('electricityBtn', false, 'Confirm Purchase'); errEl.textContent = v.errMsg; return; }
+  if(!confirm(`Meter owner: ${v.data.name || 'unknown'}\n${v.data.address || ''}\n\nPay ₦${total.toLocaleString()} (₦${unitsAmount.toLocaleString()} electricity + service fee)?`)){ setLoading('electricityBtn', false, 'Confirm Purchase'); return; }
+  const { data, errMsg } = await invokeFn('buy-electricity', { body: { discoCode: disco, meterType, meterNumber, unitsAmount, pin } });
   setLoading('electricityBtn', false, 'Confirm Purchase');
   if(errMsg){ errEl.textContent = errMsg; return; }
-  showToast(`Electricity token sent for meter ${meterNumber}`, 'success');
+  document.getElementById('electricityPin').value = '';
   await loadProfile(); await renderTx(); closePage('electricity');
+  if(data?.pending){ showToast(data.message, 'success'); return; }
+  showToast(data?.token ? 'Electricity token ready' : `Payment successful for meter ${meterNumber}`, 'success');
+  if(data?.id) showTxReceipt(data.id);   // shows the token
 }
 
 /* ---------- Data Card / Airtime Card (ePIN) ---------- */
@@ -1517,7 +1570,9 @@ async function confirmPurchase(){
   const { data, errMsg } = await invokeFn(functionName, { body });
   setLoading('purchaseBtn', false, 'Confirm Purchase');
   if(errMsg){ errEl.textContent = errMsg; return; }
-  showToast(`${label} sent to ${phone}`, 'success');
+  if(data?.pending) showToast(data.message, 'success');
+  else showToast(`${label} sent to ${phone}`, 'success');
+  document.getElementById('purchasePin').value = '';
   await loadProfile(); await renderTx(); closePage('purchase');
 }
 
@@ -1615,83 +1670,207 @@ function loadLegalDates(){
 }
 
 /* ---------- Navigation ---------- */
-function showPage(name){ document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); document.getElementById('page-'+name).classList.add('active'); if(name==='history') renderTx(); if(name==='profile') loadBiometricPref(); if(name==='privacy' || name==='terms') loadLegalDates(); if(name==='profit') loadProfit(); if(name==='support') initSupportChat(); if(name==='cable') renderCableProviderTabs(); if(name==='electricity') renderDiscoSelect(); if(name==='a2c') renderA2CNetworkGrid(); if(name==='exam') renderExamTypeGrid(); if(name==='notifications') loadNotifications(); if(name==='betting') renderBettingGrid(); if(name==='admin-panel') adminSearchUsers(); }
+function showPage(name){ document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); document.getElementById('page-'+name).classList.add('active'); if(name==='history') renderTx(); if(name==='admin-panel') adminInit(); if(name==='profile') loadBiometricPref(); if(name==='privacy' || name==='terms') loadLegalDates(); if(name==='profit') loadProfit(); if(name==='support') initSupportChat(); if(name==='cable') renderCableProviderTabs(); if(name==='electricity') renderDiscoSelect(); if(name==='a2c') renderA2CNetworkGrid(); if(name==='exam') renderExamTypeGrid(); if(name==='notifications') loadNotifications(); if(name==='betting') renderBettingGrid(); }
 function closePage(name){ document.getElementById('page-'+name).classList.remove('active'); }
 function goHome(){ document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); }
 
 /* ---------- Admin Panel ---------- */
-let adminSelectedUser = null;
-let adminSearchTimeout = null;
-function adminSearchUsers(){
-  clearTimeout(adminSearchTimeout);
-  adminSearchTimeout = setTimeout(async () => {
-    const q = document.getElementById('adminSearchQuery').value.trim();
-    const { data, errMsg } = await invokeFn('admin-manage-users', { body: { action: 'search', query: q } });
-    if(errMsg){ showToast(errMsg, 'error'); return; }
-    const users = data.users || [];
-    document.getElementById('adminUserList').innerHTML = users.length ? users.map(u => `
-      <div class="settings-row" onclick='adminOpenUser(${JSON.stringify(u)})'>
-        <span>${u.full_name || u.username || u.email}${u.is_banned ? ' 🚫' : ''}</span>
-        <span style="font-size:12px;">₦${Number(u.balance_ngn).toLocaleString()}</span>
-      </div>`).join('') : '<div class="empty-note">No users found.</div>';
-  }, 300);
+// Everything that comes from users is escaped before it is put on the page.
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const naira = n => '₦' + Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
+const adminCall = (body) => invokeFn('admin-manage-users', { body });
+let adminCurTab = 'overview', adminUserFilter = 'all', adminTxFilter = 'pending';
+let adminUserOffset = 0, adminTxOffset = 0, adminSearchTimeout = null, adminU = null;
+
+function adminInit(){ adminSetTab(adminCurTab); }
+function adminSetTab(t){
+  adminCurTab = t;
+  document.querySelectorAll('#adminTabs .atab').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
+  ['overview','users','tx','log'].forEach(n => document.getElementById('atab-'+n).style.display = n === t ? 'block' : 'none');
+  if(t === 'overview') adminLoadStats();
+  if(t === 'users') adminLoadUsers(true);
+  if(t === 'tx') adminLoadTx(true);
+  if(t === 'log') adminLoadLog();
 }
-function adminOpenUser(u){
-  adminSelectedUser = u;
-  document.getElementById('auName').textContent = u.full_name || '—';
-  document.getElementById('auUsername').textContent = u.username || '—';
-  document.getElementById('auEmail').textContent = u.email || '—';
-  document.getElementById('auPhone').textContent = u.phone || '—';
-  document.getElementById('auBalance').value = u.balance_ngn;
-  const banBtn = document.getElementById('auBanBtn');
-  banBtn.textContent = u.is_banned ? 'Unban User' : 'Ban User';
-  banBtn.style.background = u.is_banned ? 'var(--green)' : 'var(--danger)';
+function adminChip(boxId, value){ document.querySelectorAll('#'+boxId+' .atab').forEach(b => b.classList.toggle('on', b.dataset.f === value)); }
+
+async function adminLoadStats(){
+  const { data, errMsg } = await adminCall({ action: 'stats' });
+  const box = document.getElementById('aStats');
+  if(errMsg){ box.innerHTML = '<div class="empty-note">'+esc(errMsg)+'</div>'; return; }
+  const s = data.stats;
+  const card = (label, value, extra='') => `<div class="profit-card" ${extra}><div class="profit-label">${label}</div><div class="profit-value" style="font-size:18px;">${value}</div></div>`;
+  box.innerHTML =
+    card('Users', s.users) + card('New today', s.new_today) +
+    card('Wallets total', naira(s.wallets_total)) + card('Airtime-to-Cash total', naira(s.atc_total)) +
+    card('Deposits today', naira(s.deposits_today)) + card('Deposits all time', naira(s.deposits_total)) +
+    card('Sales today', s.sales_today_count + ' · ' + naira(s.sales_today_amount)) + card('Banned', s.banned) +
+    card('⏳ Pending', s.pending, `style="cursor:pointer;${s.pending ? 'outline:2px solid var(--accent);' : ''}" onclick="adminSetTxFilter('pending');adminSetTab('tx')"`);
+}
+
+function adminSearchDebounced(){ clearTimeout(adminSearchTimeout); adminSearchTimeout = setTimeout(() => adminLoadUsers(true), 300); }
+function adminSetUserFilter(f){ adminUserFilter = f; adminChip('adminUserChips', f); adminLoadUsers(true); }
+async function adminLoadUsers(reset){
+  if(reset) adminUserOffset = 0;
+  const query = document.getElementById('adminSearchQuery').value.trim();
+  const { data, errMsg } = await adminCall({ action: 'list_users', query, filter: adminUserFilter, offset: adminUserOffset });
+  const list = document.getElementById('adminUserList');
+  if(errMsg){ list.innerHTML = '<div class="empty-note">'+esc(errMsg)+'</div>'; return; }
+  const rows = data.users.map(u => `
+    <div class="arow" onclick="adminOpenUser('${esc(u.id)}')">
+      <div class="top"><span>${esc(u.full_name || u.username || u.email)}${u.is_admin ? '<span class="badge" style="background:#6b5bd6;">ADMIN</span>' : ''}${u.is_banned ? '<span class="badge" style="background:var(--danger);">BANNED</span>' : ''}</span><span>${naira(u.balance_ngn)}</span></div>
+      <div class="sub">@${esc(u.username)} · ${esc(u.email)} · ${esc(u.phone || '')}</div>
+    </div>`).join('');
+  list.innerHTML = reset ? (rows || '<div class="empty-note">No users found.</div>') : list.innerHTML + rows;
+  adminUserOffset += data.users.length;
+  document.getElementById('adminUserCount').textContent = data.total + ' user' + (data.total === 1 ? '' : 's');
+  document.getElementById('adminUserMore').style.display = adminUserOffset < data.total ? 'block' : 'none';
+}
+
+function adminTxRow(t, showUser){
+  const who = showUser ? `<div class="sub">${esc(t.full_name || '')} @${esc(t.username || '')}</div>` : '';
+  const buttons = t.status === 'pending' ? `
+    <div style="display:flex; gap:8px; margin-top:10px;">
+      <button class="btn-sm" style="background:var(--green);" onclick="adminResolve('${esc(t.id)}','success')">✓ Confirm</button>
+      <button class="btn-sm" style="background:var(--danger);" onclick="adminResolve('${esc(t.id)}','failed')">✗ Fail & refund</button>
+      ${['data','airtime','cable','electricity'].includes(t.type) ? `<button class="btn-sm" style="background:var(--blue-1);" onclick="adminCheckTx('${esc(t.id)}')">🔍 Check with provider</button>` : ''}
+    </div>` : '';
+  return `<div class="arow" style="cursor:default;">
+    <div class="top"><span>${txIcon(t.type)} ${esc(t.label)}</span><span class="tx-amt ${esc(t.direction)}">${t.direction === 'in' ? '+' : '-'}${naira(t.amount)}</span></div>
+    ${who}<div class="sub">${esc(t.status)} · ${esc(new Date(t.created_at + 'Z').toLocaleString())}</div>${buttons}</div>`;
+}
+function adminSetTxFilter(f){ adminTxFilter = f; adminChip('adminTxChips', f); if(adminCurTab === 'tx') adminLoadTx(true); }
+async function adminLoadTx(reset){
+  if(reset) adminTxOffset = 0;
+  const { data, errMsg } = await adminCall({ action: 'list_transactions', status: adminTxFilter, offset: adminTxOffset });
+  const list = document.getElementById('adminTxList');
+  if(errMsg){ list.innerHTML = '<div class="empty-note">'+esc(errMsg)+'</div>'; return; }
+  const rows = data.transactions.map(t => adminTxRow(t, true)).join('');
+  list.innerHTML = reset ? (rows || '<div class="empty-note">Nothing here.</div>') : list.innerHTML + rows;
+  adminTxOffset += data.transactions.length;
+  document.getElementById('adminTxCount').textContent = data.total + ' transaction' + (data.total === 1 ? '' : 's');
+  document.getElementById('adminTxMore').style.display = adminTxOffset < data.total ? 'block' : 'none';
+}
+async function adminCheckTx(txId){
+  const { data, errMsg } = await adminCall({ action: 'check_transaction', txId });
+  if(errMsg){ showToast(errMsg, 'error'); return; }
+  const m = { success: 'Provider says: successful — updated', failed: 'Provider says: failed — customer refunded', pending: 'Provider is still processing', missing: 'Provider has no record yet (it will be refunded automatically after 3 minutes)' };
+  showToast(m[data.state] || data.state, 'success');
+  adminLoadTx(true); if(adminU) adminLoadUserTx();
+}
+async function adminSetupWebhook(){
+  if(!confirm('Tell VTUAgent to send purchase updates to this website?')) return;
+  const { errMsg } = await adminCall({ action: 'setup_webhook', origin: location.origin });
+  showToast(errMsg || 'VTUAgent webhook connected', errMsg ? 'error' : 'success');
+}
+async function adminResolve(txId, resolution){
+  const msg = resolution === 'success' ? 'Mark this transaction as SUCCESSFUL? (A pending deposit will be credited to the user.)' : 'Mark this transaction as FAILED? The customer will be refunded.';
+  if(!confirm(msg)) return;
+  const { errMsg } = await adminCall({ action: 'resolve_transaction', txId, resolution });
+  if(errMsg){ showToast(errMsg, 'error'); return; }
+  showToast('Done', 'success');
+  adminLoadTx(true);
+  if(adminU) adminLoadUserTx();
+}
+
+async function adminLoadLog(){
+  const list = document.getElementById('adminLogList');
+  list.innerHTML = '<div class="empty-note">Loading…</div>';
+  const { data, errMsg } = await adminCall({ action: 'get_log' });
+  if(errMsg){ list.innerHTML = '<div class="empty-note">'+esc(errMsg)+'</div>'; return; }
+  list.innerHTML = data.log.length ? data.log.map(l => `<div class="arow" style="cursor:default;">
+    <div class="top"><span>${esc(l.action.replaceAll('_',' '))}</span><span class="sub" style="margin:0;">${esc(new Date(l.created_at + 'Z').toLocaleString())}</span></div>
+    <div class="sub">by @${esc(l.admin || '?')}${l.target ? ' → @' + esc(l.target) : ''}${l.detail ? '<br>' + esc(l.detail) : ''}</div></div>`).join('') : '<div class="empty-note">No admin activity yet.</div>';
+}
+
+/* ----- one user ----- */
+async function adminOpenUser(id){
   showPage('admin-user');
-  loadAdminUserTx(u.id);
+  document.getElementById('auHeader').innerHTML = '<div class="empty-note">Loading…</div>';
+  document.getElementById('auStats').innerHTML = '';
+  const { data, errMsg } = await adminCall({ action: 'get_user', userId: id });
+  if(errMsg){ document.getElementById('auHeader').innerHTML = '<div class="empty-note">'+esc(errMsg)+'</div>'; return; }
+  adminU = data.user; adminRenderUser(); adminLoadUserTx();
 }
-async function adminResetPassword(){
-  const newPassword = document.getElementById('auNewPassword').value;
-  const errEl = document.getElementById('auPassErr'); errEl.textContent = '';
-  if(newPassword.length < 6){ errEl.textContent = 'Password must be at least 6 characters'; return; }
-  setLoading('auResetPassBtn', true);
-  const { errMsg } = await invokeFn('admin-manage-users', { body: { action: 'reset_password', userId: adminSelectedUser.id, newPassword } });
-  setLoading('auResetPassBtn', false, "Reset User's Password");
+function adminRenderUser(){
+  const u = adminU;
+  document.getElementById('auHeader').innerHTML = `
+    <div style="font-size:18px; font-weight:800;">${esc(u.full_name || '—')}${u.is_admin ? '<span class="badge" style="background:#6b5bd6;">ADMIN</span>' : ''}${u.is_banned ? '<span class="badge" style="background:var(--danger);">BANNED</span>' : ''}${u.pin_locked ? '<span class="badge" style="background:var(--accent);">PIN LOCKED</span>' : ''}</div>
+    <div class="sub" style="font-size:12px; color:var(--sub); margin-top:4px;">@${esc(u.username)} · ${esc(u.email)} · ${esc(u.phone || '')}</div>
+    <div class="sub" style="font-size:12px; color:var(--sub); margin-top:2px;">Joined ${esc(new Date(u.created_at + 'Z').toLocaleDateString())}${u.referred_by ? ' · referred by @' + esc(u.referred_by) : ''}${u.virtual_account ? '<br>Account no: ' + esc(u.virtual_account.account_number) + ' (' + esc(u.virtual_account.bank_name) + ')' : ''}</div>`;
+  const card = (l, v) => `<div class="profit-card"><div class="profit-label">${l}</div><div class="profit-value" style="font-size:17px;">${v}</div></div>`;
+  document.getElementById('auStats').innerHTML = card('Wallet', naira(u.balance_ngn)) + card('Airtime-to-Cash', naira(u.atc_balance)) + card('Deposited', naira(u.deposited)) + card('Spent', naira(u.spent)) + card('Transactions', u.tx_count) + card('Referrals', u.referrals);
+  document.getElementById('auEditName').value = u.full_name || '';
+  document.getElementById('auEditUsername').value = u.username || '';
+  document.getElementById('auEditEmail').value = u.email || '';
+  document.getElementById('auEditPhone').value = u.phone || '';
+  const ban = document.getElementById('auBanBtn');
+  ban.textContent = u.is_banned ? 'Unban User' : 'Ban User'; ban.style.background = u.is_banned ? 'var(--green)' : 'var(--danger)';
+  document.getElementById('auAdminBtn').textContent = u.is_admin ? 'Remove Admin Rights' : 'Make Admin';
+}
+async function adminLoadUserTx(){
+  const box = document.getElementById('auTxList');
+  box.innerHTML = '<div class="empty-note">Loading…</div>';
+  const { data, errMsg } = await adminCall({ action: 'get_transactions', userId: adminU.id });
+  if(errMsg){ box.innerHTML = '<div class="empty-note">Could not load transactions.</div>'; return; }
+  box.innerHTML = data.transactions.length ? data.transactions.map(t => adminTxRow(t, false)).join('') : '<div class="empty-note">No transactions yet.</div>';
+}
+async function adminRefreshUser(){ const { data } = await adminCall({ action: 'get_user', userId: adminU.id }); if(data){ adminU = data.user; adminRenderUser(); } }
+
+async function adminAdjust(direction){
+  const amount = parseFloat(document.getElementById('auAmount').value), reason = document.getElementById('auReason').value.trim();
+  const wallet = document.getElementById('auWallet').value, errEl = document.getElementById('auBalanceErr'); errEl.textContent = '';
+  if(!(amount > 0)){ errEl.textContent = 'Enter a valid amount'; return; }
+  if(reason.length < 3){ errEl.textContent = 'Write a reason'; return; }
+  if(!confirm(`${direction === 'credit' ? 'Add' : 'Remove'} ${naira(amount)} ${direction === 'credit' ? 'to' : 'from'} ${adminU.full_name || adminU.username}'s ${wallet === 'atc' ? 'Airtime-to-Cash' : 'main'} wallet?`)) return;
+  const btn = direction === 'credit' ? 'auCreditBtn' : 'auDebitBtn';
+  setLoading(btn, true);
+  const { errMsg } = await adminCall({ action: 'adjust_balance', userId: adminU.id, direction, amount, reason, wallet });
+  setLoading(btn, false, direction === 'credit' ? '＋ Credit' : '－ Debit');
   if(errMsg){ errEl.textContent = errMsg; return; }
-  document.getElementById('auNewPassword').value = '';
-  showToast('Password reset successfully', 'success');
-}
-async function loadAdminUserTx(userId){
-  document.getElementById('auTxList').innerHTML = '<div class="empty-note">Loading…</div>';
-  const { data, errMsg } = await invokeFn('admin-manage-users', { body: { action: 'get_transactions', userId } });
-  if(errMsg){ document.getElementById('auTxList').innerHTML = '<div class="empty-note">Could not load transactions.</div>'; return; }
-  const txs = data.transactions || [];
-  document.getElementById('auTxList').innerHTML = txs.length ? txs.map(t => `
-    <div class="tx-row">
-      <div class="tx-left"><div class="tx-icon">${txIcon(t.type)}</div>
-        <div><div class="tx-name">${t.label}</div><div class="tx-date">${new Date(t.created_at).toLocaleString()}</div></div></div>
-      <div style="text-align:right;"><div class="tx-amt ${t.direction}">${t.direction==='in'?'+':'-'}₦${Number(t.amount).toLocaleString()}</div><div class="tx-status">${t.status}</div></div>
-    </div>`).join('') : '<div class="empty-note">No transactions yet.</div>';
-}
-async function adminSaveBalance(){
-  const newBalance = parseFloat(document.getElementById('auBalance').value);
-  const errEl = document.getElementById('auBalanceErr'); errEl.textContent = '';
-  if(isNaN(newBalance) || newBalance < 0){ errEl.textContent = 'Enter a valid balance'; return; }
-  setLoading('auSaveBalanceBtn', true);
-  const { errMsg } = await invokeFn('admin-manage-users', { body: { action: 'set_balance', userId: adminSelectedUser.id, newBalance } });
-  setLoading('auSaveBalanceBtn', false, 'Update Balance');
-  if(errMsg){ errEl.textContent = errMsg; return; }
+  document.getElementById('auAmount').value = ''; document.getElementById('auReason').value = '';
   showToast('Balance updated', 'success');
-  adminSelectedUser.balance_ngn = newBalance;
+  adminRefreshUser(); adminLoadUserTx();
+}
+async function adminSaveUser(){
+  const errEl = document.getElementById('auEditErr'); errEl.textContent = '';
+  setLoading('auSaveBtn', true);
+  const { errMsg } = await adminCall({ action: 'update_user', userId: adminU.id, fullName: document.getElementById('auEditName').value, username: document.getElementById('auEditUsername').value, email: document.getElementById('auEditEmail').value, phone: document.getElementById('auEditPhone').value });
+  setLoading('auSaveBtn', false, 'Save Details');
+  if(errMsg){ errEl.textContent = errMsg; return; }
+  showToast('Details saved', 'success'); adminRefreshUser();
 }
 async function adminToggleBan(){
-  const action = adminSelectedUser.is_banned ? 'unban' : 'ban';
-  const { errMsg } = await invokeFn('admin-manage-users', { body: { action, userId: adminSelectedUser.id } });
+  const ban = !adminU.is_banned;
+  if(!confirm(ban ? 'Ban this user? They will be logged out and cannot use the app.' : 'Unban this user?')) return;
+  const { errMsg } = await adminCall({ action: ban ? 'ban' : 'unban', userId: adminU.id });
   if(errMsg){ showToast(errMsg, 'error'); return; }
-  adminSelectedUser.is_banned = !adminSelectedUser.is_banned;
-  const banBtn = document.getElementById('auBanBtn');
-  banBtn.textContent = adminSelectedUser.is_banned ? 'Unban User' : 'Ban User';
-  banBtn.style.background = adminSelectedUser.is_banned ? 'var(--green)' : 'var(--danger)';
-  showToast(adminSelectedUser.is_banned ? 'User banned' : 'User unbanned', 'success');
+  showToast(ban ? 'User banned' : 'User unbanned', 'success'); adminRefreshUser();
+}
+async function adminToggleAdmin(){
+  const make = !adminU.is_admin;
+  if(!confirm(make ? 'Give this user FULL admin rights?' : 'Remove admin rights from this user?')) return;
+  const { errMsg } = await adminCall({ action: 'set_admin', userId: adminU.id, isAdmin: make });
+  if(errMsg){ showToast(errMsg, 'error'); return; }
+  showToast(make ? 'Now an admin' : 'Admin rights removed', 'success'); adminRefreshUser();
+}
+async function adminResetPin(){
+  const newPin = document.getElementById('auNewPin').value, errEl = document.getElementById('auPinErr'); errEl.textContent = '';
+  if(!/^\d{4}$/.test(newPin)){ errEl.textContent = 'PIN must be exactly 4 digits'; return; }
+  setLoading('auResetPinBtn', true);
+  const { errMsg } = await adminCall({ action: 'reset_pin', userId: adminU.id, newPin });
+  setLoading('auResetPinBtn', false, 'Reset Transaction PIN');
+  if(errMsg){ errEl.textContent = errMsg; return; }
+  document.getElementById('auNewPin').value = ''; showToast('PIN reset', 'success'); adminRefreshUser();
+}
+async function adminResetPassword(){
+  const newPassword = document.getElementById('auNewPassword').value, errEl = document.getElementById('auPassErr'); errEl.textContent = '';
+  if(newPassword.length < 6){ errEl.textContent = 'Password must be at least 6 characters'; return; }
+  setLoading('auResetPassBtn', true);
+  const { errMsg } = await adminCall({ action: 'reset_password', userId: adminU.id, newPassword });
+  setLoading('auResetPassBtn', false, 'Reset Password');
+  if(errMsg){ errEl.textContent = errMsg; return; }
+  document.getElementById('auNewPassword').value = ''; showToast('Password reset', 'success');
 }
 
 /* ---------- Betting ---------- */

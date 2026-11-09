@@ -189,7 +189,7 @@
       updateUser: async({password})=>api('/api/auth/password',{method:'PATCH',body:JSON.stringify({password})})
     }
   };
-  async function invokeFn(name, options){
+  async function invokeFnRaw(name, options){
     const {data,error}=await backend.functions.invoke(name,options);
     return error ? {data:null,errMsg:error.message||'Request failed'} : (data?.error ? {data:null,errMsg:data.error} : {data,errMsg:null});
   }
@@ -204,7 +204,7 @@
   </div>
   <div class="auth-body">
     <div class="field"><label>Email or Username</label><input id="loginEmail" placeholder="you@example.com"></div>
-    <div class="field"><label>Password</label><input id="loginPass" type="password" placeholder="••••••••"></div>
+    <div class="field"><label>Password</label><input id="loginPass" type="password" autocomplete="current-password" placeholder="••••••••"></div>
     <div class="err-text" id="loginErr"></div>
     <button class="btn-primary" id="loginBtn" onclick="login()">Log In</button>
     <div class="switch-link">New here? <a onclick="showAuth('register')">Create an account</a></div>
@@ -224,10 +224,10 @@
     <div class="field"><label>Email</label><input id="rEmail" type="email" placeholder="you@example.com"></div>
     <div class="field"><label>Phone Number</label><input id="rPhone" placeholder="080XXXXXXXX"></div>
     <div class="field"><label>Referral Code (optional)</label><input id="rReferral" placeholder="e.g. SIGN1234"></div>
-    <div class="field"><label>Transaction PIN (4 digits)</label><input id="rPin" type="password" inputmode="numeric" maxlength="4" placeholder="••••"></div>
+    <div class="field"><label>Transaction PIN (4 digits)</label><input id="rPin" type="password" autocomplete="one-time-code" inputmode="numeric" maxlength="4" placeholder="••••"></div>
     <div class="field-row">
-      <div class="field"><label>Password</label><input id="rPass" type="password" placeholder="Min 6 characters"></div>
-      <div class="field"><label>Confirm Password</label><input id="rPass2" type="password" placeholder="Repeat password"></div>
+      <div class="field"><label>Password</label><input id="rPass" type="password" autocomplete="new-password" placeholder="Min 6 characters"></div>
+      <div class="field"><label>Confirm Password</label><input id="rPass2" type="password" autocomplete="new-password" placeholder="Repeat password"></div>
     </div>
     <div class="err-text" id="registerErr"></div>
     <label style="display:flex; align-items:flex-start; gap:8px; font-size:12px; color:var(--sub); margin-bottom:16px; cursor:pointer;">
@@ -273,7 +273,6 @@
     <div class="feature-item" onclick="showPage('exam')"><div class="feature-icon">📝</div><div class="feature-title">Exam PIN</div></div>
     <div class="feature-item" onclick="openCardPurchase('airtime-card')"><div class="feature-icon">🎫</div><div class="feature-title">Recharge Card</div></div>
     <div class="feature-item" onclick="openCardPurchase('data-card')"><div class="feature-icon">💳</div><div class="feature-title">Data Card</div></div>
-    <div class="feature-item" onclick="showPage('betting')"><div class="feature-icon">🎯</div><div class="feature-title">Betting</div></div>
     <div class="feature-item" onclick="showPage('history')"><div class="feature-icon">🧾</div><div class="feature-title">Transactions</div></div>
     <div class="feature-item" id="profitTile" style="display:none;" onclick="showPage('profit')"><div class="feature-icon">📊</div><div class="feature-title">My Profit</div></div>
     <div class="feature-item" id="adminPanelTile" style="display:none;" onclick="showPage('admin-panel')"><div class="feature-icon">🛠️</div><div class="feature-title">Admin Panel</div></div>
@@ -310,7 +309,7 @@
       <div class="field"><label>Amount (₦)</label><input id="airtimeAmount" type="number" placeholder="500"></div>
     </div>
 
-    <div class="field" style="margin-top:14px;"><label>Transaction PIN</label><input id="purchasePin" type="password" inputmode="numeric" maxlength="4" placeholder="••••"></div>
+    <div class="field" style="margin-top:14px;"><label>Transaction PIN</label><input id="purchasePin" type="password" autocomplete="one-time-code" inputmode="numeric" maxlength="4" placeholder="••••"></div>
     <div class="err-text" id="purchaseErr"></div>
     <button class="btn-primary" id="purchaseBtn" onclick="confirmPurchase()">Confirm Purchase</button>
   </div>
@@ -394,7 +393,7 @@
     <div id="cableProviderTabs" style="display:flex; gap:8px; margin-bottom:14px; overflow-x:auto;"></div>
     <div class="plan-list" id="cablePlanList" style="margin-bottom:16px;"></div>
     <div class="field"><label>Smartcard / IUC Number</label><input id="cableSmartcard" placeholder="e.g. 1234567890"></div>
-    <div class="field"><label>Transaction PIN</label><input id="cablePin" type="password" inputmode="numeric" maxlength="4" placeholder="••••"></div>
+    <div class="field"><label>Transaction PIN</label><input id="cablePin" type="password" autocomplete="one-time-code" inputmode="numeric" maxlength="4" placeholder="••••"></div>
     <div class="err-text" id="cableErr"></div>
     <button class="btn-primary" id="cableBtn" onclick="confirmCablePurchase()">Confirm Purchase</button>
   </div>
@@ -419,7 +418,7 @@
       <div style="display:flex; justify-content:space-between;"><span style="color:var(--sub);">Service Fee</span><span id="electricityFeeAmt" style="font-weight:700;">₦0</span></div>
       <div style="display:flex; justify-content:space-between; margin-top:4px;"><span style="color:var(--sub);">Total to Pay</span><span id="electricityTotalAmt" style="font-weight:700; color:var(--blue-1);">₦0</span></div>
     </div>
-    <div class="field"><label>Transaction PIN</label><input id="electricityPin" type="password" inputmode="numeric" maxlength="4" placeholder="••••"></div>
+    <div class="field"><label>Transaction PIN</label><input id="electricityPin" type="password" autocomplete="one-time-code" inputmode="numeric" maxlength="4" placeholder="••••"></div>
     <div class="err-text" id="electricityErr"></div>
     <button class="btn-primary" id="electricityBtn" onclick="confirmElectricityPurchase()">Confirm Purchase</button>
   </div>
@@ -438,26 +437,9 @@
       <div class="field"><label>Amount per PIN (₦)</label><input id="cardAirtimeAmount" type="number" placeholder="100"></div>
     </div>
     <div class="field" style="margin-top:14px;"><label>Quantity (1 – 100 PINs)</label><input id="cardQuantity" type="number" min="1" max="100" value="1"></div>
-    <div class="field"><label>Transaction PIN</label><input id="cardPin" type="password" inputmode="numeric" maxlength="4" placeholder="••••"></div>
+    <div class="field"><label>Transaction PIN</label><input id="cardPin" type="password" autocomplete="one-time-code" inputmode="numeric" maxlength="4" placeholder="••••"></div>
     <div class="err-text" id="cardErr"></div>
     <button class="btn-primary" id="cardBtn" onclick="confirmCardPurchase()">Generate PINs</button>
-  </div>
-</div>
-
-<!-- ===================== BETTING PAGE ===================== -->
-<div class="page" id="page-betting">
-  <div class="page-head"><button class="back-btn" onclick="closePage('betting')">←</button><div class="page-title">Fund Betting Wallet</div></div>
-  <div class="page-body">
-    <div class="section-title" style="padding:0 0 10px;">Select Platform</div>
-    <div class="network-grid" id="bettingGrid"></div>
-    <div class="field"><label>Betting Account ID / Customer ID</label><input id="bettingAccountId" placeholder="e.g. 123456789"></div>
-    <div class="field"><label>Amount (₦)</label><input id="bettingAmount" type="number" placeholder="1000"></div>
-    <div class="field"><label>Transaction PIN</label><input id="bettingPin" type="password" inputmode="numeric" maxlength="4" placeholder="••••"></div>
-    <div class="err-text" id="bettingErr"></div>
-    <button class="btn-primary" id="bettingBtn" onclick="confirmBetting()">Fund Betting Wallet</button>
-    <div class="hint" style="background:#eef1fb; border-radius:12px; padding:14px; font-size:12px; color:var(--sub); line-height:1.6; margin-top:16px;">
-      Double-check your Betting Account ID before confirming — funds sent to the wrong ID cannot be reversed.
-    </div>
   </div>
 </div>
 
@@ -508,7 +490,7 @@
     <!-- Step 3: amount + pin -->
     <div id="a2cStep3" style="display:none;">
       <div class="field"><label>Amount of Airtime Sent (₦, min ₦500)</label><input id="a2cAmount" type="number" placeholder="1000"></div>
-      <div class="field"><label>Transaction PIN</label><input id="a2cPin" type="password" inputmode="numeric" maxlength="4" placeholder="••••"></div>
+      <div class="field"><label>Transaction PIN</label><input id="a2cPin" type="password" autocomplete="one-time-code" inputmode="numeric" maxlength="4" placeholder="••••"></div>
       <div class="err-text" id="a2cStep3Err"></div>
       <button class="btn-primary" id="a2cConvertBtn" onclick="a2cConvert()">Convert to Cash</button>
       <div class="hint" style="background:#eef1fb; border-radius:12px; padding:14px; font-size:12px; color:var(--sub); line-height:1.6; margin-top:16px;">
@@ -538,7 +520,7 @@
       <div class="plan-valid">Total</div>
       <div class="plan-price" id="examTotal">₦0</div>
     </div>
-    <div class="field"><label>Transaction PIN</label><input id="examPin" type="password" inputmode="numeric" maxlength="4" placeholder="••••"></div>
+    <div class="field"><label>Transaction PIN</label><input id="examPin" type="password" autocomplete="one-time-code" inputmode="numeric" maxlength="4" placeholder="••••"></div>
     <div class="err-text" id="examErr"></div>
     <button class="btn-primary" id="examBtn" onclick="confirmExamPurchase()">Generate PIN(s)</button>
     <div class="hint" style="background:#eef1fb; border-radius:12px; padding:14px; font-size:12px; color:var(--sub); line-height:1.6; margin-top:16px;">
@@ -637,10 +619,10 @@
     <div class="section-title" style="padding:0; margin:26px 0 10px;">Account & Security</div>
     <button class="btn-primary" id="auBanBtn" style="margin-top:0;" onclick="adminToggleBan()">Ban User</button>
     <button class="btn-primary" id="auAdminBtn" style="background:#6b5bd6;" onclick="adminToggleAdmin()">Make Admin</button>
-    <div class="field" style="margin-top:16px;"><label>New transaction PIN (4 digits) — also unlocks a locked PIN</label><input id="auNewPin" type="password" inputmode="numeric" maxlength="4" placeholder="••••"></div>
+    <div class="field" style="margin-top:16px;"><label>New transaction PIN (4 digits) — also unlocks a locked PIN</label><input id="auNewPin" type="password" autocomplete="one-time-code" inputmode="numeric" maxlength="4" placeholder="••••"></div>
     <div class="err-text" id="auPinErr"></div>
     <button class="btn-primary" id="auResetPinBtn" onclick="adminResetPin()">Reset Transaction PIN</button>
-    <div class="field" style="margin-top:16px;"><label>New password</label><input id="auNewPassword" type="password" placeholder="Min 6 characters"></div>
+    <div class="field" style="margin-top:16px;"><label>New password</label><input id="auNewPassword" type="password" autocomplete="new-password" placeholder="Min 6 characters"></div>
     <div class="err-text" id="auPassErr"></div>
     <button class="btn-primary" id="auResetPassBtn" onclick="adminResetPassword()">Reset Password</button>
 
@@ -739,9 +721,9 @@
 <div class="page" id="page-change-pin">
   <div class="page-head"><button class="back-btn" onclick="closePage('change-pin')">←</button><div class="page-title">Change Transaction PIN</div></div>
   <div class="page-body">
-    <div class="field"><label>Current PIN</label><input id="oldPin" type="password" inputmode="numeric" maxlength="4" placeholder="••••"></div>
-    <div class="field"><label>New PIN (4 digits)</label><input id="newPin" type="password" inputmode="numeric" maxlength="4" placeholder="••••"></div>
-    <div class="field"><label>Confirm New PIN</label><input id="newPin2" type="password" inputmode="numeric" maxlength="4" placeholder="••••"></div>
+    <div class="field"><label>Current PIN</label><input id="oldPin" type="password" autocomplete="one-time-code" inputmode="numeric" maxlength="4" placeholder="••••"></div>
+    <div class="field"><label>New PIN (4 digits)</label><input id="newPin" type="password" autocomplete="one-time-code" inputmode="numeric" maxlength="4" placeholder="••••"></div>
+    <div class="field"><label>Confirm New PIN</label><input id="newPin2" type="password" autocomplete="one-time-code" inputmode="numeric" maxlength="4" placeholder="••••"></div>
     <div class="err-text" id="pinErr"></div>
     <button class="btn-primary" id="changePinBtn" onclick="changePin()">Update PIN</button>
   </div>
@@ -751,8 +733,8 @@
 <div class="page" id="page-change-password">
   <div class="page-head"><button class="back-btn" onclick="closePage('change-password')">←</button><div class="page-title">Change Password</div></div>
   <div class="page-body">
-    <div class="field"><label>New Password</label><input id="newPass" type="password" placeholder="Min 6 characters"></div>
-    <div class="field"><label>Confirm New Password</label><input id="newPass2" type="password" placeholder="Repeat new password"></div>
+    <div class="field"><label>New Password</label><input id="newPass" type="password" autocomplete="new-password" placeholder="Min 6 characters"></div>
+    <div class="field"><label>Confirm New Password</label><input id="newPass2" type="password" autocomplete="new-password" placeholder="Repeat new password"></div>
     <div class="err-text" id="passErr"></div>
     <button class="btn-primary" id="changePassBtn" onclick="changePassword()">Update Password</button>
   </div>
@@ -1287,7 +1269,7 @@ async function revealDataPlans(){
 
   if(!liveDataPlans){
     const { data, errMsg } = await invokeFn('get-sabildata-plans', { body: { action: 'data' } });
-    if(errMsg){ document.getElementById('planList').innerHTML = '<div class="empty-note">Could not load plans. Please try again.</div>'; return; }
+    if(errMsg){ document.getElementById('planList').innerHTML = '<div class="empty-note">' + esc(errMsg || 'Could not load plans. Please try again.') + '</div>'; return; }
     liveDataPlans = data.plans || [];
   }
 
@@ -1669,10 +1651,35 @@ function loadLegalDates(){
   const el2 = document.getElementById('termsDate'); if(el2) el2.textContent = d;
 }
 
+
+async function invokeFn(name, opts){
+  try { return await invokeFnRaw(name, opts); }
+  finally { if(/^(buy-|verify-otp|atc-withdraw)/.test(name)) wipePinFields(); }
+}
+/* ---------- Privacy: wipe typed details ---------- */
+function wipeInputs(root){
+  (root || document).querySelectorAll('input, textarea').forEach(el => {
+    if(el.type === 'checkbox' || el.type === 'radio' || el.type === 'hidden') return;
+    el.value = '';
+  });
+  (root || document).querySelectorAll('.err-text').forEach(el => el.textContent = '');
+}
+function wipePinFields(){ document.querySelectorAll('input[type="password"]').forEach(el => { if(!/^(loginPass|rPass|rPass2)$/.test(el.id)) el.value = ''; }); }
+// When the app goes to the background or the page is restored from the browser's back/forward memory,
+// clear PINs. If the app stays in the background for 10 minutes, log out.
+let hiddenAt = 0;
+document.addEventListener('visibilitychange', () => {
+  if(document.hidden){ hiddenAt = Date.now(); wipePinFields(); return; }
+  if(hiddenAt && Date.now() - hiddenAt > 10 * 60 * 1000 && typeof session !== 'undefined' && session){ logout(); }
+  hiddenAt = 0;
+});
+window.addEventListener('pageshow', e => { if(e.persisted) wipeInputs(document); });
+window.addEventListener('pagehide', () => wipePinFields());
+
 /* ---------- Navigation ---------- */
-function showPage(name){ document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); document.getElementById('page-'+name).classList.add('active'); if(name==='history') renderTx(); if(name==='admin-panel') adminInit(); if(name==='profile') loadBiometricPref(); if(name==='privacy' || name==='terms') loadLegalDates(); if(name==='profit') loadProfit(); if(name==='support') initSupportChat(); if(name==='cable') renderCableProviderTabs(); if(name==='electricity') renderDiscoSelect(); if(name==='a2c') renderA2CNetworkGrid(); if(name==='exam') renderExamTypeGrid(); if(name==='notifications') loadNotifications(); if(name==='betting') renderBettingGrid(); }
-function closePage(name){ document.getElementById('page-'+name).classList.remove('active'); }
-function goHome(){ document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); }
+function showPage(name){ document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); document.getElementById('page-'+name).classList.add('active'); if(name==='history') renderTx(); if(name==='admin-panel') adminInit(); if(name==='profile') loadBiometricPref(); if(name==='privacy' || name==='terms') loadLegalDates(); if(name==='profit') loadProfit(); if(name==='support') initSupportChat(); if(name==='cable') renderCableProviderTabs(); if(name==='electricity') renderDiscoSelect(); if(name==='a2c') renderA2CNetworkGrid(); if(name==='exam') renderExamTypeGrid(); if(name==='notifications') loadNotifications(); }
+function closePage(name){ const pg = document.getElementById('page-'+name); pg.classList.remove('active'); wipeInputs(pg); wipePinFields(); }
+function goHome(){ document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); wipeInputs(document.querySelector('#app') || document); }
 
 /* ---------- Admin Panel ---------- */
 // Everything that comes from users is escaped before it is put on the page.
@@ -1871,46 +1878,6 @@ async function adminResetPassword(){
   setLoading('auResetPassBtn', false, 'Reset Password');
   if(errMsg){ errEl.textContent = errMsg; return; }
   document.getElementById('auNewPassword').value = ''; showToast('Password reset', 'success');
-}
-
-/* ---------- Betting ---------- */
-// ⚠️ Verify these codes against ClubKonnect's Betting Wallet Funding API
-// docs before going live — codes/names here are placeholders based on
-// common platforms, not confirmed against your account's docs yet.
-const BETTING_PLATFORMS = [
-  { code:'01', name:'Bet9ja', color:'#00A651' },
-  { code:'02', name:'SportyBet', color:'#E4032C' },
-  { code:'03', name:'NairaBet', color:'#F7941D' },
-  { code:'04', name:'MerryBet', color:'#7B2D8E' },
-  { code:'05', name:'BetKing', color:'#1B1B4A' },
-  { code:'06', name:'1xBet', color:'#1E4B9C' },
-];
-let selectedBettingPlatform = 'Bet9ja';
-function renderBettingGrid(){
-  document.getElementById('bettingGrid').innerHTML = BETTING_PLATFORMS.map(p => `
-    <div class="net-item ${p.name===selectedBettingPlatform?'selected':''}" onclick="selectedBettingPlatform='${p.name}'; renderBettingGrid();">
-      <div class="net-badge" style="background:${p.color}; font-size:9px;">${p.name.slice(0,2).toUpperCase()}</div>
-      <div class="net-name">${p.name}</div></div>`).join('');
-}
-async function confirmBetting(){
-  const platform = BETTING_PLATFORMS.find(p => p.name === selectedBettingPlatform);
-  const accountId = document.getElementById('bettingAccountId').value.trim();
-  const amt = parseFloat(document.getElementById('bettingAmount').value);
-  const pin = document.getElementById('bettingPin').value.trim();
-  const errEl = document.getElementById('bettingErr'); errEl.textContent = '';
-  if(!accountId){ errEl.textContent = 'Enter your Betting Account ID'; return; }
-  if(!amt || amt <= 0){ errEl.textContent = 'Enter a valid amount'; return; }
-  if(!/^\d{4}$/.test(pin)){ errEl.textContent = 'Enter your 4-digit transaction PIN'; return; }
-
-  setLoading('bettingBtn', true);
-  const { data, errMsg } = await invokeFn('buy-betting', { body: { platformCode: platform.code, platformName: platform.name, accountId, amount: amt, pin } });
-  setLoading('bettingBtn', false, 'Fund Betting Wallet');
-  if(errMsg){ errEl.textContent = errMsg; return; }
-  showToast(`${platform.name} wallet funded`, 'success');
-  document.getElementById('bettingAccountId').value = '';
-  document.getElementById('bettingAmount').value = '';
-  document.getElementById('bettingPin').value = '';
-  await loadProfile(); await renderTx(); closePage('betting');
 }
 
 /* ---------- Notifications ---------- */

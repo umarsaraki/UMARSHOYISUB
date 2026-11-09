@@ -145,6 +145,7 @@
   .arow{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:10px; cursor:pointer;}
   .arow .top{display:flex; justify-content:space-between; gap:10px; font-weight:700; font-size:14px;}
   .arow .sub{font-size:12px; color:var(--sub); margin-top:4px; word-break:break-word;}
+  .field textarea{width:100%; padding:14px 16px; background:var(--card); border:1px solid var(--line); border-radius:12px; color:var(--text); font-size:15px; font-family:inherit; resize:vertical;}
 </style>
 </head>
 <body>
@@ -273,6 +274,7 @@
     <div class="feature-item" onclick="showPage('exam')"><div class="feature-icon">📝</div><div class="feature-title">Exam PIN</div></div>
     <div class="feature-item" onclick="openCardPurchase('airtime-card')"><div class="feature-icon">🎫</div><div class="feature-title">Recharge Card</div></div>
     <div class="feature-item" onclick="openCardPurchase('data-card')"><div class="feature-icon">💳</div><div class="feature-title">Data Card</div></div>
+    <div class="feature-item" onclick="showPage('bulksms')"><div class="feature-icon">📨</div><div class="feature-title">Bulk SMS</div></div>
     <div class="feature-item" onclick="showPage('history')"><div class="feature-icon">🧾</div><div class="feature-title">Transactions</div></div>
     <div class="feature-item" id="profitTile" style="display:none;" onclick="showPage('profit')"><div class="feature-icon">📊</div><div class="feature-title">My Profit</div></div>
     <div class="feature-item" id="adminPanelTile" style="display:none;" onclick="showPage('admin-panel')"><div class="feature-icon">🛠️</div><div class="feature-title">Admin Panel</div></div>
@@ -542,6 +544,20 @@
     <div class="hint" style="background:#eef1fb; border-radius:12px; padding:14px; font-size:12px; color:var(--sub); line-height:1.6; margin-top:18px;">
       This is your markup on successful Data and Airtime purchases (what customers paid minus what ClubKonnect charged you) — calculated automatically for every transaction. It does not include Fund Wallet processing fees from Flutterwave.
     </div>
+  </div>
+</div>
+
+<!-- ===================== BULK SMS PAGE ===================== -->
+<div class="page" id="page-bulksms">
+  <div class="page-head"><button class="back-btn" onclick="closePage('bulksms')">←</button><div class="page-title">Bulk SMS</div></div>
+  <div class="page-body">
+    <div class="field"><label>Sender name (3-11 letters or numbers)</label><input id="smsSender" maxlength="11" autocapitalize="none" placeholder="e.g. MyShop" oninput="bulkSmsUpdate()"></div>
+    <div class="field"><label>Message</label><textarea id="smsMessage" rows="5" placeholder="Type your message here" oninput="bulkSmsUpdate()"></textarea></div>
+    <div class="field"><label>Phone numbers (separate with commas, spaces or new lines)</label><textarea id="smsRecipients" rows="5" placeholder="08031234567, 08129876543&#10;2348051112222" oninput="bulkSmsUpdate()"></textarea></div>
+    <div class="hint" id="smsSummary" style="background:#eef1fb; border-radius:12px; padding:14px; font-size:13px; line-height:1.7; margin-bottom:14px;"></div>
+    <div class="field"><label>Transaction PIN</label><input id="smsPin" type="password" inputmode="numeric" maxlength="4" autocomplete="one-time-code" placeholder="••••"></div>
+    <div class="err-text" id="smsErr"></div>
+    <button class="btn-primary" id="smsBtn" onclick="confirmBulkSms()">Send Messages</button>
   </div>
 </div>
 
@@ -1074,7 +1090,7 @@ function renderBalance(){
 }
 
 function txIcon(type){
-  const icons = { fund:'💰', data:'📶', airtime:'📱', cable:'📺', electricity:'💡', 'data-card':'💳', 'airtime-card':'🎫', fee:'🏦', 'airtime-to-cash':'💵', exam:'📝', 'referral-bonus':'🎁', betting:'🎯' };
+  const icons = { fund:'💰', data:'📶', airtime:'📱', cable:'📺', electricity:'💡', 'data-card':'💳', 'airtime-card':'🎫', fee:'🏦', 'airtime-to-cash':'💵', exam:'📝', 'referral-bonus':'🎁', 'bulk-sms':'📨', betting:'🎯' };
   return icons[type] || '🧾';
 }
 let allTransactions = [];
@@ -1677,9 +1693,69 @@ window.addEventListener('pageshow', e => { if(e.persisted) wipeInputs(document);
 window.addEventListener('pagehide', () => wipePinFields());
 
 /* ---------- Navigation ---------- */
-function showPage(name){ document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); document.getElementById('page-'+name).classList.add('active'); if(name==='history') renderTx(); if(name==='admin-panel') adminInit(); if(name==='profile') loadBiometricPref(); if(name==='privacy' || name==='terms') loadLegalDates(); if(name==='profit') loadProfit(); if(name==='support') initSupportChat(); if(name==='cable') renderCableProviderTabs(); if(name==='electricity') renderDiscoSelect(); if(name==='a2c') renderA2CNetworkGrid(); if(name==='exam') renderExamTypeGrid(); if(name==='notifications') loadNotifications(); }
+function showPage(name){ document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); document.getElementById('page-'+name).classList.add('active'); if(name==='history') renderTx(); if(name==='bulksms') bulkSmsInit(); if(name==='admin-panel') adminInit(); if(name==='profile') loadBiometricPref(); if(name==='privacy' || name==='terms') loadLegalDates(); if(name==='profit') loadProfit(); if(name==='support') initSupportChat(); if(name==='cable') renderCableProviderTabs(); if(name==='electricity') renderDiscoSelect(); if(name==='a2c') renderA2CNetworkGrid(); if(name==='exam') renderExamTypeGrid(); if(name==='notifications') loadNotifications(); }
 function closePage(name){ const pg = document.getElementById('page-'+name); pg.classList.remove('active'); wipeInputs(pg); wipePinFields(); }
 function goHome(){ document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); wipeInputs(document.querySelector('#app') || document); }
+
+/* ---------- Bulk SMS ---------- */
+const GSM7 = "@\u00a3$\u00a5\u00e8\u00e9\u00f9\u00ec\u00f2\u00c7\n\u00d8\u00f8\r\u00c5\u00e5\u0394_\u03a6\u0393\u039b\u03a9\u03a0\u03a8\u03a3\u0398\u039e\u00c6\u00e6\u00df\u00c9 !\"#\u00a4%&'()*+,-./0123456789:;<=>?\u00a1ABCDEFGHIJKLMNOPQRSTUVWXYZ\u00c4\u00d6\u00d1\u00dc\u00a7\u00bfabcdefghijklmnopqrstuvwxyz\u00e4\u00f6\u00f1\u00fc\u00e0";
+const GSM7_EXT = "^{}\\[~]|\u20ac";
+let smsInfoData = null;
+function smsPages(text){
+  let units = 0, gsm = true;
+  for(const ch of text){ if(GSM7.includes(ch)) units += 1; else if(GSM7_EXT.includes(ch)) units += 2; else { gsm = false; break; } }
+  if(gsm) return units <= 160 ? 1 : Math.ceil(units / 153);
+  return text.length <= 70 ? 1 : Math.ceil(text.length / 67);
+}
+function normalizeNgNumber(n){
+  const d = String(n).replace(/\D/g, '');
+  if(d.length === 13 && d.startsWith('234')) return d;
+  if(d.length === 11 && d.startsWith('0')) return '234' + d.slice(1);
+  if(d.length === 10 && /^[789]/.test(d)) return '234' + d;
+  return null;
+}
+function parseRecipients(text){
+  const seen = new Set(); let invalid = 0, dup = 0;
+  for(const part of String(text || '').split(/[\s,;]+/).filter(Boolean)){
+    const n = normalizeNgNumber(part);
+    if(!n){ invalid++; continue; }
+    if(seen.has(n)) dup++; else seen.add(n);
+  }
+  return { count: seen.size, invalid, dup };
+}
+async function bulkSmsInit(){
+  if(!smsInfoData){ const { data, errMsg } = await invokeFn('get-sms-info', { body: {} }); smsInfoData = errMsg ? { available: false } : data; }
+  bulkSmsUpdate();
+}
+function bulkSmsCalc(){
+  const message = document.getElementById('smsMessage').value, r = parseRecipients(document.getElementById('smsRecipients').value);
+  const pages = message ? smsPages(message) : 0, price = smsInfoData?.price || 0;
+  return { message, pages, r, total: r.count * pages * price, price };
+}
+function bulkSmsUpdate(){
+  const box = document.getElementById('smsSummary');
+  if(smsInfoData && !smsInfoData.available){ box.innerHTML = 'Bulk SMS is not available yet.'; return; }
+  const c = bulkSmsCalc();
+  box.innerHTML = `Numbers: <b>${c.r.count}</b>${c.r.invalid ? ` \u00b7 <span style="color:var(--danger);">${c.r.invalid} invalid (will be skipped)</span>` : ''}${c.r.dup ? ` \u00b7 ${c.r.dup} repeated (counted once)` : ''}<br>`
+    + `Message: <b>${c.message.length}</b> characters = <b>${c.pages}</b> page${c.pages === 1 ? '' : 's'} per number<br>`
+    + `Price: \u20a6${c.price} per page \u00b7 Total: <b>\u20a6${c.total.toLocaleString()}</b>`;
+}
+async function confirmBulkSms(){
+  const sender = document.getElementById('smsSender').value.trim(), pin = document.getElementById('smsPin').value.trim();
+  const recipients = document.getElementById('smsRecipients').value, errEl = document.getElementById('smsErr'); errEl.textContent = '';
+  const c = bulkSmsCalc();
+  if(!/^[A-Za-z0-9]{3,11}$/.test(sender)){ errEl.textContent = 'Sender name must be 3 to 11 letters or numbers, no spaces'; return; }
+  if(!c.message.trim()){ errEl.textContent = 'Write your message'; return; }
+  if(!c.r.count){ errEl.textContent = 'Add at least one valid phone number'; return; }
+  if(!/^\d{4}$/.test(pin)){ errEl.textContent = 'Enter your 4-digit transaction PIN'; return; }
+  if(!confirm(`Send this message to ${c.r.count} number${c.r.count === 1 ? '' : 's'} for \u20a6${c.total.toLocaleString()}?`)) return;
+  setLoading('smsBtn', true);
+  const { data, errMsg } = await invokeFn('buy-bulk-sms', { body: { sender, message: c.message, recipients, pin } });
+  setLoading('smsBtn', false, 'Send Messages');
+  if(errMsg){ errEl.textContent = errMsg; return; }
+  showToast(data?.pending ? data.message : `Messages sent to ${c.r.count} number${c.r.count === 1 ? '' : 's'}`, 'success');
+  await loadProfile(); await renderTx(); closePage('bulksms');
+}
 
 /* ---------- Admin Panel ---------- */
 // Everything that comes from users is escaped before it is put on the page.

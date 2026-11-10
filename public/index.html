@@ -541,7 +541,7 @@
     <div id="xForm" style="display:none;">
       <div class="field"><label>You pay</label>
         <div style="display:flex; gap:8px;">
-          <select id="xCurrency" style="flex:0 0 100px;" onchange="xQuoteUpdate()"><option>USD</option><option>GBP</option><option>EUR</option></select>
+          <select id="xCurrency" style="flex:0 0 54%;" onchange="xQuoteUpdate()"></select>
           <input id="xAmount" type="number" inputmode="decimal" placeholder="Amount" oninput="xQuoteDebounced()">
         </div></div>
       <div id="xPreview" style="background:#eef1fb; border-radius:12px; padding:14px; font-size:13px; line-height:1.8; margin-bottom:16px; display:none;"></div>
@@ -1712,7 +1712,10 @@ async function exchangeInit(){
   info.style.display = 'block';
   if(!xInfo.enabled){ info.textContent = 'Exchange is not available yet.'; form.style.display = 'none'; }
   else {
-    info.innerHTML = `Send money to a bank account in Nigeria. You pay by card in USD, GBP or EUR. Limit: ${xInfo.min} to ${xInfo.max} per transfer. Service fee: ${xInfo.fee_percent}%.`;
+    info.innerHTML = `Send money to a bank account in Nigeria. Choose your country, then pay online. Limit per transfer: about ${xInfo.min} to ${xInfo.max} USD (or the same value in your currency). Service fee: ${xInfo.fee_percent}%.`;
+    const cur = document.getElementById('xCurrency'), keep = cur.value;
+    cur.innerHTML = xInfo.currencies.map(c => `<option value="${esc(c.code)}">${esc(c.code)} \u00b7 ${esc(c.country)}</option>`).join('');
+    if(keep && xInfo.currencies.some(c => c.code === keep)) cur.value = keep;
     form.style.display = 'block'; xLoadBanks();
   }
   xLoadHistory();
@@ -1949,6 +1952,12 @@ let adminSettings = [];
 const SRC_LABEL = { database: 'saved here', cloudflare: 'from Cloudflare', default: 'default' };
 function settingField(s){
   const id = 'set_' + esc(s.key), tag = `<span style="font-weight:400; color:var(--sub);">(${SRC_LABEL[s.source]})</span>`;
+  if(s.type === 'currencies'){
+    const on = String(s.value).split(',');
+    return `<div class="field"><label>${esc(s.label)} ${tag}</label><div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:6px;">`
+      + s.choices.map(c => `<div style="display:flex; align-items:center; gap:6px; font-size:13px; background:#eef1fb; padding:8px 10px; border-radius:10px;"><input type="checkbox" class="cur-${esc(s.key)}" value="${esc(c.code)}" ${on.includes(c.code) ? 'checked' : ''}><span>${esc(c.code)} \u00b7 ${esc(c.country)}</span></div>`).join('')
+      + `</div><div style="font-size:11px; color:var(--sub); margin-top:6px;">${esc(s.hint)}</div></div>`;
+  }
   if(s.type === 'bool') return `<div class="field"><label>${esc(s.label)} ${tag}</label><select id="${id}"><option value="1" ${s.value === '1' ? 'selected' : ''}>On</option><option value="0" ${s.value !== '1' ? 'selected' : ''}>Off</option></select></div>`;
   if(s.type === 'number') return `<div class="field"><label>${esc(s.label)} ${tag}</label><input id="${id}" type="number" inputmode="decimal" value="${esc(s.value)}" placeholder="${esc(s.hint)}"></div>`;
   return `<div class="field"><label>${esc(s.label)} <span style="font-weight:700; color:${s.is_set ? 'var(--green)' : 'var(--danger)'};">${s.is_set ? '\u2713 set (' + SRC_LABEL[s.source] + ')' : '\u2717 not set'}</span></label><input id="${id}" type="password" autocomplete="new-password" placeholder="${s.is_set ? 'Leave empty to keep the current key' : 'Paste the key here'}"></div>`;
@@ -1971,6 +1980,12 @@ async function adminLoadSettings(){
 async function adminSaveSettings(){
   const values = {};
   for(const s of adminSettings){
+    if(s.type === 'currencies'){
+      const boxes = [...document.querySelectorAll('.cur-' + s.key)];
+      const v = boxes.filter(b => b.checked).map(b => b.value).join(',');
+      if(boxes.length && v !== String(s.value)) values[s.key] = v;
+      continue;
+    }
     const el = document.getElementById('set_' + s.key); if(!el) continue;
     const v = el.value.trim();
     if(s.type === 'secret'){ if(v) values[s.key] = v; }

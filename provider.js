@@ -77,6 +77,8 @@ export async function verifyMeter(env, disco, meterNumber, meterType) {
   throw new Error(r.json.message || `VTUAgent verify error (${r.status})`);
 }
 
+export function clearProviderCaches() { for (const k of Object.keys(planCache)) delete planCache[k]; for (const k of Object.keys(cableCache)) delete cableCache[k]; }
+
 /* ----------------------------------------------------------- purchases */
 function interpret(r) {
   const j = r.json || {};

@@ -1,0 +1,39 @@
+name = "umarshoyisub"
+main = "worker.js"
+compatibility_date = "2025-11-01"
+
+# Keep anything added in the Cloudflare dashboard when GitHub redeploys.
+keep_vars = true
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+run_worker_first = ["/api/*"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "umarshoyi-db"
+database_id = "2b79c9f4-2682-4e95-85bc-0a7e92d8fd19"
+
+[triggers]
+# Every 5 minutes: settle purchases that are still "pending" at VTUAgent
+crons = ["*/5 * * * *"]
+
+[observability]
+enabled = true
+
+# ---------------------------------------------------------------------------
+# Only two plain values are kept in this file.
+#
+# EVERYTHING ELSE is managed inside the app: Admin Panel -> Settings
+#   (Flutterwave keys, VTUAgent key, Exchange on/off, fees, min/max, markup, SMS price ...)
+# Those are stored in the database and do not disappear when this file changes.
+#
+# The only value you must keep in Cloudflare (Variables and Secrets, type "Secret"):
+#   AUTH_SECRET   (32+ random characters)
+#
+# NEVER write secret keys in this file: the GitHub repository can be read by others.
+# ---------------------------------------------------------------------------
+[vars]
+APP_NAME = "UMARSHOYI-SUB"
+ADMIN_EMAILS = "umarsaraki96@gmail.com"

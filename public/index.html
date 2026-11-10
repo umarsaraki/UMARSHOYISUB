@@ -275,6 +275,7 @@
     <div class="feature-item" onclick="openCardPurchase('airtime-card')"><div class="feature-icon">🎫</div><div class="feature-title">Recharge Card</div></div>
     <div class="feature-item" onclick="openCardPurchase('data-card')"><div class="feature-icon">💳</div><div class="feature-title">Data Card</div></div>
     <div class="feature-item" onclick="showPage('bulksms')"><div class="feature-icon">📨</div><div class="feature-title">Bulk SMS</div></div>
+    <div class="feature-item" onclick="showPage('exchange')"><div class="feature-icon">🌍</div><div class="feature-title">Exchange</div></div>
     <div class="feature-item" onclick="showPage('history')"><div class="feature-icon">🧾</div><div class="feature-title">Transactions</div></div>
     <div class="feature-item" id="profitTile" style="display:none;" onclick="showPage('profit')"><div class="feature-icon">📊</div><div class="feature-title">My Profit</div></div>
     <div class="feature-item" id="adminPanelTile" style="display:none;" onclick="showPage('admin-panel')"><div class="feature-icon">🛠️</div><div class="feature-title">Admin Panel</div></div>
@@ -547,6 +548,31 @@
   </div>
 </div>
 
+<!-- ===================== EXCHANGE PAGE ===================== -->
+<div class="page" id="page-exchange">
+  <div class="page-head"><button class="back-btn" onclick="closePage('exchange')">←</button><div class="page-title">Exchange</div></div>
+  <div class="page-body">
+    <div id="xInfo" style="display:none; background:#eef1fb; border-radius:12px; padding:14px; font-size:13px; line-height:1.6; margin-bottom:16px;"></div>
+    <div id="xForm" style="display:none;">
+      <div class="field"><label>You pay</label>
+        <div style="display:flex; gap:8px;">
+          <select id="xCurrency" style="flex:0 0 100px;" onchange="xQuoteUpdate()"><option>USD</option><option>GBP</option><option>EUR</option></select>
+          <input id="xAmount" type="number" inputmode="decimal" placeholder="Amount" oninput="xQuoteDebounced()">
+        </div></div>
+      <div id="xPreview" style="background:#eef1fb; border-radius:12px; padding:14px; font-size:13px; line-height:1.8; margin-bottom:16px; display:none;"></div>
+      <div class="field"><label>Recipient bank (Nigeria)</label><select id="xBank" onchange="xResolveDebounced()"><option value="">Loading banks…</option></select></div>
+      <div class="field"><label>Account number</label><input id="xAccount" inputmode="numeric" maxlength="10" placeholder="10 digits" oninput="xResolveDebounced()"></div>
+      <div id="xAccountName" style="font-weight:700; font-size:14px; margin:-6px 0 14px; min-height:20px;"></div>
+      <div class="field"><label>Transaction PIN</label><input id="xPin" type="password" inputmode="numeric" maxlength="4" autocomplete="one-time-code" placeholder="••••"></div>
+      <div class="err-text" id="xErr"></div>
+      <button class="btn-primary" id="xBtn" onclick="xConfirm()">I Agree &amp; Pay</button>
+      <div style="font-size:11px; color:var(--sub); line-height:1.6; margin-top:12px;">You pay by card. After your payment is confirmed, the naira is sent to the bank account above. The rate is an estimate and is fixed when you start the payment. Check the account name carefully: transfers cannot be cancelled once sent.</div>
+    </div>
+    <div class="section-title" style="padding:0; margin:26px 0 10px;">My Exchanges</div>
+    <div id="xHistory"></div>
+  </div>
+</div>
+
 <!-- ===================== BULK SMS PAGE ===================== -->
 <div class="page" id="page-bulksms">
   <div class="page-head"><button class="back-btn" onclick="closePage('bulksms')">←</button><div class="page-title">Bulk SMS</div></div>
@@ -568,6 +594,7 @@
     <button class="atab on" data-tab="overview" onclick="adminSetTab('overview')">Overview</button>
     <button class="atab" data-tab="users" onclick="adminSetTab('users')">Users</button>
     <button class="atab" data-tab="tx" onclick="adminSetTab('tx')">Transactions</button>
+    <button class="atab" data-tab="rem" onclick="adminSetTab('rem')">Exchange</button>
     <button class="atab" data-tab="log" onclick="adminSetTab('log')">Activity</button>
   </div>
   <div class="page-body">
@@ -600,6 +627,16 @@
       <div class="admin-count" id="adminTxCount"></div>
       <div id="adminTxList"></div>
       <button class="btn-primary" id="adminTxMore" style="display:none; background:#eef1fb; color:var(--blue-1);" onclick="adminLoadTx(false)">Load more</button>
+    </div>
+    <div id="atab-rem" style="display:none;">
+      <div class="chips" id="adminRemChips">
+        <button class="atab on" data-f="attention" onclick="adminSetRemFilter('attention')">Needs attention</button>
+        <button class="atab" data-f="all" onclick="adminSetRemFilter('all')">All</button>
+        <button class="atab" data-f="completed" onclick="adminSetRemFilter('completed')">Completed</button>
+      </div>
+      <div class="admin-count" id="adminRemCount"></div>
+      <div id="adminRemList"></div>
+      <button class="btn-primary" id="adminRemMore" style="display:none; background:#eef1fb; color:var(--blue-1);" onclick="adminLoadRem(false)">Load more</button>
     </div>
     <div id="atab-log" style="display:none;">
       <div id="adminLogList"></div>
@@ -1090,7 +1127,7 @@ function renderBalance(){
 }
 
 function txIcon(type){
-  const icons = { fund:'💰', data:'📶', airtime:'📱', cable:'📺', electricity:'💡', 'data-card':'💳', 'airtime-card':'🎫', fee:'🏦', 'airtime-to-cash':'💵', exam:'📝', 'referral-bonus':'🎁', 'bulk-sms':'📨', betting:'🎯' };
+  const icons = { fund:'💰', data:'📶', airtime:'📱', cable:'📺', electricity:'💡', 'data-card':'💳', 'airtime-card':'🎫', fee:'🏦', 'airtime-to-cash':'💵', exam:'📝', 'referral-bonus':'🎁', 'bulk-sms':'📨', 'adjustment':'⚙️', betting:'🎯' };
   return icons[type] || '🧾';
 }
 let allTransactions = [];
@@ -1670,7 +1707,7 @@ function loadLegalDates(){
 
 async function invokeFn(name, opts){
   try { return await invokeFnRaw(name, opts); }
-  finally { if(/^(buy-|verify-otp|atc-withdraw)/.test(name)) wipePinFields(); }
+  finally { if(/^(buy-|verify-otp|atc-withdraw|exchange-create)/.test(name)) wipePinFields(); }
 }
 /* ---------- Privacy: wipe typed details ---------- */
 function wipeInputs(root){
@@ -1693,9 +1730,79 @@ window.addEventListener('pageshow', e => { if(e.persisted) wipeInputs(document);
 window.addEventListener('pagehide', () => wipePinFields());
 
 /* ---------- Navigation ---------- */
-function showPage(name){ document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); document.getElementById('page-'+name).classList.add('active'); if(name==='history') renderTx(); if(name==='bulksms') bulkSmsInit(); if(name==='admin-panel') adminInit(); if(name==='profile') loadBiometricPref(); if(name==='privacy' || name==='terms') loadLegalDates(); if(name==='profit') loadProfit(); if(name==='support') initSupportChat(); if(name==='cable') renderCableProviderTabs(); if(name==='electricity') renderDiscoSelect(); if(name==='a2c') renderA2CNetworkGrid(); if(name==='exam') renderExamTypeGrid(); if(name==='notifications') loadNotifications(); }
+function showPage(name){ document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); document.getElementById('page-'+name).classList.add('active'); if(name==='history') renderTx(); if(name==='bulksms') bulkSmsInit(); if(name==='exchange') exchangeInit(); if(name==='admin-panel') adminInit(); if(name==='profile') loadBiometricPref(); if(name==='privacy' || name==='terms') loadLegalDates(); if(name==='profit') loadProfit(); if(name==='support') initSupportChat(); if(name==='cable') renderCableProviderTabs(); if(name==='electricity') renderDiscoSelect(); if(name==='a2c') renderA2CNetworkGrid(); if(name==='exam') renderExamTypeGrid(); if(name==='notifications') loadNotifications(); }
 function closePage(name){ const pg = document.getElementById('page-'+name); pg.classList.remove('active'); wipeInputs(pg); wipePinFields(); }
 function goHome(){ document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); wipeInputs(document.querySelector('#app') || document); }
+
+/* ---------- Exchange ---------- */
+let xInfo = null, xBanks = null, xTimer = null, xResolveTimer = null, xQuote = null, xName = '';
+const X_STATUS = { awaiting_payment:'Awaiting payment', paid:'Processing', payout_pending:'Sending to bank', completed:'Completed', payout_failed:'Delayed \u2014 we are fixing it', amount_mismatch:'On hold', refunded:'Refunded', cancelled:'Cancelled' };
+async function exchangeInit(){
+  if(!xInfo){ const { data, errMsg } = await invokeFn('exchange-info', { body: {} }); xInfo = errMsg ? { enabled: false } : data; }
+  const info = document.getElementById('xInfo'), form = document.getElementById('xForm');
+  info.style.display = 'block';
+  if(!xInfo.enabled){ info.textContent = 'Exchange is not available yet.'; form.style.display = 'none'; }
+  else {
+    info.innerHTML = `Send money to a bank account in Nigeria. You pay by card in USD, GBP or EUR. Limit: ${xInfo.min} to ${xInfo.max} per transfer. Service fee: ${xInfo.fee_percent}%.`;
+    form.style.display = 'block'; xLoadBanks();
+  }
+  xLoadHistory();
+}
+async function xLoadBanks(){
+  const sel = document.getElementById('xBank');
+  if(!xBanks){
+    const { data, errMsg } = await invokeFn('get-banks', { body: {} });
+    if(errMsg){ sel.innerHTML = '<option value="">Could not load banks</option>'; return; }
+    xBanks = data.banks;
+  }
+  sel.innerHTML = '<option value="">Select bank</option>' + xBanks.map(b => `<option value="${esc(b.code)}">${esc(b.name)}</option>`).join('');
+}
+function xQuoteDebounced(){ clearTimeout(xTimer); xTimer = setTimeout(xQuoteUpdate, 400); }
+async function xQuoteUpdate(){
+  const currency = document.getElementById('xCurrency').value, amount = parseFloat(document.getElementById('xAmount').value), box = document.getElementById('xPreview');
+  xQuote = null;
+  if(!(amount > 0)){ box.style.display = 'none'; return; }
+  box.style.display = 'block'; box.textContent = 'Getting rate\u2026';
+  const { data, errMsg } = await invokeFn('exchange-quote', { body: { currency, amount } });
+  if(errMsg){ box.textContent = errMsg; return; }
+  xQuote = data.quote;
+  box.innerHTML = `Rate: 1 ${esc(xQuote.currency)} = \u20a6${xQuote.rate.toLocaleString()}<br>`
+    + `You pay: <b>${xQuote.amount} ${esc(xQuote.currency)}</b><br>`
+    + `Service fee (${xQuote.fee_percent}%): ${xQuote.fee_amount} ${esc(xQuote.currency)}<br>`
+    + `Recipient receives: <b>\u20a6${xQuote.receive_ngn.toLocaleString()}</b>`;
+}
+function xResolveDebounced(){ clearTimeout(xResolveTimer); xResolveTimer = setTimeout(xResolve, 400); }
+async function xResolve(){
+  const bankCode = document.getElementById('xBank').value, accountNumber = document.getElementById('xAccount').value.trim(), out = document.getElementById('xAccountName');
+  xName = '';
+  if(!bankCode || !/^\d{10}$/.test(accountNumber)){ out.textContent = ''; return; }
+  out.style.color = 'var(--sub)'; out.textContent = 'Checking account\u2026';
+  const { data, errMsg } = await invokeFn('exchange-resolve', { body: { bankCode, accountNumber } });
+  if(errMsg){ out.style.color = 'var(--danger)'; out.textContent = errMsg; return; }
+  xName = data.account_name; out.style.color = 'var(--green)'; out.textContent = '\u2713 ' + xName;
+}
+async function xConfirm(){
+  const currency = document.getElementById('xCurrency').value, amount = parseFloat(document.getElementById('xAmount').value);
+  const bankCode = document.getElementById('xBank').value, accountNumber = document.getElementById('xAccount').value.trim(), pin = document.getElementById('xPin').value.trim();
+  const errEl = document.getElementById('xErr'); errEl.textContent = '';
+  if(!(amount > 0) || !xQuote){ errEl.textContent = 'Enter the amount first'; return; }
+  if(!bankCode || !/^\d{10}$/.test(accountNumber) || !xName){ errEl.textContent = 'Choose the bank and enter a correct account number'; return; }
+  if(!/^\d{4}$/.test(pin)){ errEl.textContent = 'Enter your 4-digit transaction PIN'; return; }
+  if(!confirm(`Send \u20a6${xQuote.receive_ngn.toLocaleString()} to ${xName}?\n\nYou pay ${xQuote.amount} ${xQuote.currency} (fee ${xQuote.fee_amount} ${xQuote.currency}).\nThis cannot be cancelled once sent.`)) return;
+  setLoading('xBtn', true);
+  const { data, errMsg } = await invokeFn('exchange-create', { body: { currency, amount, bankCode, accountNumber, pin } });
+  setLoading('xBtn', false, 'I Agree & Pay');
+  if(errMsg || !data?.link){ errEl.textContent = errMsg || 'Could not start the payment'; return; }
+  window.location.href = data.link;
+}
+async function xLoadHistory(){
+  const box = document.getElementById('xHistory');
+  const { data, errMsg } = await invokeFn('exchange-history', { body: {} });
+  if(errMsg){ box.innerHTML = '<div class="empty-note">' + esc(errMsg) + '</div>'; return; }
+  box.innerHTML = data.items.length ? data.items.map(i => `<div class="arow" style="cursor:default;">
+    <div class="top"><span>${esc(i.source_amount)} ${esc(i.currency)} \u2192 \u20a6${Number(i.receive_ngn).toLocaleString()}</span><span class="sub" style="margin:0;">${esc(X_STATUS[i.status] || i.status)}</span></div>
+    <div class="sub">${esc(i.account_name || '')} \u00b7 ${esc(i.bank_name || '')} ${esc(i.account_number)}<br>${esc(new Date(i.created_at + 'Z').toLocaleString())}</div></div>`).join('') : '<div class="empty-note">No exchanges yet.</div>';
+}
 
 /* ---------- Bulk SMS ---------- */
 const GSM7 = "@\u00a3$\u00a5\u00e8\u00e9\u00f9\u00ec\u00f2\u00c7\n\u00d8\u00f8\r\u00c5\u00e5\u0394_\u03a6\u0393\u039b\u03a9\u03a0\u03a8\u03a3\u0398\u039e\u00c6\u00e6\u00df\u00c9 !\"#\u00a4%&'()*+,-./0123456789:;<=>?\u00a1ABCDEFGHIJKLMNOPQRSTUVWXYZ\u00c4\u00d6\u00d1\u00dc\u00a7\u00bfabcdefghijklmnopqrstuvwxyz\u00e4\u00f6\u00f1\u00fc\u00e0";
@@ -1769,10 +1876,11 @@ function adminInit(){ adminSetTab(adminCurTab); }
 function adminSetTab(t){
   adminCurTab = t;
   document.querySelectorAll('#adminTabs .atab').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
-  ['overview','users','tx','log'].forEach(n => document.getElementById('atab-'+n).style.display = n === t ? 'block' : 'none');
+  ['overview','users','tx','rem','log'].forEach(n => document.getElementById('atab-'+n).style.display = n === t ? 'block' : 'none');
   if(t === 'overview') adminLoadStats();
   if(t === 'users') adminLoadUsers(true);
   if(t === 'tx') adminLoadTx(true);
+  if(t === 'rem') adminLoadRem(true);
   if(t === 'log') adminLoadLog();
 }
 function adminChip(boxId, value){ document.querySelectorAll('#'+boxId+' .atab').forEach(b => b.classList.toggle('on', b.dataset.f === value)); }
@@ -1864,6 +1972,39 @@ async function adminLoadLog(){
   list.innerHTML = data.log.length ? data.log.map(l => `<div class="arow" style="cursor:default;">
     <div class="top"><span>${esc(l.action.replaceAll('_',' '))}</span><span class="sub" style="margin:0;">${esc(new Date(l.created_at + 'Z').toLocaleString())}</span></div>
     <div class="sub">by @${esc(l.admin || '?')}${l.target ? ' → @' + esc(l.target) : ''}${l.detail ? '<br>' + esc(l.detail) : ''}</div></div>`).join('') : '<div class="empty-note">No admin activity yet.</div>';
+}
+
+/* ----- exchange (admin) ----- */
+let adminRemFilter = 'attention', adminRemOffset = 0;
+function adminSetRemFilter(f){ adminRemFilter = f; adminChip('adminRemChips', f); adminLoadRem(true); }
+async function adminLoadRem(reset){
+  if(reset) adminRemOffset = 0;
+  const { data, errMsg } = await adminCall({ action: 'list_remittances', filter: adminRemFilter, offset: adminRemOffset });
+  const list = document.getElementById('adminRemList');
+  if(errMsg){ list.innerHTML = '<div class="empty-note">' + esc(errMsg) + '</div>'; return; }
+  const rows = data.items.map(i => {
+    const canRetry = ['paid','payout_failed'].includes(i.status), canRefund = ['paid','payout_failed','amount_mismatch'].includes(i.status);
+    return `<div class="arow" style="cursor:default;">
+      <div class="top"><span>${esc(i.source_amount)} ${esc(i.currency)} \u2192 \u20a6${Number(i.receive_ngn).toLocaleString()}</span><span class="sub" style="margin:0;">${esc(X_STATUS[i.status] || i.status)}</span></div>
+      <div class="sub">@${esc(i.username)} \u00b7 ${esc(i.account_name || '')} \u00b7 ${esc(i.bank_name || '')} ${esc(i.account_number)}<br>${esc(new Date(i.created_at + 'Z').toLocaleString())}${i.error ? '<br><span style="color:var(--danger);">' + esc(i.error) + '</span>' : ''}</div>
+      ${(canRetry || canRefund) ? `<div style="display:flex; gap:8px; margin-top:10px;">
+        ${canRetry ? `<button class="btn-sm" style="background:var(--blue-1);" onclick="adminRetryPayout('${esc(i.id)}')">Retry payout</button>` : ''}
+        ${canRefund ? `<button class="btn-sm" style="background:var(--danger);" onclick="adminMarkRefunded('${esc(i.id)}')">Mark refunded</button>` : ''}</div>` : ''}</div>`;
+  }).join('');
+  list.innerHTML = reset ? (rows || '<div class="empty-note">Nothing here.</div>') : list.innerHTML + rows;
+  adminRemOffset += data.items.length;
+  document.getElementById('adminRemCount').textContent = data.total + ' exchange' + (data.total === 1 ? '' : 's');
+  document.getElementById('adminRemMore').style.display = adminRemOffset < data.total ? 'block' : 'none';
+}
+async function adminRetryPayout(id){
+  if(!confirm('Send the naira payout again? First check in your Flutterwave dashboard that the earlier transfer did not go through.')) return;
+  const { errMsg } = await adminCall({ action: 'retry_payout', id });
+  showToast(errMsg || 'Payout sent again', errMsg ? 'error' : 'success'); adminLoadRem(true);
+}
+async function adminMarkRefunded(id){
+  if(!confirm('Only do this AFTER you have refunded the customer in your Flutterwave dashboard. Continue?')) return;
+  const { errMsg } = await adminCall({ action: 'mark_refunded', id });
+  showToast(errMsg || 'Marked as refunded', errMsg ? 'error' : 'success'); adminLoadRem(true);
 }
 
 /* ----- one user ----- */
@@ -2191,6 +2332,14 @@ window.addEventListener('load', async () => {
   const { data } = await backend.auth.getSession();
   if(data.session) await onAuthed(data.session);
   // Coming back from the Flutterwave payment page
+  const xr = new URLSearchParams(location.search).get('exchange');
+  if(xr){
+    history.replaceState(null, '', location.pathname);
+    if(xr === 'success') showToast('Payment received. Your money is on its way.', 'success');
+    else if(xr === 'pending') showToast('Payment is being confirmed. Check My Exchanges shortly.', 'success');
+    else showToast('Payment was not completed', 'error');
+    if(data.session) showPage('exchange');
+  }
   const funded = new URLSearchParams(location.search).get('funded');
   if(funded){
     history.replaceState(null, '', location.pathname);

@@ -322,22 +322,7 @@
 <div class="page" id="page-fund">
   <div class="page-head"><button class="back-btn" onclick="closePage('fund')">←</button><div class="page-title">Fund Wallet</div></div>
   <div class="page-body">
-    <div class="net-item selected" style="text-align:left; padding:18px; margin-bottom:12px;" onclick="showFundTab('link')">
-      <div style="font-weight:700; font-size:14px;">💳 Pay with Card / Link</div>
-      <div style="font-size:12px; color:var(--sub); margin-top:4px;">Instant payment via card, USSD or transfer link</div>
-    </div>
-    <div class="net-item" style="text-align:left; padding:18px;" onclick="showFundTab('bank')">
-      <div style="font-weight:700; font-size:14px;">🏦 Direct Bank Transfer</div>
-      <div style="font-size:12px; color:var(--sub); margin-top:4px;">Get your own account number, transfer anytime</div>
-    </div>
-
-    <div id="fundTab-link" style="margin-top:20px;">
-      <div class="field"><label>Amount to Fund (₦)</label><input id="fundAmount" type="number" placeholder="2000"></div>
-      <div class="err-text" id="fundErr"></div>
-      <button class="btn-primary" id="fundBtn" onclick="fundWallet()">Continue to Pay</button>
-    </div>
-
-    <div id="fundTab-bank" style="display:none; margin-top:20px;">
+    <div id="fundTab-bank" style="margin-top:4px;">
       <div id="vaLoading" style="text-align:center; padding:30px; color:var(--sub); font-size:13px;">Loading your account number…</div>
 
       <div id="vaNeedId" style="display:none;">
@@ -595,6 +580,7 @@
     <button class="atab" data-tab="users" onclick="adminSetTab('users')">Users</button>
     <button class="atab" data-tab="tx" onclick="adminSetTab('tx')">Transactions</button>
     <button class="atab" data-tab="rem" onclick="adminSetTab('rem')">Exchange</button>
+    <button class="atab" data-tab="settings" onclick="adminSetTab('settings')">Settings</button>
     <button class="atab" data-tab="log" onclick="adminSetTab('log')">Activity</button>
   </div>
   <div class="page-body">
@@ -637,6 +623,9 @@
       <div class="admin-count" id="adminRemCount"></div>
       <div id="adminRemList"></div>
       <button class="btn-primary" id="adminRemMore" style="display:none; background:#eef1fb; color:var(--blue-1);" onclick="adminLoadRem(false)">Load more</button>
+    </div>
+    <div id="atab-settings" style="display:none;">
+      <div id="adminSettingsBox"></div>
     </div>
     <div id="atab-log" style="display:none;">
       <div id="adminLogList"></div>
@@ -1196,26 +1185,6 @@ async function renderTx(){
 }
 
 /* ---------- Fund wallet ---------- */
-function showFundTab(tab){
-  document.querySelectorAll('#page-fund .net-item').forEach(el => el.classList.remove('selected'));
-  event.currentTarget.classList.add('selected');
-  document.getElementById('fundTab-link').style.display = tab === 'link' ? 'block' : 'none';
-  document.getElementById('fundTab-bank').style.display = tab === 'bank' ? 'block' : 'none';
-  if(tab === 'bank') loadVirtualAccount();
-}
-
-async function fundWallet(){
-  const amt = parseFloat(document.getElementById('fundAmount').value);
-  const errEl = document.getElementById('fundErr'); errEl.textContent = '';
-  if(!amt || amt <= 0){ errEl.textContent = 'Enter a valid amount'; return; }
-  setLoading('fundBtn', true);
-  const { data, errMsg } = await invokeFn('initiate-payment', { body: { amount: amt } });
-  setLoading('fundBtn', false, 'Continue to Pay');
-  const link = data?.link || data?.data?.link;
-  if(errMsg || !link){ errEl.textContent = errMsg || 'Could not start payment'; return; }
-  window.location.href = link;
-}
-
 let vaLoaded = false;
 let selectedIdType = 'bvn';
 async function loadVirtualAccount(){
@@ -1730,7 +1699,7 @@ window.addEventListener('pageshow', e => { if(e.persisted) wipeInputs(document);
 window.addEventListener('pagehide', () => wipePinFields());
 
 /* ---------- Navigation ---------- */
-function showPage(name){ document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); document.getElementById('page-'+name).classList.add('active'); if(name==='history') renderTx(); if(name==='bulksms') bulkSmsInit(); if(name==='exchange') exchangeInit(); if(name==='admin-panel') adminInit(); if(name==='profile') loadBiometricPref(); if(name==='privacy' || name==='terms') loadLegalDates(); if(name==='profit') loadProfit(); if(name==='support') initSupportChat(); if(name==='cable') renderCableProviderTabs(); if(name==='electricity') renderDiscoSelect(); if(name==='a2c') renderA2CNetworkGrid(); if(name==='exam') renderExamTypeGrid(); if(name==='notifications') loadNotifications(); }
+function showPage(name){ document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); document.getElementById('page-'+name).classList.add('active'); if(name==='history') renderTx(); if(name==='fund') loadVirtualAccount(); if(name==='bulksms') bulkSmsInit(); if(name==='exchange') exchangeInit(); if(name==='admin-panel') adminInit(); if(name==='profile') loadBiometricPref(); if(name==='privacy' || name==='terms') loadLegalDates(); if(name==='profit') loadProfit(); if(name==='support') initSupportChat(); if(name==='cable') renderCableProviderTabs(); if(name==='electricity') renderDiscoSelect(); if(name==='a2c') renderA2CNetworkGrid(); if(name==='exam') renderExamTypeGrid(); if(name==='notifications') loadNotifications(); }
 function closePage(name){ const pg = document.getElementById('page-'+name); pg.classList.remove('active'); wipeInputs(pg); wipePinFields(); }
 function goHome(){ document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); wipeInputs(document.querySelector('#app') || document); }
 
@@ -1738,7 +1707,7 @@ function goHome(){ document.querySelectorAll('.page').forEach(p=>p.classList.rem
 let xInfo = null, xBanks = null, xTimer = null, xResolveTimer = null, xQuote = null, xName = '';
 const X_STATUS = { awaiting_payment:'Awaiting payment', paid:'Processing', payout_pending:'Sending to bank', completed:'Completed', payout_failed:'Delayed \u2014 we are fixing it', amount_mismatch:'On hold', refunded:'Refunded', cancelled:'Cancelled' };
 async function exchangeInit(){
-  if(!xInfo){ const { data, errMsg } = await invokeFn('exchange-info', { body: {} }); xInfo = errMsg ? { enabled: false } : data; }
+  { const { data, errMsg } = await invokeFn('exchange-info', { body: {} }); xInfo = errMsg ? { enabled: false } : data; }
   const info = document.getElementById('xInfo'), form = document.getElementById('xForm');
   info.style.display = 'block';
   if(!xInfo.enabled){ info.textContent = 'Exchange is not available yet.'; form.style.display = 'none'; }
@@ -1831,7 +1800,7 @@ function parseRecipients(text){
   return { count: seen.size, invalid, dup };
 }
 async function bulkSmsInit(){
-  if(!smsInfoData){ const { data, errMsg } = await invokeFn('get-sms-info', { body: {} }); smsInfoData = errMsg ? { available: false } : data; }
+  { const { data, errMsg } = await invokeFn('get-sms-info', { body: {} }); smsInfoData = errMsg ? { available: false } : data; }
   bulkSmsUpdate();
 }
 function bulkSmsCalc(){
@@ -1876,11 +1845,12 @@ function adminInit(){ adminSetTab(adminCurTab); }
 function adminSetTab(t){
   adminCurTab = t;
   document.querySelectorAll('#adminTabs .atab').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
-  ['overview','users','tx','rem','log'].forEach(n => document.getElementById('atab-'+n).style.display = n === t ? 'block' : 'none');
+  ['overview','users','tx','rem','settings','log'].forEach(n => document.getElementById('atab-'+n).style.display = n === t ? 'block' : 'none');
   if(t === 'overview') adminLoadStats();
   if(t === 'users') adminLoadUsers(true);
   if(t === 'tx') adminLoadTx(true);
   if(t === 'rem') adminLoadRem(true);
+  if(t === 'settings') adminLoadSettings();
   if(t === 'log') adminLoadLog();
 }
 function adminChip(boxId, value){ document.querySelectorAll('#'+boxId+' .atab').forEach(b => b.classList.toggle('on', b.dataset.f === value)); }
@@ -1972,6 +1942,46 @@ async function adminLoadLog(){
   list.innerHTML = data.log.length ? data.log.map(l => `<div class="arow" style="cursor:default;">
     <div class="top"><span>${esc(l.action.replaceAll('_',' '))}</span><span class="sub" style="margin:0;">${esc(new Date(l.created_at + 'Z').toLocaleString())}</span></div>
     <div class="sub">by @${esc(l.admin || '?')}${l.target ? ' → @' + esc(l.target) : ''}${l.detail ? '<br>' + esc(l.detail) : ''}</div></div>`).join('') : '<div class="empty-note">No admin activity yet.</div>';
+}
+
+/* ----- settings (admin) ----- */
+let adminSettings = [];
+const SRC_LABEL = { database: 'saved here', cloudflare: 'from Cloudflare', default: 'default' };
+function settingField(s){
+  const id = 'set_' + esc(s.key), tag = `<span style="font-weight:400; color:var(--sub);">(${SRC_LABEL[s.source]})</span>`;
+  if(s.type === 'bool') return `<div class="field"><label>${esc(s.label)} ${tag}</label><select id="${id}"><option value="1" ${s.value === '1' ? 'selected' : ''}>On</option><option value="0" ${s.value !== '1' ? 'selected' : ''}>Off</option></select></div>`;
+  if(s.type === 'number') return `<div class="field"><label>${esc(s.label)} ${tag}</label><input id="${id}" type="number" inputmode="decimal" value="${esc(s.value)}" placeholder="${esc(s.hint)}"></div>`;
+  return `<div class="field"><label>${esc(s.label)} <span style="font-weight:700; color:${s.is_set ? 'var(--green)' : 'var(--danger)'};">${s.is_set ? '\u2713 set (' + SRC_LABEL[s.source] + ')' : '\u2717 not set'}</span></label><input id="${id}" type="password" autocomplete="new-password" placeholder="${s.is_set ? 'Leave empty to keep the current key' : 'Paste the key here'}"></div>`;
+}
+async function adminLoadSettings(){
+  const box = document.getElementById('adminSettingsBox');
+  box.innerHTML = '<div class="empty-note">Loading\u2026</div>';
+  const { data, errMsg } = await adminCall({ action: 'get_settings' });
+  if(errMsg){ box.innerHTML = '<div class="empty-note">' + esc(errMsg) + '</div>'; return; }
+  adminSettings = data.items;
+  const sec = (g) => `<div class="section-title" style="padding:0; margin:20px 0 10px;">${g}</div>` + adminSettings.filter(s => s.group === g).map(settingField).join('');
+  box.innerHTML = (data.keys_can_be_saved ? '' : '<div class="err-text" style="margin-bottom:10px;">AUTH_SECRET is missing or too short in Cloudflare, so keys cannot be saved here yet.</div>')
+    + sec('Exchange') + sec('Pricing') + sec('Keys')
+    + `<div style="background:#eef1fb; border-radius:12px; padding:14px; font-size:12px; line-height:1.7; margin:18px 0; word-break:break-all;">Put these web addresses in your dashboards:<br>
+        <b>Flutterwave webhook:</b> ${esc(location.origin)}/api/webhook/flutterwave<br>
+        <b>VTUAgent webhook:</b> use the button on the Overview tab.<br>
+        Keys you save here are kept encrypted in your database and stay after every deploy.</div>`
+    + '<button class="btn-primary" id="settingsSaveBtn" onclick="adminSaveSettings()">Save Settings</button>';
+}
+async function adminSaveSettings(){
+  const values = {};
+  for(const s of adminSettings){
+    const el = document.getElementById('set_' + s.key); if(!el) continue;
+    const v = el.value.trim();
+    if(s.type === 'secret'){ if(v) values[s.key] = v; }
+    else if(v !== String(s.value ?? '')) values[s.key] = v;
+  }
+  if(!Object.keys(values).length){ showToast('Nothing changed', 'success'); return; }
+  setLoading('settingsSaveBtn', true);
+  const { errMsg } = await adminCall({ action: 'save_settings', values });
+  setLoading('settingsSaveBtn', false, 'Save Settings');
+  if(errMsg){ showToast(errMsg, 'error'); return; }
+  showToast('Settings saved', 'success'); xInfo = null; smsInfoData = null; adminLoadSettings();
 }
 
 /* ----- exchange (admin) ----- */
@@ -2238,7 +2248,7 @@ async function a2cConvert(){
 /* ---------- Support Chat (FAQ bot + WhatsApp handoff) ---------- */
 const SUPPORT_WHATSAPP = '2349073342170';
 const FAQ_RULES = [
-  { keywords:['fund','deposit','top up','topup'], answer:'To fund your wallet: go to Home → Fund Wallet. Choose "Pay with Card / Link" for instant card/USSD payment, or "Direct Bank Transfer" to get your own permanent account number.' },
+  { keywords:['fund','deposit','top up','topup'], answer:'To fund your wallet: go to Home → Fund Wallet, copy your own account number, and transfer any amount to it from your bank app. Your wallet is credited automatically within a few minutes.' },
   { keywords:['pin','forgot pin','change pin'], answer:'You can change your transaction PIN anytime from Profile → Change Transaction PIN. You will need your current PIN to set a new one.' },
   { keywords:['password'], answer:'You can change your login password from Profile → Change Password.' },
   { keywords:['data not','data failed','didn\'t receive','did not receive','no data'], answer:'If a data purchase failed, check Transaction History — a failed purchase is automatically reversed to your wallet within minutes. If it shows "successful" but you didn\'t receive data, please contact a human agent below.' },

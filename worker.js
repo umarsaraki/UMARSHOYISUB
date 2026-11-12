@@ -19,6 +19,17 @@ const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS otps (user_id TEXT NOT NULL, phone TEXT NOT NULL, code_hash TEXT NOT NULL, expires_at INTEGER NOT NULL, attempts INTEGER NOT NULL DEFAULT 0, verified_until INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL, PRIMARY KEY (user_id, phone))`,
   `CREATE TABLE IF NOT EXISTS remittances (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), tx_ref TEXT NOT NULL UNIQUE, currency TEXT NOT NULL, source_amount REAL NOT NULL, rate REAL NOT NULL, fee_percent REAL NOT NULL, fee_amount REAL NOT NULL, receive_ngn REAL NOT NULL, bank_code TEXT NOT NULL, bank_name TEXT, account_number TEXT NOT NULL, account_name TEXT, status TEXT NOT NULL DEFAULT 'awaiting_payment', flw_tx_id TEXT, payout_ref TEXT, payout_attempts INTEGER NOT NULL DEFAULT 0, error TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
   `CREATE INDEX IF NOT EXISTS idx_rem_user ON remittances(user_id, created_at)`,
+  `CREATE TABLE IF NOT EXISTS wallet_ledger (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), wallet TEXT NOT NULL, direction TEXT NOT NULL, amount REAL NOT NULL, ref TEXT NOT NULL UNIQUE, type TEXT, note TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+  `CREATE INDEX IF NOT EXISTS idx_ledger_user ON wallet_ledger(user_id, wallet, created_at)`,
+  `CREATE TABLE IF NOT EXISTS bank_accounts (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), bank_code TEXT NOT NULL, bank_name TEXT, account_number TEXT NOT NULL, account_name TEXT NOT NULL, nickname TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE(user_id, bank_code, account_number))`,
+  `CREATE TABLE IF NOT EXISTS withdrawals (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), wallet TEXT NOT NULL, amount REAL NOT NULL, fee REAL NOT NULL, net REAL NOT NULL, bank_code TEXT NOT NULL, bank_name TEXT, account_number TEXT NOT NULL, account_name TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending', reference TEXT NOT NULL UNIQUE, error TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+  `CREATE INDEX IF NOT EXISTS idx_wd_user ON withdrawals(user_id, created_at)`,
+  `CREATE TABLE IF NOT EXISTS beneficiaries (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), service TEXT NOT NULL, name TEXT NOT NULL, data TEXT NOT NULL, dedupe_key TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE(user_id, service, dedupe_key))`,
+  `CREATE TABLE IF NOT EXISTS referrals (id TEXT PRIMARY KEY, referrer_id TEXT NOT NULL REFERENCES users(id), referee_id TEXT NOT NULL UNIQUE REFERENCES users(id), code TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending', reward_amount REAL NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, earned_at TEXT)`,
+  `CREATE INDEX IF NOT EXISTS idx_ref_referrer ON referrals(referrer_id, created_at)`,
+  `CREATE TABLE IF NOT EXISTS user_notifications (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), title TEXT NOT NULL, message TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+  `CREATE INDEX IF NOT EXISTS idx_un_user ON user_notifications(user_id, created_at)`,
+  `CREATE TABLE IF NOT EXISTS support_tickets (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), tx_id TEXT, message TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'open', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
   `CREATE TABLE IF NOT EXISTS admin_log (id TEXT PRIMARY KEY, admin_id TEXT NOT NULL, action TEXT NOT NULL, target_id TEXT, detail TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
 ];
 // For databases created by the older worker: add columns that are missing.
@@ -26,8 +37,13 @@ const MIGRATIONS = [
   `ALTER TABLE profiles ADD COLUMN atc_balance REAL NOT NULL DEFAULT 0`,
   `ALTER TABLE profiles ADD COLUMN pin_attempts INTEGER NOT NULL DEFAULT 0`,
   `ALTER TABLE profiles ADD COLUMN pin_locked_until INTEGER NOT NULL DEFAULT 0`,
+  `ALTER TABLE profiles ADD COLUMN exchange_balance REAL NOT NULL DEFAULT 0`,
+  `ALTER TABLE profiles ADD COLUMN notif_seen_at TEXT NOT NULL DEFAULT '1970-01-01 00:00:00'`,
+  `ALTER TABLE transactions ADD COLUMN wallet TEXT NOT NULL DEFAULT 'main'`,
 ];
-const SAFE_PROFILE = 'id,full_name,username,phone,referral_code,referral_code_used,balance_ngn,atc_balance,is_admin,is_banned,created_at';
+const SAFE_PROFILE = 'id,full_name,username,phone,referral_code,referral_code_used,balance_ngn,atc_balance,exchange_balance,is_admin,is_banned,created_at';
+const WALLET_COL = { main: 'balance_ngn', exchange: 'exchange_balance', atc: 'atc_balance' };
+const WALLET_NAME = { main: 'Main Wallet', exchange: 'Exchange Wallet', atc: 'Airtime-to-Cash Wallet' };
 
 /* ----------------------------------------------------------------- helpers */
 const json = (data, status = 200, extra = {}) => new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json; charset=utf-8', 'access-control-allow-origin': '*', 'access-control-allow-headers': 'content-type,authorization,verif-hash', 'access-control-allow-methods': 'GET,POST,PATCH,DELETE,OPTIONS', ...extra } });
@@ -73,7 +89,22 @@ async function ensureSchema(env) {
   if (schemaReady) return;
   await env.DB.batch(SCHEMA.map((s) => env.DB.prepare(s)));
   for (const m of MIGRATIONS) { try { await env.DB.prepare(m).run(); } catch (e) { if (!/duplicate column/i.test(String(e.message))) throw e; } }
+  await migrateReferralCodes(env);
   schemaReady = true;
+}
+// Referral codes look like USS1234 (USS + 4 digits). If all 4-digit codes are taken, 5 and then 6 digits are used.
+async function newReferralCode(env) {
+  for (let digits = 4; digits <= 6; digits++) {
+    for (let i = 0; i < 25; i++) {
+      const code = 'USS' + String(crypto.getRandomValues(new Uint32Array(1))[0] % (10 ** digits)).padStart(digits, '0');
+      if (!(await env.DB.prepare('SELECT 1 FROM profiles WHERE referral_code=?').bind(code).first())) return code;
+    }
+  }
+  throw new Error('No free referral code');
+}
+async function migrateReferralCodes(env) {   // accounts created before the USS format get a USS code once
+  const old = (await env.DB.prepare("SELECT id FROM profiles WHERE referral_code IS NULL OR referral_code NOT LIKE 'USS%' LIMIT 500").all()).results;
+  for (const r of old) await env.DB.prepare('UPDATE profiles SET referral_code=? WHERE id=?').bind(await newReferralCode(env), r.id).run();
 }
 
 /* -------------------------------------------------------------- PIN checks */
@@ -103,13 +134,24 @@ async function signup(req, env) {
   if (!/^[a-z0-9_]{3,20}$/.test(username)) return fail('Username must be 3-20 letters, numbers or underscore.');
   if (!/^\d{4}$/.test(pin)) return fail('Transaction PIN must be exactly 4 digits.');
   const id = uid(), salt = uid(), pinSalt = uid();
+  // A referral code is optional. A wrong code never blocks registration: it is simply ignored.
+  const usedRaw = String(meta.referral_code_used || '').trim().toUpperCase();
+  const referrer = /^USS\d{4,6}$/.test(usedRaw) ? await env.DB.prepare('SELECT id FROM profiles WHERE referral_code=?').bind(usedRaw).first() : null;
+  const refEnabled = env.REFERRAL_ENABLED !== '0', reward = Number(env.REFERRAL_REWARD ?? 500);
   try {
     const hash = await passwordHash(password, salt), pinHash = await passwordHash(pin, pinSalt);
-    await env.DB.batch([
-      env.DB.prepare('INSERT INTO users(id,email,password_hash,password_salt) VALUES(?,?,?,?)').bind(id, email, hash, salt),
-      env.DB.prepare('INSERT INTO profiles(id,full_name,username,phone,referral_code_used,referral_code,transaction_pin_hash,transaction_pin_salt,is_admin) VALUES(?,?,?,?,?,?,?,?,?)')
-        .bind(id, String(meta.full_name || '').trim(), username, String(meta.phone || '').trim(), String(meta.referral_code_used || '').trim(), 'UMS' + crypto.randomUUID().replaceAll('-', '').slice(0, 7).toUpperCase(), pinHash, pinSalt, isAdminEmail(env, email) ? 1 : 0),
-    ]);
+    const nowStr = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const code = await newReferralCode(env);
+      const stmts = [
+        env.DB.prepare('INSERT INTO users(id,email,password_hash,password_salt) VALUES(?,?,?,?)').bind(id, email, hash, salt),
+        env.DB.prepare('INSERT INTO profiles(id,full_name,username,phone,referral_code_used,referral_code,transaction_pin_hash,transaction_pin_salt,is_admin,notif_seen_at) VALUES(?,?,?,?,?,?,?,?,?,?)')
+          .bind(id, String(meta.full_name || '').trim(), username, String(meta.phone || '').trim(), referrer ? usedRaw : '', code, pinHash, pinSalt, isAdminEmail(env, email) ? 1 : 0, nowStr),
+      ];
+      if (referrer && refEnabled) stmts.push(env.DB.prepare("INSERT INTO referrals(id,referrer_id,referee_id,code,status,reward_amount) VALUES(?,?,?,?,'pending',?)").bind(uid(), referrer.id, id, usedRaw, reward));
+      try { await env.DB.batch(stmts); break; }
+      catch (e) { if (attempt < 2 && String(e.message).includes('referral_code')) continue; throw e; }
+    }
   } catch (e) {
     console.error('signup failed', e);
     const m = String(e?.message || e);
@@ -137,23 +179,6 @@ async function flw(env, method, path, payload) {
   const r = await fetch(FLW + path, { method, headers: { authorization: `Bearer ${env.FLW_SECRET_KEY}`, 'content-type': 'application/json' }, body: payload ? JSON.stringify(payload) : undefined });
   const data = await r.json().catch(() => ({}));
   return { ok: r.ok && data.status === 'success', data };
-}
-
-// Refer & Earn: when a referred user makes their FIRST deposit, the referrer gets N10 per N1,000 deposited.
-async function referralBonus(env, userId, amount) {
-  const bonus = Math.floor(amount / 1000) * 10;
-  if (bonus <= 0) return;
-  const me = await env.DB.prepare('SELECT referral_code_used c FROM profiles WHERE id=?').bind(userId).first();
-  if (!me?.c) return;
-  const first = await env.DB.prepare("SELECT COUNT(*) n FROM transactions WHERE user_id=? AND type='fund' AND status='successful'").bind(userId).first();
-  if (first.n !== 1) return;                                   // only the first deposit counts
-  const ref = await env.DB.prepare('SELECT id FROM profiles WHERE referral_code=?').bind(String(me.c).trim().toUpperCase()).first();
-  if (!ref || ref.id === userId) return;
-  const key = 'refbonus-' + userId;
-  await env.DB.batch([
-    env.DB.prepare('UPDATE profiles SET balance_ngn=balance_ngn+? WHERE id=? AND NOT EXISTS(SELECT 1 FROM transactions WHERE provider_ref=?)').bind(bonus, ref.id, key),
-    env.DB.prepare("INSERT INTO transactions(id,user_id,type,label,amount,direction,status,provider_ref) SELECT ?,?,'referral-bonus','Referral bonus',?,'in','successful',? WHERE NOT EXISTS(SELECT 1 FROM transactions WHERE provider_ref=?)").bind(uid(), ref.id, bonus, key, key),
-  ]);
 }
 
 // Step 1 of card/USSD funding: create a hosted payment link.
@@ -192,9 +217,7 @@ async function settleFlutterwave(env, flwId) {
       env.DB.prepare("UPDATE profiles SET balance_ngn=balance_ngn+? WHERE id=? AND EXISTS(SELECT 1 FROM transactions WHERE id=? AND status='pending')").bind(pending.amount, pending.user_id, pending.id),
       env.DB.prepare("UPDATE transactions SET status='successful' WHERE id=? AND status='pending'").bind(pending.id),
     ]);
-    const credited = r[1].meta.changes === 1;
-    if (credited) await referralBonus(env, pending.user_id, pending.amount);
-    return { ok: true, credited };
+    return { ok: true, credited: r[1].meta.changes === 1 };
   }
   // bank transfer into a user's virtual account
   let userId = (await env.DB.prepare('SELECT user_id FROM virtual_accounts WHERE tx_ref=?').bind(d.tx_ref).first())?.user_id;
@@ -206,9 +229,7 @@ async function settleFlutterwave(env, flwId) {
     env.DB.prepare('UPDATE profiles SET balance_ngn=balance_ngn+? WHERE id=? AND EXISTS(SELECT 1 FROM payment_events WHERE id=?)').bind(paid, userId, evId),
     env.DB.prepare("INSERT INTO transactions(id,user_id,type,label,amount,direction,status,provider_ref,metadata) SELECT ?,?,'fund','Bank transfer funding',?,'in','successful',?,? WHERE EXISTS(SELECT 1 FROM payment_events WHERE id=?)").bind(uid(), userId, paid, 'flw-' + d.id, JSON.stringify({ provider: 'flutterwave', via: 'virtual-account' }), evId),
   ]);
-  const credited = r[0].meta.changes === 1;
-  if (credited) await referralBonus(env, userId, paid);
-  return { ok: true, credited };
+  return { ok: true, credited: r[0].meta.changes === 1 };
 }
 
 // The browser comes back here after paying on Flutterwave's page.
@@ -220,7 +241,10 @@ async function paymentReturn(req, env) {
     const r = id ? await settleFlutterwave(env, id) : { ok: false };
     outcome = r.ok ? 'success' : 'pending';
   } else if (txRef && isExchange) {
-    await env.DB.prepare("UPDATE remittances SET status='cancelled', updated_at=CURRENT_TIMESTAMP WHERE tx_ref=? AND status='awaiting_payment'").bind(txRef).run();
+    await env.DB.batch([
+      env.DB.prepare("UPDATE transactions SET status='failed' WHERE id=(SELECT id FROM remittances WHERE tx_ref=? AND status='awaiting_payment') AND status='pending'").bind(txRef),
+      env.DB.prepare("UPDATE remittances SET status='cancelled', updated_at=CURRENT_TIMESTAMP WHERE tx_ref=? AND status='awaiting_payment'").bind(txRef),
+    ]);
   } else if (txRef) {
     await env.DB.prepare("UPDATE transactions SET status='failed' WHERE provider_ref=? AND type='fund' AND status='pending'").bind(txRef).run();
   }
@@ -277,12 +301,30 @@ async function virtualAccount(req, env, user) {
 // The transaction id is also the provider's request_ref (unique, used to look the purchase up later).
 const VTU_KINDS = ['data', 'airtime', 'cable', 'electricity'];
 
+// Referral reward: when a referred user completes their FIRST successful purchase, the referrer earns the reward in the MAIN wallet.
+// The "pending" -> "earned" change and the credit happen in one atomic step, so a reward can never be paid twice.
+async function maybeEarnReferral(env, userId, amount) {
+  try {
+    if (env.REFERRAL_ENABLED === '0') return;                       // switched off in Admin Panel: rewards stay pending
+    if (Number(amount) < Number(env.REFERRAL_MIN_PURCHASE ?? 0)) return;
+    const r = await env.DB.prepare("SELECT id, referrer_id, reward_amount FROM referrals WHERE referee_id=? AND status='pending'").bind(userId).first();
+    if (!r) return;
+    if (!(r.reward_amount > 0)) { await env.DB.prepare("UPDATE referrals SET status='earned', earned_at=CURRENT_TIMESTAMP WHERE id=? AND status='pending'").bind(r.id).run(); return; }
+    const res = await env.DB.batch([
+      env.DB.prepare("UPDATE referrals SET status='earned', earned_at=CURRENT_TIMESTAMP WHERE id=? AND status='pending'").bind(r.id),
+      env.DB.prepare('UPDATE profiles SET balance_ngn=balance_ngn+? WHERE id=? AND changes() > 0').bind(r.reward_amount, r.referrer_id),
+      env.DB.prepare("INSERT INTO transactions(id,user_id,type,label,amount,direction,status,provider_ref,wallet) SELECT ?,?,'referral-bonus','Referral bonus',?,'in','successful',?,'main' WHERE changes() > 0").bind(uid(), r.referrer_id, r.reward_amount, 'refbonus-' + r.id),
+    ]);
+    if (res[0].meta.changes === 1) await notify(env, r.referrer_id, 'Referral reward', `You earned ₦${Number(r.reward_amount).toLocaleString()} because a friend you invited made their first purchase.`);
+  } catch (e) { console.error('referral reward failed', e); }
+}
 async function settlePurchase(env, txId, outcome, extra = {}) {
   const t = await env.DB.prepare("SELECT id,user_id,amount FROM transactions WHERE id=? AND status='pending'").bind(txId).first();
   if (!t) return false;                                   // already settled: nothing to do (safe to call twice)
   if (outcome === 'success') {
     const r = await env.DB.prepare("UPDATE transactions SET status='successful', provider_ref=COALESCE(?,provider_ref) WHERE id=? AND status='pending'").bind(extra.ref ?? null, txId).run();
-    return r.meta.changes === 1;
+    if (r.meta.changes === 1) { await maybeEarnReferral(env, t.user_id, t.amount); return true; }
+    return false;
   }
   const r = await env.DB.batch([
     env.DB.prepare("UPDATE profiles SET balance_ngn=balance_ngn+? WHERE id=? AND EXISTS(SELECT 1 FROM transactions WHERE id=? AND status='pending')").bind(t.amount, t.user_id, txId),
@@ -483,60 +525,19 @@ const FUNCTIONS = {
 
 /* ---------------------------------------------- AIRTIME-TO-CASH, OTP, WITHDRAW */
 let bankCache = null;
+// Flutterwave tells us how a bank transfer ended. References that start with UMSW- are customer withdrawals.
 async function settleTransfer(env, reference, status) {
-  if (reference.startsWith('UMSXP-')) return settleRemittanceTransfer(env, reference, status);
-  const t = await env.DB.prepare("SELECT id,user_id,amount,metadata FROM transactions WHERE provider_ref=? AND status='pending'").bind(reference).first();
-  if (!t) return;
-  if (status === 'SUCCESSFUL') { await env.DB.prepare("UPDATE transactions SET status='successful' WHERE id=? AND status='pending'").bind(t.id).run(); return; }
-  if (status === 'FAILED') {
-    const gross = JSON.parse(t.metadata || '{}').gross ?? t.amount;
-    await env.DB.batch([
-      env.DB.prepare("UPDATE profiles SET atc_balance=atc_balance+? WHERE id=? AND EXISTS(SELECT 1 FROM transactions WHERE id=? AND status='pending')").bind(gross, t.user_id, t.id),
-      env.DB.prepare("UPDATE transactions SET status='failed' WHERE id=? AND status='pending'").bind(t.id),
-    ]);
-  }
-}
-FUNCTIONS['atc-withdraw'] = async (x, env, user) => {
-  if (x.action === 'get_banks') {
-    if (!bankCache) {
-      if (!env.FLW_SECRET_KEY) return fail('Bank list is not available yet.', 503);
-      const r = await flw(env, 'GET', '/banks/NG');
-      if (!r.ok) return fail('Could not load banks.', 502);
-      bankCache = r.data.data.map((b) => ({ code: b.code, name: b.name })).sort((a, b) => a.name.localeCompare(b.name));
+  if (!String(reference).startsWith('UMSW-')) return;
+  const wd = await env.DB.prepare('SELECT id,user_id,net FROM withdrawals WHERE reference=?').bind(reference).first();
+  if (!wd) return;
+  if (status === 'SUCCESSFUL') {
+    const c = await env.DB.prepare("UPDATE withdrawals SET status='successful', updated_at=CURRENT_TIMESTAMP WHERE id=? AND status IN ('pending','processing')").bind(wd.id).run();
+    if (c.meta.changes === 1) {
+      await env.DB.prepare("UPDATE transactions SET status='successful' WHERE id=?").bind(wd.id).run();
+      await notify(env, wd.user_id, 'Withdrawal successful', `\u20a6${Number(wd.net).toLocaleString()} has been sent to your bank account.`);
     }
-    return json({ banks: bankCache });
-  }
-  const p = await env.DB.prepare('SELECT atc_balance FROM profiles WHERE id=?').bind(user.id).first();
-  const amount = money(p?.atc_balance || 0);
-  if (amount <= 0) return fail('No Airtime-to-Cash balance to withdraw.');
-
-  if (x.action === 'to_wallet') {
-    const r = await env.DB.batch([
-      env.DB.prepare('UPDATE profiles SET atc_balance=atc_balance-?, balance_ngn=balance_ngn+? WHERE id=? AND atc_balance>=?').bind(amount, amount, user.id, amount),
-      env.DB.prepare("INSERT INTO transactions(id,user_id,type,label,amount,direction,status) SELECT ?,?,'airtime-to-cash','Airtime-to-Cash moved to wallet',?,'in','successful' WHERE changes() > 0").bind(uid(), user.id, amount),
-    ]);
-    if (r[0].meta.changes !== 1) return fail('Balance changed. Please try again.');
-    return json({ data: { amount } });
-  }
-  if (x.action === 'to_bank') {
-    const bankCode = String(x.bankCode || ''), acct = String(x.accountNumber || '');
-    const fee = money(env.ATC_BANK_FEE || 0), net = money(amount - fee);
-    if (!bankCode || !/^\d{10}$/.test(acct)) return fail('Select a bank and enter a valid 10-digit account number.');
-    if (net <= 0) return fail('Balance is too small to withdraw.');
-    if (!env.FLW_SECRET_KEY) return fail('Bank withdrawals are not set up yet.', 503);
-    const ref = 'UMSW-' + uid(), txId = uid();
-    const r = await env.DB.batch([
-      env.DB.prepare('UPDATE profiles SET atc_balance=atc_balance-? WHERE id=? AND atc_balance>=?').bind(amount, user.id, amount),
-      env.DB.prepare("INSERT INTO transactions(id,user_id,type,label,amount,direction,status,provider_ref,metadata) SELECT ?,?,'airtime-to-cash',?,?,'out','pending',?,? WHERE changes() > 0").bind(txId, user.id, `Withdrawal to bank ${acct}`, net, ref, JSON.stringify({ gross: amount, fee })),
-    ]);
-    if (r[0].meta.changes !== 1) return fail('Balance changed. Please try again.');
-    const t = await flw(env, 'POST', '/transfers', { account_bank: bankCode, account_number: acct, amount: net, currency: 'NGN', reference: ref, narration: (env.APP_NAME || 'Withdrawal') + ' withdrawal', debit_currency: 'NGN' });
-    if (!t.ok) { await settleTransfer(env, ref, 'FAILED'); return fail(t.data.message || 'Transfer failed. Your balance was restored.', 502); }
-    return json({ data: { amount: net } }); // final status arrives by webhook (transfer.completed)
-  }
-  return fail('Unknown action.');
-};
-
+  } else if (status === 'FAILED') await reverseWithdrawal(env, wd.id, 'The bank transfer failed');
+}
 
 /* ------------------------------------------------------------------ EXCHANGE (send money to Nigeria) */
 // Customer pays by card in USD/GBP/EUR (Flutterwave checkout). After Flutterwave confirms the payment,
@@ -612,7 +613,8 @@ const xValid = (x, c) => {
   return null;
 };
 
-// Card payment confirmed -> mark as paid ONCE -> send the naira.
+// Card payment confirmed (verified with Flutterwave) -> credit the customer's EXCHANGE WALLET once.
+// The customer keeps the naira there and withdraws whenever they choose. Nothing is sent to a bank automatically.
 async function settleRemittance(env, d) {
   const r = await env.DB.prepare('SELECT * FROM remittances WHERE tx_ref=?').bind(d.tx_ref).first();
   if (!r) return { ok: false, reason: 'unknown exchange' };
@@ -620,37 +622,15 @@ async function settleRemittance(env, d) {
     await env.DB.prepare("UPDATE remittances SET status='amount_mismatch', flw_tx_id=?, error=?, updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='awaiting_payment'").bind(String(d.id), `Paid ${d.amount} ${d.currency}, expected ${r.source_amount} ${r.currency}`, r.id).run();
     return { ok: false, reason: 'amount mismatch' };
   }
-  const c = await env.DB.prepare("UPDATE remittances SET status='paid', flw_tx_id=?, updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='awaiting_payment'").bind(String(d.id), r.id).run();
-  if (c.meta.changes !== 1) return { ok: true, credited: false };   // already processed (webhook replay / page reload)
-  await payoutRemittance(env, r.id);
-  return { ok: true, credited: true };
-}
-// TODO(before going live): confirm with Flutterwave that this account may pay out naira to third-party bank accounts
-// (Transfers) for money collected from customers abroad, and that the naira balance used for payouts is funded from these collections.
-async function payoutRemittance(env, id) {
-  const r = await env.DB.prepare('SELECT * FROM remittances WHERE id=?').bind(id).first();
-  if (!r) return { ok: false, error: 'Not found' };
-  const ref = `UMSXP-${r.id}-${r.payout_attempts + 1}`;
-  // Only one caller can move paid / payout_failed -> payout_pending, so a payout can never be sent twice at the same time.
-  const g = await env.DB.prepare("UPDATE remittances SET status='payout_pending', payout_ref=?, payout_attempts=payout_attempts+1, error=NULL, updated_at=CURRENT_TIMESTAMP WHERE id=? AND status IN ('paid','payout_failed')").bind(ref, r.id).run();
-  if (g.meta.changes !== 1) return { ok: false, error: 'This exchange is not ready for payout.' };
-  try {
-    const t = await flw(env, 'POST', '/transfers', { account_bank: r.bank_code, account_number: r.account_number, amount: r.receive_ngn, currency: 'NGN', reference: ref, narration: (env.APP_NAME || 'Money transfer').slice(0, 40), debit_currency: 'NGN' });
-    if (!t.ok) {
-      await env.DB.prepare("UPDATE remittances SET status='payout_failed', error=?, updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='payout_pending'").bind(String(t.data?.message || 'Transfer request failed').slice(0, 200), r.id).run();
-      return { ok: false, error: t.data?.message || 'Transfer request failed' };
-    }
-    return { ok: true };   // final result arrives by webhook (transfer.completed)
-  } catch (e) {
-    console.error('payout error', e);
-    return { ok: false, error: 'No answer from Flutterwave. Check the transfer in your Flutterwave dashboard before retrying.' }; // stays payout_pending
-  }
-}
-async function settleRemittanceTransfer(env, reference, status) {
-  const r = await env.DB.prepare('SELECT id FROM remittances WHERE payout_ref=?').bind(reference).first();
-  if (!r) return;
-  if (status === 'SUCCESSFUL') await env.DB.prepare("UPDATE remittances SET status='completed', updated_at=CURRENT_TIMESTAMP WHERE id=? AND status IN ('payout_pending','payout_failed')").bind(r.id).run();
-  else if (status === 'FAILED') await env.DB.prepare("UPDATE remittances SET status='payout_failed', error='Flutterwave could not complete the transfer', updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='payout_pending'").bind(r.id).run();
+  const res = await env.DB.batch([
+    env.DB.prepare("UPDATE remittances SET status='credited', flw_tx_id=?, updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='awaiting_payment'").bind(String(d.id), r.id),
+    env.DB.prepare('UPDATE profiles SET exchange_balance=exchange_balance+? WHERE id=? AND changes() > 0').bind(r.receive_ngn, r.user_id),
+    env.DB.prepare("INSERT INTO wallet_ledger(id,user_id,wallet,direction,amount,ref,type,note) SELECT ?,?,'exchange','in',?,?,'exchange',? WHERE changes() > 0").bind(uid(), r.user_id, r.receive_ngn, 'exchange-' + r.id, `${r.source_amount} ${r.currency} exchange`),
+    env.DB.prepare("UPDATE transactions SET status='successful' WHERE id=? AND status='pending'").bind(r.id),
+  ]);
+  const credited = res[0].meta.changes === 1;
+  if (credited) await notify(env, r.user_id, 'Exchange successful', `\u20a6${Number(r.receive_ngn).toLocaleString()} has been added to your Exchange Wallet.`);
+  return { ok: true, credited };
 }
 
 FUNCTIONS['exchange-info'] = async (x, env) => {
@@ -659,13 +639,6 @@ FUNCTIONS['exchange-info'] = async (x, env) => {
 };
 FUNCTIONS['get-banks'] = async (x, env) => {
   try { return json({ banks: await loadBanks(env) }); } catch (e) { return fail(String(e.message || 'Could not load banks.'), 503); }
-};
-FUNCTIONS['exchange-resolve'] = async (x, env) => {
-  const bank = String(x.bankCode || ''), acct = String(x.accountNumber || '');
-  if (!bank || !/^\d{10}$/.test(acct)) return fail('Select a bank and enter a 10-digit account number.');
-  if (!env.FLW_SECRET_KEY) return fail('This service is not available yet.', 503);
-  const name = await xResolveAccount(env, bank, acct);
-  return name ? json({ account_name: name }) : fail('Could not find this account. Please check the bank and account number.');
 };
 FUNCTIONS['exchange-quote'] = async (x, env) => {
   const c = xCfg(env);
@@ -679,29 +652,265 @@ FUNCTIONS['exchange-create'] = async (x, env, user, req) => {
   if (!c.enabled) return fail('This service is not available yet.');
   if (!env.FLW_SECRET_KEY) return fail('This service is not available yet.', 503);
   const bad = xValid(x, c); if (bad) return fail(bad);
-  const bank = String(x.bankCode || ''), acct = String(x.accountNumber || '');
-  if (!bank || !/^\d{10}$/.test(acct)) return fail('Select a bank and enter a 10-digit account number.');
   const pinErr = await verifyPin(env, user.id, x.pin); if (pinErr) return fail(pinErr);
   const today = await env.DB.prepare("SELECT COUNT(*) n FROM remittances WHERE user_id=? AND status NOT IN ('cancelled','awaiting_payment') AND created_at > datetime('now','-1 day')").bind(user.id).first();
-  if (today.n >= c.dailyCount) return fail(`You can make at most ${c.dailyCount} transfers per day.`);
-  const name = await xResolveAccount(env, bank, acct);
-  if (!name) return fail('Could not find this account. Please check the bank and account number.');
+  if (today.n >= c.dailyCount) return fail(`You can make at most ${c.dailyCount} exchanges per day.`);
   let q; try { q = await xQuote(env, String(x.currency), money(x.amount)); } catch (e) { console.error(e); return fail('Rates are temporarily unavailable. Please try again shortly.', 503); }
   if (q.limit_error) return fail(q.limit_error);
-  if (q.receive_ngn < 1000) return fail('The amount is too small after fees.');
+  if (q.receive_ngn < 1) return fail('The amount is too small after fees.');
   const id = uid(), txRef = 'UMSX-' + id;
   const prof = await env.DB.prepare('SELECT full_name, phone FROM profiles WHERE id=?').bind(user.id).first();
-  const bankName = (bankCache || []).find((b) => b.code === bank)?.name || null;
   const p = await flw(env, 'POST', '/payments', { tx_ref: txRef, amount: q.amount, currency: q.currency, payment_options: X_CURRENCIES[q.currency].options, redirect_url: env.FLW_REDIRECT_URL || new URL('/api/payment/return', req.url).toString(),
-    customer: { email: user.email, name: prof?.full_name || user.email, phonenumber: prof?.phone || '' }, customizations: { title: env.APP_NAME || 'Money transfer', description: `Send money to ${name}` }, meta: { remittance_id: id } });
+    customer: { email: user.email, name: prof?.full_name || user.email, phonenumber: prof?.phone || '' }, customizations: { title: env.APP_NAME || 'Exchange', description: 'Add money to your Exchange Wallet' }, meta: { remittance_id: id } });
   if (!p.ok) return fail(p.data?.message || 'Could not start the payment.', 502);
-  await env.DB.prepare('INSERT INTO remittances(id,user_id,tx_ref,currency,source_amount,rate,fee_percent,fee_amount,receive_ngn,bank_code,bank_name,account_number,account_name) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)')
-    .bind(id, user.id, txRef, q.currency, q.amount, q.rate, q.fee_percent, q.fee_amount, q.receive_ngn, bank, bankName, acct, name).run();
-  return json({ data: { link: p.data.data.link, id, account_name: name, receive_ngn: q.receive_ngn } });
+  await env.DB.batch([
+    env.DB.prepare("INSERT INTO remittances(id,user_id,tx_ref,currency,source_amount,rate,fee_percent,fee_amount,receive_ngn,bank_code,account_number) VALUES(?,?,?,?,?,?,?,?,?,'','')").bind(id, user.id, txRef, q.currency, q.amount, q.rate, q.fee_percent, q.fee_amount, q.receive_ngn),
+    env.DB.prepare("INSERT INTO transactions(id,user_id,type,label,amount,direction,status,provider_ref,wallet,metadata) VALUES(?,?,'exchange',?,?,'in','pending',?,'exchange',?)").bind(id, user.id, `Exchange (${q.currency} \u2192 NGN)`, q.receive_ngn, txRef, JSON.stringify({ currency: q.currency, source_amount: q.amount, rate: q.rate, fee_percent: q.fee_percent, fee_amount: q.fee_amount })),
+  ]);
+  return json({ data: { link: p.data.data.link, id, receive_ngn: q.receive_ngn } });
 };
-FUNCTIONS['exchange-history'] = async (x, env, user) => {
-  const rows = (await env.DB.prepare('SELECT id,currency,source_amount,rate,fee_percent,fee_amount,receive_ngn,bank_name,account_number,account_name,status,created_at FROM remittances WHERE user_id=? ORDER BY created_at DESC LIMIT 20').bind(user.id).all()).results;
-  return json({ items: rows.map((r) => ({ ...r, account_number: '******' + String(r.account_number).slice(-4) })) });
+
+/* ------------------------------------------------------------------ WALLETS, HISTORY, WITHDRAWALS, FAVOURITES, REFERRALS */
+const maskAcct = (n) => '******' + String(n).slice(-4);
+const cfgNum = (env, key, dflt) => { const v = Number(env[key]); return env[key] !== undefined && env[key] !== '' && Number.isFinite(v) ? v : dflt; };
+const wdCfg = (env) => ({ fee: money(cfgNum(env, 'WITHDRAW_FEE_FLAT', 0)), min: cfgNum(env, 'WITHDRAW_MIN_AMOUNT', 1000) });
+const appBase = (env, req) => { const u = String(env.APP_URL || '').trim().replace(/\/+$/, ''); return /^https:\/\/[^\s]+$/.test(u) ? u : new URL(req.url).origin; };
+
+async function notify(env, userId, title, message) {   // a personal notification (shows under the bell)
+  try { await env.DB.prepare('INSERT INTO user_notifications(id,user_id,title,message) VALUES(?,?,?,?)').bind(uid(), userId, String(title).slice(0, 80), String(message).slice(0, 300)).run(); }
+  catch (e) { console.error('notify failed', e); }
+}
+function ledgerIfChanged(env, p) {   // ledger line, only written when the statement before it changed a row
+  return env.DB.prepare('INSERT INTO wallet_ledger(id,user_id,wallet,direction,amount,ref,type,note) SELECT ?,?,?,?,?,?,?,? WHERE changes() > 0').bind(uid(), p.userId, p.wallet, p.dir, p.amount, p.ref, p.type, p.note || null);
+}
+
+// A fingerprint for every transaction: HMAC-SHA256 with the server secret over fields that never change.
+// Customers cannot forge it, and admins can check a receipt in Admin Panel -> Transactions -> Verify receipt.
+async function txHash(env, t) {
+  const key = await hmacKey(String(env.AUTH_SECRET), 'sign');
+  const data = `tx1|${t.id}|${t.user_id}|${t.type}|${money(t.amount)}|${t.direction}|${t.created_at}`;
+  return [...new Uint8Array(await crypto.subtle.sign('HMAC', key, enc(data)))].map((b) => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+}
+function timelineFor(t) {
+  const ok = t.status === 'successful', bad = t.status === 'failed';
+  const steps = [{ label: 'Request received', state: 'done', time: t.created_at }];
+  if (t.type === 'exchange') steps.push({ label: ok ? 'Payment confirmed' : bad ? 'Payment not completed' : 'Waiting for payment confirmation', state: ok ? 'done' : bad ? 'failed' : 'pending' }, { label: 'Credited to Exchange Wallet', state: ok ? 'done' : 'pending' });
+  else if (t.type === 'withdrawal') steps.push({ label: 'Amount taken from wallet', state: 'done' }, { label: ok ? 'Sent to your bank' : bad ? 'Failed. Money returned to your wallet' : 'Processing with the bank', state: ok ? 'done' : bad ? 'failed' : 'pending' });
+  else if (t.direction === 'out') steps.push({ label: 'Paid from wallet', state: 'done' }, { label: ok ? 'Delivered' : bad ? 'Failed. Refunded to your wallet' : 'Processing', state: ok ? 'done' : bad ? 'failed' : 'pending' });
+  else steps.push({ label: ok ? 'Money received' : bad ? 'Not completed' : 'Waiting for confirmation', state: ok ? 'done' : bad ? 'failed' : 'pending' });
+  return steps;
+}
+
+FUNCTIONS['wallet-summary'] = async (x, env, user) => {
+  const p = await env.DB.prepare('SELECT balance_ngn m, exchange_balance e, atc_balance a FROM profiles WHERE id=?').bind(user.id).first();
+  const pe = await env.DB.prepare("SELECT COALESCE(SUM(receive_ngn),0) s FROM remittances WHERE user_id=? AND status='awaiting_payment' AND created_at > datetime('now','-1 day')").bind(user.id).first();
+  return json({ main: money(p.m), exchange: money(p.e), atc: money(p.a), total: money(p.m + p.e + p.a), pending_exchange: money(pe.s), pending_atc: 0, withdraw: wdCfg(env) });
+};
+FUNCTIONS['app-config'] = async (x, env, user, req) => json({
+  service_notice: env.SERVICE_NOTICE_ON === '0' ? '' : String(env.SERVICE_NOTICE || ''),
+  support_whatsapp: String(env.SUPPORT_WHATSAPP || ''), support_email: String(env.SUPPORT_EMAIL || ''),
+  referral: { enabled: env.REFERRAL_ENABLED !== '0', reward: cfgNum(env, 'REFERRAL_REWARD', 500) },
+  app_url: appBase(env, req), exchange_enabled: env.EXCHANGE_ENABLED === '1', withdraw: wdCfg(env),
+});
+
+/* ----- notifications (personal ones + messages from the admin) ----- */
+FUNCTIONS['my-notifications'] = async (x, env, user) => {
+  const seen = (await env.DB.prepare('SELECT notif_seen_at s FROM profiles WHERE id=?').bind(user.id).first())?.s || '1970-01-01 00:00:00';
+  const mine = (await env.DB.prepare('SELECT title,message,created_at FROM user_notifications WHERE user_id=? ORDER BY created_at DESC, rowid DESC LIMIT 50').bind(user.id).all()).results;
+  const all = (await env.DB.prepare('SELECT title,message,created_at FROM notifications ORDER BY created_at DESC LIMIT 30').all()).results.map((n) => ({ ...n, from_admin: true }));
+  const items = [...mine, ...all].sort((a, b) => String(b.created_at).localeCompare(String(a.created_at))).slice(0, 60).map((n) => ({ ...n, unread: n.created_at > seen }));
+  return json({ items, unread: items.filter((i) => i.unread).length });
+};
+FUNCTIONS['notifications-seen'] = async (x, env, user) => { await env.DB.prepare('UPDATE profiles SET notif_seen_at=CURRENT_TIMESTAMP WHERE id=?').bind(user.id).run(); return json({ ok: true }); };
+
+/* ----- transactions ----- */
+FUNCTIONS['tx-list'] = async (x, env, user) => {
+  const where = ['user_id=?'], args = [user.id];
+  if (['main', 'exchange', 'atc'].includes(x.wallet)) { where.push('wallet=?'); args.push(x.wallet); }
+  if (['successful', 'pending', 'failed'].includes(x.status)) { where.push('status=?'); args.push(x.status); }
+  const q = String(x.q || '').trim().slice(0, 60);
+  if (q) { const like = '%' + q.replace(/[\\%_]/g, '\\$&') + '%'; where.push("(label LIKE ? ESCAPE '\\' OR provider_ref LIKE ? ESCAPE '\\' OR id LIKE ? ESCAPE '\\')"); args.push(like, like, like); }
+  const offset = Math.max(0, Math.floor(Number(x.offset) || 0)), W = where.join(' AND ');
+  const items = (await env.DB.prepare(`SELECT id,type,label,amount,direction,status,wallet,created_at FROM transactions WHERE ${W} ORDER BY created_at DESC, rowid DESC LIMIT 20 OFFSET ?`).bind(...args, offset).all()).results;
+  const total = (await env.DB.prepare(`SELECT COUNT(*) n FROM transactions WHERE ${W}`).bind(...args).first()).n;
+  return json({ items, total, page_size: 20 });
+};
+FUNCTIONS['tx-detail'] = async (x, env, user) => {
+  const t = await env.DB.prepare('SELECT * FROM transactions WHERE id=? AND user_id=?').bind(String(x.id || ''), user.id).first();
+  if (!t) return fail('Transaction not found.', 404);
+  const hash = await txHash(env, t);
+  let extra = null;
+  if (t.type === 'exchange') extra = await env.DB.prepare('SELECT currency,source_amount,rate,fee_percent,fee_amount,receive_ngn FROM remittances WHERE id=?').bind(t.id).first();
+  if (t.type === 'withdrawal') { const wd = await env.DB.prepare('SELECT wallet,amount,fee,net,bank_name,account_number,account_name,reference FROM withdrawals WHERE id=?').bind(t.id).first(); if (wd) extra = { ...wd, account_number: maskAcct(wd.account_number) }; }
+  return json({ transaction: { id: t.id, type: t.type, label: t.label, amount: t.amount, direction: t.direction, status: t.status, wallet: t.wallet, created_at: t.created_at, reference: t.provider_ref, hash, short_hash: hash.slice(0, 16) }, extra, timeline: timelineFor(t) });
+};
+
+/* ----- saved bank accounts (verified with Flutterwave before saving) ----- */
+FUNCTIONS['bank-accounts'] = async (x, env, user) => {
+  const rows = (await env.DB.prepare('SELECT id,bank_name,account_number,account_name,nickname FROM bank_accounts WHERE user_id=? ORDER BY created_at DESC').bind(user.id).all()).results;
+  return json({ items: rows.map((r) => ({ ...r, account_number: maskAcct(r.account_number) })) });
+};
+FUNCTIONS['bank-resolve'] = async (x, env) => {   // shows the account name before the customer saves a bank account
+  const bank = String(x.bankCode || ''), acct = String(x.accountNumber || '');
+  if (!bank || !/^\d{10}$/.test(acct)) return fail('Select a bank and enter a 10-digit account number.');
+  if (!env.FLW_SECRET_KEY) return fail('This service is not available yet.', 503);
+  const name = await xResolveAccount(env, bank, acct);
+  return name ? json({ account_name: name }) : fail('Could not verify this account. Please check the bank and account number.');
+};
+FUNCTIONS['bank-account-add'] = async (x, env, user) => {
+  const bank = String(x.bankCode || ''), acct = String(x.accountNumber || ''), nick = String(x.nickname || '').trim().slice(0, 30);
+  if (!bank || !/^\d{10}$/.test(acct)) return fail('Select a bank and enter a 10-digit account number.');
+  if (!env.FLW_SECRET_KEY) return fail('This service is not available yet.', 503);
+  if ((await env.DB.prepare('SELECT COUNT(*) n FROM bank_accounts WHERE user_id=?').bind(user.id).first()).n >= 10) return fail('You can save up to 10 bank accounts. Remove one first.');
+  let banks; try { banks = await loadBanks(env); } catch (e) { return fail('Could not load banks. Please try again.', 503); }
+  const b = banks.find((k) => k.code === bank);
+  if (!b) return fail('This bank is not supported.');
+  const name = await xResolveAccount(env, bank, acct);
+  if (!name) return fail('Could not verify this account. Please check the bank and account number.');
+  const id = uid();
+  try { await env.DB.prepare('INSERT INTO bank_accounts(id,user_id,bank_code,bank_name,account_number,account_name,nickname) VALUES(?,?,?,?,?,?,?)').bind(id, user.id, bank, b.name, acct, name, nick || null).run(); }
+  catch (e) { return fail(String(e.message).includes('UNIQUE') ? 'This account is already saved.' : 'Could not save the account.', 409); }
+  return json({ account: { id, bank_name: b.name, account_number: maskAcct(acct), account_name: name, nickname: nick || null } });
+};
+FUNCTIONS['bank-account-rename'] = async (x, env, user) => {
+  const c = await env.DB.prepare('UPDATE bank_accounts SET nickname=? WHERE id=? AND user_id=?').bind(String(x.nickname || '').trim().slice(0, 30) || null, String(x.id || ''), user.id).run();
+  return c.meta.changes === 1 ? json({ ok: true }) : fail('Account not found.', 404);
+};
+FUNCTIONS['bank-account-delete'] = async (x, env, user) => {
+  const c = await env.DB.prepare('DELETE FROM bank_accounts WHERE id=? AND user_id=?').bind(String(x.id || ''), user.id).run();
+  return c.meta.changes === 1 ? json({ ok: true }) : fail('Account not found.', 404);
+};
+
+/* ----- withdrawals: Exchange Wallet and Airtime-to-Cash Wallet only. The Main Wallet can never be withdrawn. ----- */
+async function wdQuote(env, user, x) {
+  const wallet = String(x.wallet || ''), amount = money(x.amount), c = wdCfg(env);
+  if (wallet === 'main') return { error: 'The Main Wallet cannot be withdrawn. It is for buying services.' };
+  if (!['exchange', 'atc'].includes(wallet)) return { error: 'Choose Exchange Wallet or Airtime-to-Cash Wallet.' };
+  if (!(amount >= c.min)) return { error: `The minimum withdrawal is \u20a6${c.min.toLocaleString()}.` };
+  const bal = money((await env.DB.prepare(`SELECT ${WALLET_COL[wallet]} b FROM profiles WHERE id=?`).bind(user.id).first()).b);
+  if (amount > bal) return { error: `You only have \u20a6${bal.toLocaleString()} in this wallet.` };
+  const net = money(amount - c.fee);
+  if (!(net > 0)) return { error: 'The amount is too small after the fee.' };
+  return { q: { wallet, amount, fee: c.fee, net, balance: bal, remaining: money(bal - amount) } };
+}
+FUNCTIONS['withdraw-quote'] = async (x, env, user) => { const r = await wdQuote(env, user, x); return r.error ? fail(r.error) : json({ quote: r.q }); };
+FUNCTIONS['withdraw-create'] = async (x, env, user) => {
+  const r = await wdQuote(env, user, x); if (r.error) return fail(r.error);
+  const q = r.q;
+  const bank = await env.DB.prepare('SELECT * FROM bank_accounts WHERE id=? AND user_id=?').bind(String(x.bankAccountId || ''), user.id).first();
+  if (!bank) return fail('Choose one of your saved bank accounts.');
+  if (!env.FLW_SECRET_KEY) return fail('Withdrawals are not available yet.', 503);
+  const pinErr = await verifyPin(env, user.id, x.pin); if (pinErr) return fail(pinErr);
+  const id = uid(), reference = 'UMSW-' + id, col = WALLET_COL[q.wallet];
+  // One atomic step: take the money out of the wallet, create the withdrawal, the history line and the ledger line.
+  // The wallet check inside the UPDATE stops two quick taps from withdrawing the same money twice.
+  const b = await env.DB.batch([
+    env.DB.prepare(`UPDATE profiles SET ${col}=${col}-? WHERE id=? AND ${col}>=? AND is_banned=0`).bind(q.amount, user.id, q.amount),
+    env.DB.prepare("INSERT INTO withdrawals(id,user_id,wallet,amount,fee,net,bank_code,bank_name,account_number,account_name,status,reference) SELECT ?,?,?,?,?,?,?,?,?,?,'pending',? WHERE changes() > 0").bind(id, user.id, q.wallet, q.amount, q.fee, q.net, bank.bank_code, bank.bank_name, bank.account_number, bank.account_name, reference),
+    env.DB.prepare("INSERT INTO transactions(id,user_id,type,label,amount,direction,status,provider_ref,wallet,metadata) SELECT ?,?,'withdrawal',?,?,'out','pending',?,?,? WHERE changes() > 0").bind(id, user.id, `Withdrawal to ${bank.bank_name} ${maskAcct(bank.account_number)}`, q.amount, reference, q.wallet, JSON.stringify({ fee: q.fee, net: q.net })),
+    ledgerIfChanged(env, { userId: user.id, wallet: q.wallet, dir: 'out', amount: q.amount, ref: 'withdraw-' + id, type: 'withdrawal', note: `To ${bank.bank_name} ${maskAcct(bank.account_number)}` }),
+  ]);
+  if (b[0].meta.changes !== 1) return fail('Your balance changed. Please check it and try again.');
+  await notify(env, user.id, 'Withdrawal submitted', `Your withdrawal of \u20a6${q.amount.toLocaleString()} is being processed.`);
+  let t;
+  try { t = await flw(env, 'POST', '/transfers', { account_bank: bank.bank_code, account_number: bank.account_number, amount: q.net, currency: 'NGN', reference, narration: (env.APP_NAME || 'Withdrawal').slice(0, 40), debit_currency: 'NGN' }); }
+  catch (e) { console.error('transfer error', e); return json({ data: { id, status: 'pending', message: 'Your withdrawal is being processed. Check your history for the result.' } }); } // stays pending; the webhook or admin settles it
+  if (!t.ok) { await reverseWithdrawal(env, id, String(t.data?.message || 'The transfer was refused').slice(0, 200)); return fail((t.data?.message || 'The transfer could not be started') + '. Your money was returned to your wallet.', 502); }
+  await env.DB.prepare("UPDATE withdrawals SET status='processing', updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='pending'").bind(id).run();
+  return json({ data: { id, status: 'processing', message: 'Your withdrawal is on its way.' } });
+};
+async function reverseWithdrawal(env, id, reason) {   // gives the money back exactly once
+  const wd = await env.DB.prepare("SELECT * FROM withdrawals WHERE id=? AND status IN ('pending','processing')").bind(id).first();
+  if (!wd) return false;
+  const col = WALLET_COL[wd.wallet];
+  const r = await env.DB.batch([
+    env.DB.prepare("UPDATE withdrawals SET status='reversed', error=?, updated_at=CURRENT_TIMESTAMP WHERE id=? AND status IN ('pending','processing')").bind(String(reason).slice(0, 200), id),
+    env.DB.prepare(`UPDATE profiles SET ${col}=${col}+? WHERE id=? AND changes() > 0`).bind(wd.amount, wd.user_id),
+    ledgerIfChanged(env, { userId: wd.user_id, wallet: wd.wallet, dir: 'in', amount: wd.amount, ref: 'withdraw-reversal-' + id, type: 'withdrawal-reversal', note: 'Withdrawal failed, money returned' }),
+    env.DB.prepare("UPDATE transactions SET status='failed' WHERE id=?").bind(id),
+  ]);
+  if (r[0].meta.changes !== 1) return false;
+  await notify(env, wd.user_id, 'Withdrawal failed', `Your withdrawal of \u20a6${Number(wd.amount).toLocaleString()} did not go through. The money is back in your ${WALLET_NAME[wd.wallet]}.`);
+  return true;
+}
+FUNCTIONS['withdraw-history'] = async (x, env, user) => {
+  const rows = (await env.DB.prepare('SELECT id,wallet,amount,fee,net,bank_name,account_number,account_name,status,reference,created_at FROM withdrawals WHERE user_id=? ORDER BY created_at DESC, rowid DESC LIMIT 30').bind(user.id).all()).results;
+  return json({ items: rows.map((r) => ({ ...r, account_number: maskAcct(r.account_number) })) });
+};
+
+/* ----- favourite beneficiaries, kept separately for each service ----- */
+const FAV_SERVICES = ['data', 'airtime', 'a2c', 'electricity', 'cable', 'sms'];
+function favClean(service, d) {   // returns { data, key } or { error }
+  d = d && typeof d === 'object' ? d : {};
+  if (['data', 'airtime', 'a2c'].includes(service)) {
+    const phone = String(d.phone || '');
+    if (!validPhone(phone)) return { error: 'Enter a valid phone number.' };
+    return { data: { phone, network: NETS.includes(String(d.network)) ? String(d.network) : '' }, key: normalizeNgNumber(phone) || phone };
+  }
+  if (service === 'electricity') {
+    const disco = C.ELECTRICITY_DISCOS.find((k) => k.code === String(d.discoCode)), type = String(d.meterType || '').toLowerCase(), meter = String(d.meterNumber || '').trim();
+    if (!disco || !['prepaid', 'postpaid'].includes(type) || !/^\d{6,15}$/.test(meter)) return { error: 'Choose the distribution company, meter type and a valid meter number.' };
+    return { data: { discoCode: disco.code, meterType: type, meterNumber: meter }, key: `${disco.code}|${meter}` };
+  }
+  if (service === 'cable') {
+    const prov = String(d.provider || '').toLowerCase(), card = String(d.smartcard || '').trim();
+    if (!CABLE_PROVIDERS.includes(prov) || !/^\d{8,15}$/.test(card)) return { error: 'Choose the provider and enter a valid smartcard number.' };
+    return { data: { provider: prov, smartcard: card }, key: `${prov}|${card}` };
+  }
+  if (service === 'sms') {
+    const { numbers } = parseRecipients(Array.isArray(d.numbers) ? d.numbers.join(',') : '');
+    if (!numbers.length) return { error: 'Add at least one valid phone number.' };
+    if (numbers.length > 500) return { error: 'A saved list can hold up to 500 numbers.' };
+    return { data: { numbers }, key: null };
+  }
+  return { error: 'Unknown service.' };
+}
+FUNCTIONS['fav-list'] = async (x, env, user) => {
+  const service = String(x.service || '');
+  if (!FAV_SERVICES.includes(service)) return fail('Unknown service.');
+  const rows = (await env.DB.prepare('SELECT id,name,data FROM beneficiaries WHERE user_id=? AND service=? ORDER BY name COLLATE NOCASE').bind(user.id, service).all()).results;
+  return json({ items: rows.map((r) => ({ id: r.id, name: r.name, data: JSON.parse(r.data) })) });
+};
+FUNCTIONS['fav-save'] = async (x, env, user) => {
+  const service = String(x.service || ''), name = String(x.name || '').trim().slice(0, 30);
+  if (!FAV_SERVICES.includes(service)) return fail('Unknown service.');
+  if (!name) return fail('Give this saved item a name, for example "Mum" or "Home Meter".');
+  const c = favClean(service, x.data); if (c.error) return fail(c.error);
+  if ((await env.DB.prepare('SELECT COUNT(*) n FROM beneficiaries WHERE user_id=? AND service=?').bind(user.id, service).first()).n >= 30) return fail('You can save up to 30 items here. Remove one first.');
+  const id = uid(), key = c.key ?? ('list:' + name.toLowerCase());
+  try { await env.DB.prepare('INSERT INTO beneficiaries(id,user_id,service,name,data,dedupe_key) VALUES(?,?,?,?,?,?)').bind(id, user.id, service, name, JSON.stringify(c.data), key).run(); }
+  catch (e) { return fail(String(e.message).includes('UNIQUE') ? 'This is already saved.' : 'Could not save.', 409); }
+  return json({ item: { id, name, data: c.data } });
+};
+FUNCTIONS['fav-update'] = async (x, env, user) => {
+  const name = String(x.name || '').trim().slice(0, 30);
+  if (!name) return fail('Enter a name.');
+  const c = await env.DB.prepare('UPDATE beneficiaries SET name=? WHERE id=? AND user_id=?').bind(name, String(x.id || ''), user.id).run();
+  return c.meta.changes === 1 ? json({ ok: true }) : fail('Not found.', 404);
+};
+FUNCTIONS['fav-delete'] = async (x, env, user) => {
+  const c = await env.DB.prepare('DELETE FROM beneficiaries WHERE id=? AND user_id=?').bind(String(x.id || ''), user.id).run();
+  return c.meta.changes === 1 ? json({ ok: true }) : fail('Not found.', 404);
+};
+
+/* ----- referral dashboard ----- */
+const firstName = (n) => { const p = String(n || '').trim().split(/\s+/); return p[0] ? p[0] + (p[1] ? ' ' + p[1][0] + '.' : '') : 'User'; };
+FUNCTIONS['referral-summary'] = async (x, env, user, req) => {
+  const p = await env.DB.prepare('SELECT referral_code FROM profiles WHERE id=?').bind(user.id).first();
+  const s = await env.DB.prepare("SELECT COALESCE(SUM(CASE WHEN status='earned' THEN reward_amount END),0) earned, COALESCE(SUM(CASE WHEN status='pending' THEN reward_amount END),0) pending, COALESCE(SUM(CASE WHEN status='earned' AND date(earned_at)=date('now') THEN reward_amount END),0) today FROM referrals WHERE referrer_id=?").bind(user.id).first();
+  const rows = (await env.DB.prepare("SELECT r.status, r.reward_amount, r.created_at, p.full_name FROM referrals r JOIN profiles p ON p.id=r.referee_id WHERE r.referrer_id=? AND r.status IN ('pending','earned') ORDER BY r.created_at DESC LIMIT 100").bind(user.id).all()).results;
+  const code = p?.referral_code || '';
+  return json({ enabled: env.REFERRAL_ENABLED !== '0', reward: cfgNum(env, 'REFERRAL_REWARD', 500), code, link: `${appBase(env, req)}/r/${code}`, total_earned: money(s.earned), pending: money(s.pending), today: money(s.today),
+    items: rows.map((r) => ({ name: firstName(r.full_name), joined: r.created_at, status: r.status, reward: r.reward_amount })) });
+};
+
+/* ----- support ----- */
+FUNCTIONS['support-ticket-create'] = async (x, env, user) => {
+  const message = String(x.message || '').trim().slice(0, 1000), txId = x.txId ? String(x.txId).slice(0, 60) : null;
+  if (message.length < 5) return fail('Please describe the problem (at least 5 characters).');
+  if ((await env.DB.prepare("SELECT COUNT(*) n FROM support_tickets WHERE user_id=? AND created_at > datetime('now','-1 day')").bind(user.id).first()).n >= 5) return fail('You have sent many reports today. Please wait for our reply.');
+  await env.DB.prepare('INSERT INTO support_tickets(id,user_id,tx_id,message) VALUES(?,?,?,?)').bind(uid(), user.id, txId, message).run();
+  return json({ ok: true });
 };
 
 FUNCTIONS['send-otp'] = async (x, env, user) => {
@@ -740,10 +949,13 @@ FUNCTIONS['verify-otp'] = async (x, env, user) => {
   let res;
   try { res = await convertAirtimeToCash(env, { phone, network: net, amount }); } catch (e) { console.error(e); return fail('Your request is being processed. Check Transaction History.', 502); }
   if (!res.ok) return fail(res.error || 'Conversion failed.');
+  const aId = uid();
   await env.DB.batch([
     env.DB.prepare('UPDATE profiles SET atc_balance=atc_balance+? WHERE id=?').bind(res.credited, user.id),
-    env.DB.prepare("INSERT INTO transactions(id,user_id,type,label,amount,direction,status,provider_ref) VALUES(?,?,'airtime-to-cash',?,?,'in','successful',?)").bind(uid(), user.id, `Airtime to Cash (${net.toUpperCase()} ₦${amount})`, res.credited, res.ref || null),
+    env.DB.prepare("INSERT INTO transactions(id,user_id,type,label,amount,direction,status,provider_ref,wallet) VALUES(?,?,'airtime-to-cash',?,?,'in','successful',?,'atc')").bind(aId, user.id, `Airtime to Cash (${net.toUpperCase()} \u20a6${amount})`, res.credited, res.ref || null),
+    env.DB.prepare("INSERT INTO wallet_ledger(id,user_id,wallet,direction,amount,ref,type,note) VALUES(?,?,'atc','in',?,?,'airtime-to-cash',?)").bind(uid(), user.id, res.credited, 'a2c-' + aId, `${net.toUpperCase()} airtime ${amount}`),
   ]);
+  await notify(env, user.id, 'Airtime-to-Cash successful', `\u20a6${Number(res.credited).toLocaleString()} has been added to your Airtime-to-Cash Wallet.`);
   return json({ data: { credited: res.credited } });
 };
 
@@ -761,11 +973,12 @@ FUNCTIONS['admin-manage-users'] = async (x, env, user) => {
   switch (x.action) {
     case 'stats': {
       const one = async (sql) => (await db.prepare(sql).first()) || {};
-      const u = await one("SELECT COUNT(*) total, COALESCE(SUM(is_banned),0) banned, COALESCE(SUM(CASE WHEN date(created_at)=date('now') THEN 1 ELSE 0 END),0) new_today, COALESCE(SUM(balance_ngn),0) wallets, COALESCE(SUM(atc_balance),0) atc FROM profiles");
+      const u = await one("SELECT COUNT(*) total, COALESCE(SUM(is_banned),0) banned, COALESCE(SUM(CASE WHEN date(created_at)=date('now') THEN 1 ELSE 0 END),0) new_today, COALESCE(SUM(balance_ngn),0) wallets, COALESCE(SUM(atc_balance),0) atc, COALESCE(SUM(exchange_balance),0) ex FROM profiles");
       const f = await one("SELECT COALESCE(SUM(CASE WHEN date(created_at)=date('now') THEN amount END),0) today, COALESCE(SUM(amount),0) total FROM transactions WHERE type='fund' AND status='successful'");
-      const p = await one("SELECT COUNT(*) n, COALESCE(SUM(amount),0) amt FROM transactions WHERE direction='out' AND status='successful' AND type!='airtime-to-cash' AND date(created_at)=date('now')");
+      const p = await one("SELECT COUNT(*) n, COALESCE(SUM(amount),0) amt FROM transactions WHERE direction='out' AND status='successful' AND type NOT IN ('airtime-to-cash','withdrawal','adjustment') AND date(created_at)=date('now')");
       const q = await one("SELECT COUNT(*) n FROM transactions WHERE status='pending'");
-      return json({ stats: { users: u.total, banned: u.banned, new_today: u.new_today, wallets_total: money(u.wallets), atc_total: money(u.atc), deposits_today: money(f.today), deposits_total: money(f.total), sales_today_count: p.n, sales_today_amount: money(p.amt), pending: q.n } });
+      const wdp = await one("SELECT COUNT(*) n FROM withdrawals WHERE status IN ('pending','processing')");
+      return json({ stats: { users: u.total, banned: u.banned, new_today: u.new_today, wallets_total: money(u.wallets), atc_total: money(u.atc), exchange_total: money(u.ex), withdrawals_pending: wdp.n, deposits_today: money(f.today), deposits_total: money(f.total), sales_today_count: p.n, sales_today_amount: money(p.amt), pending: q.n } });
     }
     case 'list_users': {
       const q = '%' + String(x.query || '').trim().toLowerCase() + '%', where = USER_FILTER[x.filter] || USER_FILTER.all;
@@ -777,11 +990,11 @@ FUNCTIONS['admin-manage-users'] = async (x, env, user) => {
     case 'search': // kept for older screens
       return FUNCTIONS['admin-manage-users']({ ...x, action: 'list_users' }, env, user);
     case 'get_user': {
-      const u = await db.prepare('SELECT p.id,p.full_name,p.username,u.email,p.phone,p.balance_ngn,p.atc_balance,p.is_banned,p.is_admin,p.referral_code,p.referral_code_used,p.pin_locked_until,p.created_at FROM profiles p JOIN users u ON u.id=p.id WHERE p.id=?').bind(target).first();
+      const u = await db.prepare('SELECT p.id,p.full_name,p.username,u.email,p.phone,p.balance_ngn,p.exchange_balance,p.atc_balance,p.is_banned,p.is_admin,p.referral_code,p.referral_code_used,p.pin_locked_until,p.created_at FROM profiles p JOIN users u ON u.id=p.id WHERE p.id=?').bind(target).first();
       if (!u) return fail('User not found.', 404);
       const va = await db.prepare('SELECT account_number,bank_name FROM virtual_accounts WHERE user_id=?').bind(target).first();
-      const tot = await db.prepare("SELECT COALESCE(SUM(CASE WHEN type='fund' AND status='successful' THEN amount END),0) deposited, COALESCE(SUM(CASE WHEN direction='out' AND status='successful' AND type!='airtime-to-cash' THEN amount END),0) spent, COUNT(*) txs FROM transactions WHERE user_id=?").bind(target).first();
-      const refs = await db.prepare('SELECT COUNT(*) n FROM profiles WHERE referral_code_used=? AND ?!=\'\'').bind(u.referral_code || '', u.referral_code || '').first();
+      const tot = await db.prepare("SELECT COALESCE(SUM(CASE WHEN type='fund' AND status='successful' THEN amount END),0) deposited, COALESCE(SUM(CASE WHEN direction='out' AND status='successful' AND type NOT IN ('airtime-to-cash','withdrawal','adjustment') THEN amount END),0) spent, COUNT(*) txs FROM transactions WHERE user_id=?").bind(target).first();
+      const refs = await db.prepare('SELECT COUNT(*) n FROM referrals WHERE referrer_id=?').bind(target).first();
       const by = u.referral_code_used ? await db.prepare('SELECT username FROM profiles WHERE referral_code=?').bind(String(u.referral_code_used).toUpperCase()).first() : null;
       return json({ user: { ...u, pin_locked: u.pin_locked_until > now(), virtual_account: va || null, deposited: money(tot.deposited), spent: money(tot.spent), tx_count: tot.txs, referrals: refs.n, referred_by: by?.username || null } });
     }
@@ -800,21 +1013,22 @@ FUNCTIONS['admin-manage-users'] = async (x, env, user) => {
       return json({ ok: true });
     }
     case 'adjust_balance': {
-      const amount = money(x.amount), credit = x.direction === 'credit', wallet = x.wallet === 'atc' ? 'atc_balance' : 'balance_ngn';
+      const amount = money(x.amount), credit = x.direction === 'credit', wk = WALLET_COL[x.wallet] ? x.wallet : 'main', col = WALLET_COL[wk];
       const reason = String(x.reason || '').trim();
       if (!['credit', 'debit'].includes(x.direction)) return fail('Choose credit or debit.');
       if (!(amount > 0 && amount <= 10000000)) return fail('Enter a valid amount.');
       if (reason.length < 3) return fail('Write a reason (it is saved in the activity log).');
       if (!await exists(target)) return fail('User not found.', 404);
-      const label = `Admin ${credit ? 'credit' : 'debit'}${wallet === 'atc_balance' ? ' (Airtime-to-Cash wallet)' : ''}: ${reason}`.slice(0, 120);
+      const label = `Admin ${credit ? 'credit' : 'debit'}${wk !== 'main' ? ` (${WALLET_NAME[wk]})` : ''}: ${reason}`.slice(0, 120), txId = uid();
       const r = await db.batch([
-        db.prepare(`UPDATE profiles SET ${wallet}=${wallet}${credit ? '+' : '-'}? WHERE id=?${credit ? '' : ` AND ${wallet}>=?`}`).bind(...(credit ? [amount, target] : [amount, target, amount])),
-        db.prepare("INSERT INTO transactions(id,user_id,type,label,amount,direction,status) SELECT ?,?,'adjustment',?,?,?,'successful' WHERE changes() > 0").bind(uid(), target, label, amount, credit ? 'in' : 'out'),
-        log('adjust_balance', target, `${x.direction} ${amount} ${wallet}: ${reason}`),
+        db.prepare(`UPDATE profiles SET ${col}=${col}${credit ? '+' : '-'}? WHERE id=?${credit ? '' : ` AND ${col}>=?`}`).bind(...(credit ? [amount, target] : [amount, target, amount])),
+        db.prepare("INSERT INTO transactions(id,user_id,type,label,amount,direction,status,wallet) SELECT ?,?,'adjustment',?,?,?,'successful',? WHERE changes() > 0").bind(txId, target, label, amount, credit ? 'in' : 'out', wk),
+        ledgerIfChanged(env, { userId: target, wallet: wk, dir: credit ? 'in' : 'out', amount, ref: 'admin-' + txId, type: 'adjustment', note: reason }),
+        log('adjust_balance', target, `${x.direction} ${amount} ${col}: ${reason}`),
       ]);
       if (r[0].meta.changes !== 1) return fail('The user does not have enough balance for this debit.');
-      const nb = await db.prepare('SELECT balance_ngn, atc_balance FROM profiles WHERE id=?').bind(target).first();
-      return json({ ok: true, balance_ngn: nb.balance_ngn, atc_balance: nb.atc_balance });
+      const nb = await db.prepare('SELECT balance_ngn, exchange_balance, atc_balance FROM profiles WHERE id=?').bind(target).first();
+      return json({ ok: true, balance_ngn: nb.balance_ngn, exchange_balance: nb.exchange_balance, atc_balance: nb.atc_balance });
     }
     case 'reset_password': {
       if (String(x.newPassword || '').length < 6) return fail('Password must be at least 6 characters.');
@@ -908,21 +1122,66 @@ FUNCTIONS['admin-manage-users'] = async (x, env, user) => {
       return json({ ok: true, changed });
     }
     case 'list_remittances': {
-      const f = { attention: "r.status IN ('payout_failed','amount_mismatch','paid','payout_pending')", completed: "r.status='completed'", all: '1=1' }[x.filter] || '1=1';
-      const rows = (await db.prepare(`SELECT r.id,r.currency,r.source_amount,r.receive_ngn,r.bank_name,r.account_number,r.account_name,r.status,r.error,r.payout_attempts,r.created_at,p.username FROM remittances r JOIN profiles p ON p.id=r.user_id WHERE ${f} ORDER BY r.created_at DESC LIMIT ? OFFSET ?`).bind(PAGE, page(x.offset)).all()).results;
+      const f = { attention: "r.status IN ('amount_mismatch')", credited: "r.status='credited'", all: '1=1' }[x.filter] || '1=1';
+      const rows = (await db.prepare(`SELECT r.id,r.currency,r.source_amount,r.receive_ngn,r.status,r.error,r.created_at,p.username FROM remittances r JOIN profiles p ON p.id=r.user_id WHERE ${f} ORDER BY r.created_at DESC LIMIT ? OFFSET ?`).bind(PAGE, page(x.offset)).all()).results;
       const total = (await db.prepare(`SELECT COUNT(*) n FROM remittances r WHERE ${f}`).first()).n;
       return json({ items: rows, total, page_size: PAGE });
     }
-    case 'retry_payout': {
-      const r = await payoutRemittance(env, String(x.id || ''));
-      await log('retry_payout', null, `${x.id} -> ${r.ok ? 'sent' : r.error}`).run();
-      return r.ok ? json({ ok: true }) : fail(r.error || 'Could not retry.', 400);
-    }
-    case 'mark_refunded': { // after you refunded the customer yourself in the Flutterwave dashboard
-      const c = await db.prepare("UPDATE remittances SET status='refunded', updated_at=CURRENT_TIMESTAMP WHERE id=? AND status IN ('payout_failed','amount_mismatch','paid')").bind(String(x.id || '')).run();
+    case 'mark_refunded': { // a payment that did not match: after you refunded the customer in the Flutterwave dashboard
+      const c = await db.prepare("UPDATE remittances SET status='refunded', updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='amount_mismatch'").bind(String(x.id || '')).run();
       if (c.meta.changes !== 1) return fail('This exchange cannot be marked as refunded.');
+      await db.prepare("UPDATE transactions SET status='failed' WHERE id=? AND status='pending'").bind(String(x.id)).run();
       await log('mark_refunded', null, String(x.id)).run();
       return json({ ok: true });
+    }
+    case 'list_withdrawals': {
+      const f = { attention: "w.status IN ('pending','processing')", all: '1=1' }[x.filter] || '1=1';
+      const rows = (await db.prepare(`SELECT w.id,w.wallet,w.amount,w.fee,w.net,w.bank_name,w.account_number,w.account_name,w.status,w.error,w.created_at,p.username FROM withdrawals w JOIN profiles p ON p.id=w.user_id WHERE ${f} ORDER BY w.created_at DESC LIMIT ? OFFSET ?`).bind(PAGE, page(x.offset)).all()).results;
+      const total = (await db.prepare(`SELECT COUNT(*) n FROM withdrawals w WHERE ${f}`).first()).n;
+      return json({ items: rows.map((r) => ({ ...r, account_number: maskAcct(r.account_number) })), total, page_size: PAGE });
+    }
+    case 'resolve_withdrawal': { // a withdrawal stuck on pending/processing: check Flutterwave first, then settle it here
+      const id = String(x.id || '');
+      if (x.resolution === 'reverse') { const ok = await reverseWithdrawal(env, id, 'Reversed by admin'); if (!ok) return fail('This withdrawal is no longer pending.', 404); await log('reverse_withdrawal', null, id).run(); return json({ ok: true }); }
+      if (x.resolution !== 'success') return fail('Unknown resolution.');
+      const wd = await db.prepare('SELECT user_id,net FROM withdrawals WHERE id=?').bind(id).first();
+      const c = await db.prepare("UPDATE withdrawals SET status='successful', updated_at=CURRENT_TIMESTAMP WHERE id=? AND status IN ('pending','processing')").bind(id).run();
+      if (c.meta.changes !== 1) return fail('This withdrawal is no longer pending.', 404);
+      await db.prepare("UPDATE transactions SET status='successful' WHERE id=?").bind(id).run();
+      await notify(env, wd.user_id, 'Withdrawal successful', `\u20a6${Number(wd.net).toLocaleString()} has been sent to your bank account.`);
+      await log('confirm_withdrawal', null, id).run();
+      return json({ ok: true });
+    }
+    case 'list_referrals': {
+      const f = { pending: "r.status='pending'", earned: "r.status='earned'", void: "r.status='void'", all: '1=1' }[x.filter] || '1=1';
+      const rows = (await db.prepare(`SELECT r.id,r.status,r.reward_amount,r.code,r.created_at,r.earned_at,a.username referrer,b.username referee FROM referrals r JOIN profiles a ON a.id=r.referrer_id JOIN profiles b ON b.id=r.referee_id WHERE ${f} ORDER BY r.created_at DESC LIMIT ? OFFSET ?`).bind(PAGE, page(x.offset)).all()).results;
+      const total = (await db.prepare(`SELECT COUNT(*) n FROM referrals r WHERE ${f}`).first()).n;
+      const s = await db.prepare("SELECT COALESCE(SUM(CASE WHEN status='earned' THEN reward_amount END),0) paid, COALESCE(SUM(CASE WHEN status='pending' THEN reward_amount END),0) waiting FROM referrals").first();
+      return json({ items: rows, total, page_size: PAGE, paid: money(s.paid), waiting: money(s.waiting) });
+    }
+    case 'void_referral': {
+      const c = await db.prepare("UPDATE referrals SET status='void' WHERE id=? AND status='pending'").bind(String(x.id || '')).run();
+      if (c.meta.changes !== 1) return fail('Only a pending referral can be cancelled.');
+      await log('void_referral', null, String(x.id)).run();
+      return json({ ok: true });
+    }
+    case 'verify_receipt': { // check a receipt a customer sends: reference + hash must belong together
+      const ref = String(x.ref || '').trim(), h = String(x.hash || '').trim().toUpperCase().replace(/[^0-9A-F]/g, '');
+      if (!ref) return fail('Enter the transaction reference.');
+      const t = await db.prepare('SELECT t.*, p.username FROM transactions t JOIN profiles p ON p.id=t.user_id WHERE t.id=? OR t.provider_ref=? LIMIT 1').bind(ref, ref).first();
+      if (!t) return fail('No transaction has this reference.', 404);
+      const full = await txHash(env, t);
+      return json({ hash_given: h.length > 0, hash_match: h.length >= 16 && full.startsWith(h), transaction: { id: t.id, type: t.type, label: t.label, amount: t.amount, direction: t.direction, status: t.status, wallet: t.wallet, created_at: t.created_at, user: t.username } });
+    }
+    case 'list_tickets': {
+      const f = { open: "s.status='open'", closed: "s.status='closed'", all: '1=1' }[x.filter] || "s.status='open'";
+      const rows = (await db.prepare(`SELECT s.id,s.tx_id,s.message,s.status,s.created_at,p.username FROM support_tickets s JOIN profiles p ON p.id=s.user_id WHERE ${f} ORDER BY s.created_at DESC LIMIT ? OFFSET ?`).bind(PAGE, page(x.offset)).all()).results;
+      const total = (await db.prepare(`SELECT COUNT(*) n FROM support_tickets s WHERE ${f}`).first()).n;
+      return json({ items: rows, total, page_size: PAGE });
+    }
+    case 'close_ticket': {
+      const c = await db.prepare("UPDATE support_tickets SET status='closed' WHERE id=? AND status='open'").bind(String(x.id || '')).run();
+      return c.meta.changes === 1 ? json({ ok: true }) : fail('Ticket not found.', 404);
     }
     case 'check_transaction': { // ask VTUAgent what happened to a pending purchase
       const t = await db.prepare("SELECT id,created_at FROM transactions WHERE id=? AND status='pending' AND type IN ('data','airtime','cable','electricity')").bind(String(x.txId || '')).first();
@@ -969,7 +1228,16 @@ const SETTINGS = {
   price_markup_percent: { env: 'PRICE_MARKUP_PERCENT', type: 'number', group: 'Pricing',  label: 'Markup on data and cable (%)', def: '12', min: 0, max: 100, hint: 'Default 12' },
   sms_price_per_unit:   { env: 'SMS_PRICE_PER_UNIT',   type: 'number', group: 'Pricing',  label: 'Bulk SMS price per page (naira)', def: '', min: 0, max: 100000, allowEmpty: true, hint: 'Empty = Bulk SMS closed' },
   sms_cost_per_unit:    { env: 'SMS_COST_PER_UNIT',    type: 'number', group: 'Pricing',  label: 'Bulk SMS cost per page (naira)', def: '', min: 0, max: 100000, allowEmpty: true, hint: 'Optional, for profit' },
-  atc_bank_fee:         { env: 'ATC_BANK_FEE',         type: 'number', group: 'Pricing',  label: 'Airtime-to-Cash bank withdrawal fee (naira)', def: '0', min: 0, max: 100000, hint: 'Default 0' },
+  withdraw_fee_flat:    { env: 'WITHDRAW_FEE_FLAT',    type: 'number', group: 'Withdrawals', label: 'Withdrawal fee (naira, taken from the amount)', def: '0', min: 0, max: 100000, hint: 'Default 0' },
+  withdraw_min_amount:  { env: 'WITHDRAW_MIN_AMOUNT',  type: 'number', group: 'Withdrawals', label: 'Minimum withdrawal (naira)', def: '1000', min: 100, max: 10000000, hint: 'Default 1000' },
+  referral_enabled:     { env: 'REFERRAL_ENABLED',     type: 'bool',   group: 'Referral', label: 'Referral rewards', def: '1', hint: 'When off, nobody earns new rewards (pending ones wait)' },
+  referral_reward:      { env: 'REFERRAL_REWARD',      type: 'number', group: 'Referral', label: 'Reward per referral (naira, paid to the Main Wallet)', def: '500', min: 0, max: 100000, hint: 'Default 500' },
+  referral_min_purchase:{ env: 'REFERRAL_MIN_PURCHASE',type: 'number', group: 'Referral', label: 'Smallest first purchase that earns the reward (naira)', def: '0', min: 0, max: 1000000, hint: 'Default 0. A small minimum such as 100 helps stop fake accounts' },
+  app_url:              { env: 'APP_URL',              type: 'url',    group: 'App', label: 'Website address used in referral links', def: '', allowEmpty: true, hint: 'For example https://umarshoyi.com. Empty = this website' },
+  service_notice_on:    { env: 'SERVICE_NOTICE_ON',    type: 'bool',   group: 'App', label: 'Show the "Service Update" card on Home', def: '1' },
+  service_notice:       { env: 'SERVICE_NOTICE',       type: 'text',   group: 'App', label: 'Service Update message', def: 'Some services may be undergoing maintenance.', maxLen: 200 },
+  support_whatsapp:     { env: 'SUPPORT_WHATSAPP',     type: 'text',   group: 'App', label: 'Support WhatsApp number (digits only)', def: '', allowEmpty: true, pattern: /^\d{8,15}$/, hint: 'For example 2348012345678' },
+  support_email:        { env: 'SUPPORT_EMAIL',        type: 'text',   group: 'App', label: 'Support email address', def: '', allowEmpty: true, pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, hint: 'For example support@yourdomain.com' },
   flw_secret_key:       { env: 'FLW_SECRET_KEY',       type: 'secret', group: 'Keys', label: 'Flutterwave secret key', minLen: 10 },
   flw_webhook_hash:     { env: 'FLW_WEBHOOK_HASH',     type: 'secret', group: 'Keys', label: 'Flutterwave webhook secret hash', minLen: 16 },
   vtuagent_api_key:     { env: 'VTUAGENT_API_KEY',     type: 'secret', group: 'Keys', label: 'VTUAgent API key', minLen: 8 },
@@ -1004,6 +1272,13 @@ async function withSettings(env) {   // the env the rest of the code sees: Cloud
 function validateSetting(def, raw) {   // returns the cleaned value, or null when invalid
   const v = String(raw ?? '').trim();
   if (def.type === 'bool') return v === '1' || v === '0' ? v : null;
+  if (def.type === 'text' || def.type === 'url') {
+    if (v === '') return def.allowEmpty ? '' : null;
+    if (v.length > (def.maxLen || 200) || /[<>]/.test(v)) return null;
+    if (def.type === 'url' && !/^https:\/\/[^\s]+$/.test(v)) return null;
+    if (def.pattern && !def.pattern.test(v)) return null;
+    return v;
+  }
   if (def.type === 'currencies') {
     const list = [...new Set(v.split(',').map((s) => s.trim().toUpperCase()).filter(Boolean))];
     return list.length && list.every((s) => X_CURRENCIES[s]) ? list.join(',') : null;
@@ -1028,6 +1303,12 @@ async function route(req, env) {
   if (path === '/api/payment/return' && method === 'GET') return paymentReturn(req, env);
   if (path === '/api/webhook/flutterwave' && method === 'POST') return flutterwaveWebhook(req, env);
   if (path === '/api/webhook/vtuagent' && method === 'POST') return vtuagentWebhook(req, env);
+
+  if (path === '/api/referral/check' && method === 'GET') {   // public: lets the sign-up form say whether a code is valid
+    const code = String(url.searchParams.get('code') || '').trim().toUpperCase();
+    const valid = /^USS\d{4,6}$/.test(code) && !!(await env.DB.prepare('SELECT 1 FROM profiles WHERE referral_code=?').bind(code).first());
+    return json({ valid, enabled: env.REFERRAL_ENABLED !== '0' });
+  }
 
   if (path.startsWith('/api/auth/') && !env.AUTH_SECRET) return fail('AUTH_SECRET is not configured in Cloudflare Worker secrets.', 503);
   if (path.startsWith('/api/auth/') && String(env.AUTH_SECRET).length < 32) return fail('AUTH_SECRET is too weak. Use a random value of at least 32 characters.', 503);
@@ -1107,7 +1388,9 @@ async function route(req, env) {
 export default {
   async fetch(req, env) {
     try {
-      if (new URL(req.url).pathname.startsWith('/api/')) return await route(req, env);
+      const pathname = new URL(req.url).pathname, link = pathname.match(/^\/r\/([A-Za-z0-9]{3,12})\/?$/);
+      if (link) return Response.redirect(new URL('/?ref=' + link[1].toUpperCase(), req.url).toString(), 302);   // referral link -> sign-up with the code filled in
+      if (pathname.startsWith('/api/')) return await route(req, env);
       return env.ASSETS.fetch(req);
     } catch (e) {
       console.error(e);

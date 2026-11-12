@@ -290,6 +290,133 @@
   @media(min-width:720px){ .page>*{max-width:600px; margin-left:auto; margin-right:auto;} .app{max-width:600px; margin:0 auto;} .nav{left:50%; right:auto; width:576px; transform:translateX(-50%);} .tab-head,.searchbar,.chips{max-width:600px;} }
   @media(max-width:360px){ .bal-amount{font-size:32px} .wamt{font-size:13.5px} .qa,.svc{font-size:12px} .hd-name{font-size:21px} }
 </style>
+<style>
+/* ===== SHOYI (added) ===== */
+/* SHOYI — AI Customer Support (UMARSHOYI-SUB). Uses the app's existing blue/white variables. */
+.sh-av{display:block; border-radius:50%; object-fit:cover; background:#e7ecff; flex:none; aspect-ratio:1/1;}
+.sh-av.sq{border-radius:18px;}
+
+/* ---- Support landing ---- */
+.sh-hero{margin:8px 20px 14px; border-radius:22px; padding:18px 16px; color:#fff; display:flex; align-items:center; gap:14px; position:relative; overflow:hidden;
+  background:linear-gradient(135deg,#2f55ee 0%,#1e35a8 70%); box-shadow:0 10px 26px rgba(30,53,168,.22);}
+.sh-hero::after{content:""; position:absolute; right:-40px; top:-40px; width:170px; height:170px; border-radius:50%; background:rgba(255,255,255,.08);}
+.sh-hero-av{width:104px; height:104px; border-radius:50%; border:4px solid rgba(255,255,255,.95); overflow:hidden; flex:none; background:#fff; z-index:1;}
+.sh-hero-av img{width:100%; height:100%; object-fit:cover; display:block;}
+.sh-hero-txt{z-index:1; min-width:0;}
+.sh-hero-txt h2{font-size:25px; line-height:1.1; font-weight:900; margin:0 0 6px;}
+.sh-hero-txt p{margin:0 0 10px; font-size:13.5px; opacity:.95;}
+.sh-pill{display:inline-flex; align-items:center; gap:6px; background:rgba(255,255,255,.18); border-radius:20px; padding:4px 10px; font-size:11.5px; font-weight:800; letter-spacing:.2px;}
+.sh-dot{width:8px; height:8px; border-radius:50%; background:#2ee06f; box-shadow:0 0 0 3px rgba(46,224,111,.28); display:inline-block;}
+.sh-search{margin:0 20px 14px; display:flex; align-items:center; gap:10px; background:#fff; border:1.5px solid #cfd8f6; border-radius:26px; padding:0 16px;}
+.sh-search .ic{color:var(--blue-1); width:20px; height:20px;}
+.sh-search input{flex:1; border:none; outline:none; font-size:14.5px; padding:14px 0; background:transparent; min-width:0;}
+.sh-grid{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:0 20px 14px;}
+.sh-card{background:#fff; border:1.5px solid #dfe5fb; border-radius:20px; padding:16px 10px 12px; text-align:center; display:flex; flex-direction:column; align-items:center; gap:4px; cursor:pointer;}
+.sh-card .ic{width:36px; height:36px; color:var(--blue-1); margin-bottom:2px;}
+.sh-card b{font-size:15px; color:var(--blue-2);} .sh-card span{font-size:12px; color:var(--sub); min-height:30px;}
+.sh-card i{font-style:normal; background:var(--blue-1); color:#fff; border-radius:10px; padding:9px 14px; font-weight:700; font-size:12.5px; margin-top:6px; width:100%;}
+.sh-topics{margin:0 20px 16px; background:#fff; border:1.5px solid #dfe5fb; border-radius:20px; padding:6px 14px 4px;}
+.sh-topics-h{display:flex; justify-content:space-between; align-items:center; padding:10px 0 6px; font-weight:800; color:var(--blue-2); font-size:15.5px;}
+.sh-topics-h a{font-size:12.5px; color:var(--blue-1); font-weight:700; cursor:pointer;}
+.sh-topic{display:flex; align-items:center; gap:12px; padding:13px 0; border-top:1px solid var(--line); font-size:14px; cursor:pointer;}
+.sh-topic .ic{width:20px; height:20px; color:var(--blue-1);} .sh-topic .ch{margin-left:auto; color:var(--sub); width:16px; height:16px;}
+.sh-old{margin:0 20px 18px;} .sh-old>summary{cursor:pointer; font-size:12.5px; color:var(--sub); font-weight:700; padding:6px 0;}
+.sh-old .page-body{padding:10px 0 0;}
+.sh-res{margin:0 20px 14px; display:flex; flex-direction:column; gap:8px;}
+.sh-item{background:#fff; border:1px solid var(--line); border-radius:14px; padding:13px 14px; cursor:pointer;}
+.sh-item b{font-size:14px; display:block; color:var(--text);} .sh-item div{font-size:13px; color:#3c465c; margin-top:6px; line-height:1.55; white-space:pre-wrap; display:none;}
+.sh-item.open div{display:block;}
+
+/* ---- Pages (chat, ticket form, tickets, FAQs) ---- */
+.page.sh-page{z-index:210;}
+#page-shoyi-chat{overflow:hidden;}
+.sh-chat{display:flex; flex-direction:column; height:100vh; height:100dvh; background:var(--bg);}
+.sh-chat-head{display:flex; align-items:center; gap:12px; padding:14px 16px 16px; color:#fff; border-radius:0 0 24px 24px; flex:none;
+  background:linear-gradient(135deg,#2f55ee,#1e35a8); box-shadow:0 8px 22px rgba(30,53,168,.2);}
+.sh-chat-head .sh-av{width:54px; height:54px; border:3px solid #fff;}
+.sh-chat-head .nm{font-size:22px; font-weight:900; line-height:1.05;}
+.sh-chat-head .st{font-size:12.5px; opacity:.95; margin-top:3px; display:flex; align-items:center; gap:6px;}
+.sh-hbtn{width:38px; height:38px; border-radius:50%; border:none; background:rgba(255,255,255,.18); color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; flex:none;}
+.sh-hbtn .ic{width:20px; height:20px;}
+.sh-log{flex:1; overflow-y:auto; padding:14px 14px 8px; display:flex; flex-direction:column; gap:12px; scroll-behavior:smooth; -webkit-overflow-scrolling:touch;}
+.sh-sys{align-self:center; background:#e5f7ec; color:#13552f; border-radius:18px; padding:9px 16px; font-size:13px; display:flex; align-items:center; gap:8px; text-align:center;}
+.sh-sys.warn{background:#fff4e2; color:#8a5200;}
+.sh-row{display:flex; gap:8px; align-items:flex-end; max-width:100%;}
+.sh-row.me{justify-content:flex-end;}
+.sh-row .sh-av{width:36px; height:36px;}
+.sh-bub{max-width:80%; padding:11px 14px 7px; border-radius:20px; font-size:14.5px; line-height:1.5; word-wrap:break-word; overflow-wrap:anywhere;}
+.sh-row.bot .sh-bub{background:#fff; border:1px solid #e3e8f8; border-bottom-left-radius:6px; color:var(--text);}
+.sh-row.me .sh-bub{background:var(--blue-1); color:#fff; border-bottom-right-radius:6px;}
+.sh-bub .tm{display:flex; justify-content:flex-end; align-items:center; gap:5px; font-size:11px; opacity:.7; margin-top:3px;}
+.sh-bub .tm .ic{width:14px; height:14px; stroke-width:2.6;}
+.sh-bub.err{background:#fdeaea !important; color:#b3261e !important; border-color:#f4c4c0 !important;}
+.sh-acts{display:flex; flex-wrap:wrap; gap:8px; margin:6px 0 2px 44px;}
+.sh-act{border:1.5px solid var(--blue-1); color:var(--blue-1); background:#fff; border-radius:20px; padding:8px 14px; font-size:13px; font-weight:700; cursor:pointer;}
+.sh-act.solid{background:var(--blue-1); color:#fff;}
+.sh-tk{margin:4px 0 2px 44px; background:#fff; border:1.5px solid #cfe9d9; border-radius:16px; padding:12px 14px; font-size:13px;}
+.sh-tk .ref{font-size:19px; font-weight:900; color:var(--blue-2); letter-spacing:.5px; display:flex; align-items:center; gap:8px;}
+.sh-tk small{display:block; color:var(--sub); margin-top:4px; line-height:1.45;}
+.sh-typing{display:flex; gap:8px; align-items:center; padding:0 14px 6px; flex:none;}
+.sh-typing .sh-av{width:30px; height:30px;}
+.sh-typing .b{display:flex; align-items:center; gap:8px; background:#fff; border:1px solid #e3e8f8; border-radius:20px; padding:9px 14px; font-size:13px; color:var(--sub);}
+.sh-typing i{width:7px; height:7px; border-radius:50%; background:var(--blue-1); display:inline-block; animation:shb 1.1s infinite ease-in-out;}
+.sh-typing i:nth-child(2){animation-delay:.15s;} .sh-typing i:nth-child(3){animation-delay:.3s;}
+@keyframes shb{0%,60%,100%{transform:translateY(0);opacity:.4}30%{transform:translateY(-5px);opacity:1}}
+.sh-chips{display:flex; gap:8px; overflow-x:auto; padding:0 14px 8px; flex:none; scrollbar-width:none;} .sh-chips::-webkit-scrollbar{display:none;}
+.sh-chip{flex:0 0 auto; background:#fff; border:1.5px solid #cfd8f6; color:var(--blue-2); border-radius:20px; padding:8px 14px; font-size:12.5px; font-weight:700; cursor:pointer;}
+.sh-comp{flex:none; display:flex; align-items:flex-end; gap:8px; padding:8px 12px calc(12px + env(safe-area-inset-bottom)); background:var(--bg);}
+.sh-comp .box{flex:1; display:flex; align-items:flex-end; background:#fff; border:1.5px solid #cfd8f6; border-radius:26px; padding:4px 6px 4px 14px; min-width:0;}
+.sh-comp textarea{flex:1; border:none; outline:none; resize:none; font:inherit; font-size:15px; max-height:110px; padding:9px 0; background:transparent; min-width:0; line-height:1.4;}
+.sh-emo{border:none; background:transparent; font-size:22px; cursor:pointer; padding:6px; line-height:1;}
+.sh-send{width:46px; height:46px; border-radius:50%; border:none; background:var(--blue-1); color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; flex:none;}
+.sh-send:disabled{opacity:.45;} .sh-send .ic{width:21px; height:21px;}
+.sh-emojis{display:none; flex-wrap:wrap; gap:4px; padding:6px 14px 0; flex:none;} .sh-emojis.on{display:flex;}
+.sh-emojis span{font-size:23px; cursor:pointer; padding:4px 6px;}
+.sh-count{font-size:11px; color:var(--sub); text-align:right; padding:0 20px 2px; flex:none; display:none;}
+
+/* ---- forms / lists ---- */
+.sh-form textarea{width:100%; min-height:130px; padding:13px; border:1.5px solid var(--line); border-radius:12px; font:inherit; font-size:14.5px; background:#fff; resize:vertical;}
+.sh-form select{width:100%; padding:13px; border:1.5px solid var(--line); border-radius:12px; font-size:14.5px; background:#fff;}
+.sh-ok{text-align:center; padding:30px 10px;} .sh-ok .big{font-size:26px; font-weight:900; color:var(--blue-2); letter-spacing:1px; margin:10px 0;}
+.sh-tkrow{background:#fff; border:1px solid var(--line); border-radius:16px; padding:14px; margin-bottom:10px;}
+.sh-tkrow .h{display:flex; justify-content:space-between; align-items:center; gap:8px;} .sh-tkrow .h b{color:var(--blue-2); font-size:15px;}
+.sh-tkrow p{margin:8px 0 6px; font-size:13.5px; color:#3c465c; line-height:1.5;} .sh-tkrow small{color:var(--sub); font-size:11.5px;}
+.sh-tkrow .nt{background:#eef6ff; border-radius:10px; padding:8px 10px; font-size:12.5px; margin-top:8px; color:#1d4ea0;}
+.sh-st{padding:3px 10px; border-radius:12px; font-size:11px; font-weight:800; white-space:nowrap;}
+.sh-fb{display:flex; flex-direction:column; gap:10px; margin:14px 0;} .sh-fb button{padding:13px; border-radius:14px; border:1.5px solid var(--line); background:#fff; font-size:15px; font-weight:700; cursor:pointer; text-align:left;}
+.sh-fb button.on{border-color:var(--blue-1); background:#eef1fb; color:var(--blue-2);}
+
+/* ---- Admin ---- */
+.sh-ad-chips{display:flex; gap:8px; overflow-x:auto; padding:2px 0 12px; scrollbar-width:none;} .sh-ad-chips::-webkit-scrollbar{display:none;}
+.sh-ad-chips button{flex:0 0 auto; padding:7px 13px; border-radius:18px; border:1px solid var(--line); background:#fff; font-size:12.5px; font-weight:700; color:var(--sub); cursor:pointer;}
+.sh-ad-chips button.on{background:var(--blue-2); color:#fff; border-color:var(--blue-2);}
+.sh-ad-card{background:#fff; border:1px solid var(--line); border-radius:16px; padding:14px; margin-bottom:12px;}
+.sh-ad-stats{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:12px;}
+.sh-ad-stats div{background:#eef1fb; border-radius:12px; padding:10px 6px; text-align:center;} .sh-ad-stats b{display:block; font-size:18px; color:var(--blue-2);} .sh-ad-stats span{font-size:10.5px; color:var(--sub);}
+.sh-av-cur{display:flex; gap:14px; align-items:center;} .sh-av-cur .sh-av{width:92px; height:92px; border:3px solid #dfe5fb;}
+.sh-av-cur .meta{font-size:12.5px; color:var(--sub); line-height:1.7;} .sh-av-cur .meta b{color:var(--text);}
+.sh-btns{display:flex; flex-direction:column; gap:10px; margin-top:12px;}
+.sh-btn{width:100%; padding:14px; border-radius:12px; border:none; background:var(--blue-1); color:#fff; font-weight:800; font-size:14.5px; cursor:pointer;}
+.sh-btn.out{background:#fff; border:1.5px solid var(--blue-1); color:var(--blue-1);} .sh-btn.red{background:#fff; border:1.5px solid #e14848; color:#e14848;}
+.sh-btn.sm{width:auto; padding:8px 14px; font-size:12.5px; border-radius:10px;} .sh-btn:disabled{opacity:.5;}
+.sh-hist{display:flex; align-items:center; gap:12px; padding:10px 0; border-top:1px solid var(--line);} .sh-hist:first-child{border-top:none;}
+.sh-hist .sh-av{width:48px; height:48px;} .sh-hist .t{flex:1; font-size:12.5px; color:var(--sub); line-height:1.5;} .sh-hist .t b{color:var(--text);}
+.sh-crop{position:relative; width:min(300px,100%); margin:6px auto 10px; aspect-ratio:1/1; touch-action:none; border-radius:16px; overflow:hidden; background:#10162c; cursor:grab;}
+.sh-crop canvas{width:100%; height:100%; display:block;}
+.sh-range{width:100%; margin:4px 0 10px;}
+.sh-prev{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:10px 0;}
+.sh-prev>div{background:#f4f6fd; border-radius:14px; padding:10px; font-size:11px; color:var(--sub);}
+.sh-prev .mini-hero{display:flex; align-items:center; gap:8px; background:linear-gradient(135deg,#2f55ee,#1e35a8); color:#fff; border-radius:12px; padding:8px; margin-top:6px; font-weight:800; font-size:12px;}
+.sh-prev .mini-hero .sh-av{width:42px; height:42px; border:2px solid #fff;}
+.sh-prev .mini-head{display:flex; align-items:center; gap:8px; background:#2547d8; color:#fff; border-radius:12px; padding:8px; margin-top:6px; font-weight:800;} .sh-prev .mini-head .sh-av{width:34px; height:34px; border:2px solid #fff;}
+.sh-prev .mini-msg{display:flex; gap:6px; align-items:flex-end; margin-top:6px;} .sh-prev .mini-msg .sh-av{width:26px; height:26px;} .sh-prev .mini-msg span{background:#fff; border:1px solid #e3e8f8; border-radius:12px; padding:6px 9px; color:var(--text); font-size:11.5px;}
+.sh-prev .small{display:flex; gap:8px; align-items:center; margin-top:6px;} .sh-prev .small .sh-av{width:24px; height:24px;} .sh-prev .small .s2{width:36px; height:36px;}
+.sh-ad-in{width:100%; padding:11px 12px; border:1.5px solid var(--line); border-radius:10px; font:inherit; font-size:14px; background:#fff; margin-bottom:8px;}
+textarea.sh-ad-in{min-height:120px; resize:vertical;}
+.sh-row2{display:flex; gap:8px; align-items:center; flex-wrap:wrap;}
+.sh-small{font-size:12px; color:var(--sub); line-height:1.5;}
+
+</style>
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
@@ -3013,6 +3140,499 @@ async function checkUnreadNotifications() {
   $('refClear').addEventListener('click', () => { f.value = ''; check(); });
   const r = new URLSearchParams(location.search).get('ref');
   if (r) { f.value = r.toUpperCase(); history.replaceState(null, '', location.pathname); check(); if (!localStorage.getItem('ums_access_token')) showAuth('register'); }
+})();
+
+</script>
+<script>
+/* ===== SHOYI (added) ===== */
+/* SHOYI — AI Customer Support for UMARSHOYI-SUB (frontend).
+   Loaded AFTER the main app script. It only ADDS to the app: it builds its own pages, fills the Support tab and adds a "SHOYI" tab
+   to the Admin Panel. It uses the app's existing helpers: invokeFn, esc, showToast, openSheet/closeSheet, copyText, dt, showPage, showTab. */
+(function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const E = (s) => esc(s);
+  const DEF = '/api/shoyi/avatar/default';
+  const FALLBACK = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128"><rect width="128" height="128" fill="#2f55ee"/><circle cx="64" cy="50" r="22" fill="#fff"/><path d="M22 118c3-24 21-36 42-36s39 12 42 36z" fill="#fff"/></svg>');
+  window.shAvErr = function (img) { if (img.dataset.f === '1') { img.onerror = null; img.src = FALLBACK; } else { img.dataset.f = '1'; img.src = DEF; } };   // never a broken image
+  const SH = { cfg: null, cfgAt: 0, conv: null, loaded: false, busy: false, turns: 0, fbDone: false, lastUser: '' };
+  const call = (name, body) => invokeFn(name, { body: body || {} });
+  const when = (s) => { try { return dt(s).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }); } catch { return s || ''; } };
+  const clock = (s) => { try { return (s ? dt(s) : new Date()).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); } catch { return ''; } };
+  const IC = (n) => `<svg class="ic"><use href="#i-${n}"/></svg>`;
+  const avSrc = (s) => (SH.cfg && SH.cfg.avatar_url ? `${SH.cfg.avatar_url}?s=${s}` : DEF);
+  const av = (s, cls) => `<img class="sh-av ${cls || ''}" data-shav="${s}" src="${E(avSrc(s))}" alt="SHOYI" onerror="shAvErr(this)">`;
+  function applyAv() { document.querySelectorAll('img[data-shav]').forEach((i) => { const n = avSrc(i.dataset.shav); if (i.getAttribute('src') !== n) { i.dataset.f = ''; i.src = n; } }); }
+  function statusInner() {
+    const c = SH.cfg || {};
+    if (c.enabled === false) return 'AI Customer Support · switched off';
+    return c.ai_available ? '<i class="sh-dot"></i>Online • AI Customer Support' : 'AI Customer Support · help-article mode';   // green dot ONLY when the AI is really available
+  }
+  function paintStatus() { document.querySelectorAll('[data-shst]').forEach((e) => { e.innerHTML = statusInner(); }); }
+  async function loadCfg(force) {
+    if (!force && SH.cfg && Date.now() - SH.cfgAt < 30000) return SH.cfg;
+    const r = await call('shoyi-config');
+    if (!r.errMsg && r.data) { SH.cfg = r.data; SH.cfgAt = Date.now(); applyAv(); paintStatus(); }
+    return SH.cfg;
+  }
+  const fmt = (t) => E(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/^\s*[-*]\s+/gm, '• ').replace(/\n/g, '<br>');
+  const openPage = (n) => { const p = $('page-' + n); if (p) { p.classList.add('active'); p.scrollTop = 0; } };
+  const wa = (p) => { let d = String(p || '').replace(/\D/g, ''); if (d.startsWith('0')) d = '234' + d.slice(1); return d; };
+
+  /* ================= pages ================= */
+  const CATS = [['transaction', 'Transaction problem'], ['funding', 'Wallet funding'], ['withdrawal', 'Withdrawal'], ['wallet', 'Wallet balance'], ['service', 'Service / purchase'], ['account', 'Account / profile'], ['security', 'Security concern'], ['other', 'Other']];
+  const TS = { open: ['#fff1e0', '#e98a0c', 'Open'], in_progress: ['#e8f0ff', '#2547d8', 'In Progress'], waiting_customer: ['#fff4d6', '#9a6b00', 'Waiting for Customer'], resolved: ['#e7f8ef', '#16a05f', 'Resolved'], closed: ['#eceff5', '#5b6b8c', 'Closed'], requested: ['#fff1e0', '#e98a0c', 'Requested'], contacted: ['#e8f0ff', '#2547d8', 'Contacted'] };
+  const tsBadge = (s) => { const c = TS[s] || TS.open; return `<span class="sh-st" style="background:${c[0]};color:${c[1]};">${c[2]}</span>`; };
+  const EMOJIS = ['😀', '😊', '🙏', '👍', '😂', '😢', '😡', '🤝', '✅', '❓', '💰', '📱'];
+  const CHIPS = ['How to buy data?', 'How to withdraw funds?', 'My wallet balance', 'Transaction status', 'Talk to human support'];
+
+  function build() {
+    if ($('page-shoyi-chat')) return;
+    const pg = (id, inner, cls) => `<div class="page sh-page ${cls || ''}" id="page-${id}">${inner}</div>`;
+    const head = (title, close) => `<div class="page-head"><button class="back-btn" data-sh="close" data-p="${close}">←</button><div class="page-title">${title}</div></div>`;
+    document.body.insertAdjacentHTML('beforeend',
+      pg('shoyi-chat', `<div class="sh-chat">
+        <div class="sh-chat-head">${av('lg')}<div style="flex:1;min-width:0;"><div class="nm">SHOYI</div><div class="st" data-shst></div></div>
+          <button class="sh-hbtn" data-sh="newChat" aria-label="New conversation">${IC('plus')}</button><button class="sh-hbtn" data-sh="chatClose" aria-label="Close">${IC('x')}</button></div>
+        <div class="sh-log" id="shLog"></div>
+        <div class="sh-typing" id="shTyping" style="display:none;">${av('sm')}<div class="b"><i></i><i></i><i></i><span>SHOYI is typing…</span></div></div>
+        <div class="sh-chips" id="shChips">${CHIPS.map((c) => `<span class="sh-chip" data-sh="chip">${E(c)}</span>`).join('')}</div>
+        <div class="sh-emojis" id="shEmo">${EMOJIS.map((e) => `<span data-sh="emoji" data-e="${e}">${e}</span>`).join('')}</div>
+        <div class="sh-count" id="shCount"></div>
+        <div class="sh-comp"><div class="box"><textarea id="shIn" rows="1" maxlength="1000" placeholder="Type your message…"></textarea><button class="sh-emo" data-sh="emo" aria-label="Emoji">🙂</button></div>
+          <button class="sh-send" id="shSend" data-sh="send" aria-label="Send">${IC('chev')}</button></div></div>`) +
+      pg('shoyi-ticket', head('Submit a Ticket', 'shoyi-ticket') + '<div class="page-body sh-form" id="shTkBody"></div>') +
+      pg('shoyi-tickets', head('My Support Tickets', 'shoyi-tickets') + '<div class="page-body" id="shTksBody"></div>') +
+      pg('shoyi-faqs', head('FAQs', 'shoyi-faqs') + `<div class="sh-search" style="margin:14px 20px 6px;">${IC('search')}<input id="shFaqQ" placeholder="Search FAQs…"></div><div class="sh-res" id="shFaqList"></div>`));
+    const ta = $('shIn');
+    ta.addEventListener('input', grow);
+    ta.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey && window.matchMedia('(min-width:720px)').matches) { e.preventDefault(); send(); } });
+    $('shFaqQ').addEventListener('input', debounce(() => loadFaqs($('shFaqQ').value), 350));
+  }
+  function debounce(f, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => f(...a), ms); }; }
+  function grow() { const t = $('shIn'); t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, 110) + 'px'; const n = t.value.length, c = $('shCount'); c.style.display = n > 800 ? 'block' : 'none'; c.textContent = n + ' / 1000'; }
+
+  /* ---- Support landing (inside the existing Support tab) ---- */
+  function ensureLanding() {
+    const pg = $('page-support'); if (!pg || $('shLanding')) return;
+    const old = pg.querySelector(':scope > .page-body');
+    const L = document.createElement('div'); L.id = 'shLanding';
+    L.innerHTML = `<div class="sh-hero"><div class="sh-hero-txt"><h2>We're Here<br>to Help</h2><p>How can we help you today?</p><span class="sh-pill" data-shst></span></div>
+        <div class="sh-hero-av" style="margin-left:auto;">${av('lg')}</div></div>
+      <div class="sh-search">${IC('search')}<input id="shSearch" placeholder="Search for help…"></div>
+      <div class="sh-res" id="shSearchOut"></div>
+      <div class="sh-grid">
+        <div class="sh-card" data-sh="chat">${IC('headset')}<b>Live Support</b><span>Chat with SHOYI, our AI assistant</span><i>Start Chat ▸</i></div>
+        <div class="sh-card" data-sh="ticket">${IC('doc')}<b>Submit a Ticket</b><span>Report an issue</span><i>Open Ticket ▸</i></div>
+        <div class="sh-card" data-sh="tickets">${IC('ticket')}<b>My Support Tickets</b><span>Track your requests</span><i>View Tickets ▸</i></div>
+        <div class="sh-card" data-sh="faqs">${IC('flag')}<b>FAQs</b><span>Find answers quickly</span><i>View FAQs ▸</i></div></div>
+      <div class="sh-topics"><div class="sh-topics-h"><span>⚡ Quick Help Topics</span><a data-sh="faqs">View All ›</a></div>
+        ${[['bars', 'How to buy Data Bundle?'], ['wallet', 'How to withdraw funds?'], ['doc', 'Wallet Balance Enquiry?'], ['check', 'Transaction Status?']].map((t) => `<div class="sh-topic" data-sh="topic" data-q="${E(t[1])}">${IC(t[0])}<span>${E(t[1])}</span>${IC('chev').replace('class="ic"', 'class="ic ch"')}</div>`).join('')}</div>`;
+    const tabHead = pg.querySelector('.tab-head'); tabHead.insertAdjacentElement('afterend', L);
+    if (old) { const d = document.createElement('details'); d.className = 'sh-old'; d.innerHTML = '<summary>More quick answers and contacts</summary>'; d.appendChild(old); L.appendChild(d); }   // the old FAQ bot is kept, only moved
+    $('shSearch').addEventListener('input', debounce(() => searchHelp($('shSearch').value), 350));
+  }
+  const itemHtml = (t, b) => `<div class="sh-item" data-sh="item"><b>${E(t)}</b><div>${E(b)}</div></div>`;
+  async function searchHelp(q) {
+    const out = $('shSearchOut'); q = q.trim(); if (q.length < 2) { out.innerHTML = ''; return; }
+    const r = await call('shoyi-help', { q }); if (r.errMsg) return;
+    const all = [...r.data.faqs, ...r.data.articles];
+    out.innerHTML = all.length ? all.map((i) => itemHtml(i.title, i.body)).join('') : `<div class="sh-item" style="cursor:default;"><b>No match found</b><div style="display:block;">Ask SHOYI instead, or submit a ticket.</div></div>`;
+  }
+  async function loadFaqs(q) {
+    const box = $('shFaqList'); box.innerHTML = '<div class="empty-note">Loading…</div>';
+    const r = await call('shoyi-help', { q: (q || '').trim() }); if (r.errMsg) { box.innerHTML = `<div class="empty-note">${E(r.errMsg)}</div>`; return; }
+    const all = [...r.data.faqs, ...r.data.articles];
+    box.innerHTML = all.length ? all.map((i) => itemHtml(i.title, i.body)).join('') : '<div class="empty-note">No FAQs found.</div>';
+  }
+
+  /* ================= chat ================= */
+  const log = () => $('shLog');
+  const scroll = () => { const l = log(); l.scrollTop = l.scrollHeight; };
+  function addSys(t, cls) { log().insertAdjacentHTML('beforeend', `<div class="sh-sys ${cls || ''}">${cls === 'warn' ? '⚠️' : '✅'} <span>${E(t)}</span></div>`); scroll(); }
+  function addMe(text, state, time) {
+    const row = document.createElement('div'); row.className = 'sh-row me';
+    row.innerHTML = `<div class="sh-bub"><span>${fmt(text)}</span><div class="tm"><span>${clock(time)}</span><b class="sd"></b></div></div>`;
+    log().appendChild(row); mark(row, state, text); scroll(); return row;
+  }
+  function mark(row, state, text) {
+    const b = row.querySelector('.sh-bub'), s = row.querySelector('.sd');
+    b.classList.toggle('err', state === 'failed');
+    s.innerHTML = state === 'sending' ? '⏳' : state === 'failed' ? 'Not sent · tap to retry' : IC('check');
+    row.onclick = state === 'failed' ? () => { row.remove(); send(text); } : null;
+  }
+  function addBot(text, meta, time) {
+    const l = log(); meta = meta || {};
+    l.insertAdjacentHTML('beforeend', `<div class="sh-row bot">${av('sm')}<div class="sh-bub"><span>${fmt(text)}</span><div class="tm"><span>${clock(time)}</span></div></div></div>`);
+    const t = meta.ticket;
+    if (t) {
+      const h = t.kind === 'handover';
+      l.insertAdjacentHTML('beforeend', `<div class="sh-tk"><div style="font-weight:800;color:#13552f;">${h ? 'Human support requested' : 'Support ticket created'}</div>
+        <div class="ref">${E(t.ref)} <span class="sh-act" style="padding:4px 10px;font-size:11px;" data-sh="copy" data-t="${E(t.ref)}">Copy</span></div>
+        <small>${h ? 'We cannot confirm whether an agent is online right now.' + (t.hours ? ' Support hours: ' + E(t.hours) + '.' : '') : 'Status: ' + E(t.status || 'open') + '. Track it in My Support Tickets.'}</small>
+        ${h && t.whatsapp ? `<div style="margin-top:8px;"><a class="sh-act solid" style="text-decoration:none;display:inline-block;" target="_blank" rel="noopener" href="https://wa.me/${E(t.whatsapp)}?text=${encodeURIComponent('Hello, my UMARSHOYI-SUB support reference is ' + t.ref)}">Open WhatsApp</a></div>` : ''}</div>`);
+    }
+    const acts = (meta.actions || []).map((a) => a.type === 'navigate' ? `<button class="sh-act solid" data-sh="go" data-p="${E(a.page)}">${E(a.label)} ▸</button>`
+      : a.type === 'offer_ticket' ? '<button class="sh-act" data-sh="offerTicket">Create a support ticket</button>'
+      : a.type === 'offer_handover' ? '<button class="sh-act" data-sh="offerHandover">Talk to human support</button>' : '').join('');
+    if (acts) l.insertAdjacentHTML('beforeend', `<div class="sh-acts">${acts}</div>`);
+    scroll();
+  }
+  const typing = (on) => { $('shTyping').style.display = on ? 'flex' : 'none'; if (on) scroll(); };
+  function resetLog() {
+    log().innerHTML = '';
+    addSys('You are now chatting with SHOYI (AI assistant)');
+    addBot("Hello! 👋 I'm SHOYI, your UMARSHOYI-SUB AI assistant. How can I help you today?\nSannu! Ni SHOYI ne. Za ka iya yi mini tambaya da Hausa ko Turanci.");
+    $('shChips').style.display = 'flex';
+  }
+  async function openChat(prefill) {
+    build(); openPage('shoyi-chat'); loadCfg(true);
+    if (!SH.loaded) {
+      SH.loaded = true; resetLog();
+      const r = await call('shoyi-history');
+      if (!r.errMsg && r.data && r.data.messages.length) {
+        SH.conv = r.data.conversation_id; $('shChips').style.display = 'none';
+        r.data.messages.forEach((m) => { if (m.role === 'user') { SH.turns++; addMe(m.content, 'sent', m.created_at); } else addBot(m.content, m.meta, m.created_at); });
+      }
+    }
+    if (prefill) send(prefill); else setTimeout(() => $('shIn').focus(), 250);
+  }
+  async function send(text) {
+    text = String(text ?? $('shIn').value).trim(); if (!text || SH.busy) return;
+    if (text.length > 1000) { showToast('Your message is too long (maximum 1000 characters).', 'error'); return; }
+    $('shIn').value = ''; grow(); $('shEmo').classList.remove('on'); $('shChips').style.display = 'none';
+    SH.busy = true; $('shSend').disabled = true; SH.lastUser = text;
+    const me = addMe(text, 'sending'); typing(true);
+    const r = await call('shoyi-chat', { message: text, conversation_id: SH.conv });
+    typing(false); SH.busy = false; $('shSend').disabled = false;
+    if (r.errMsg) { mark(me, 'failed', text); addSys(r.errMsg, 'warn'); return; }
+    const d = r.data; SH.conv = d.conversation_id; SH.turns++; mark(me, 'sent');
+    if (SH.cfg) { SH.cfg.ai_available = d.ai_available; paintStatus(); }
+    addBot(d.reply.content, d.reply.meta, d.reply.created_at);
+    if (d.secret_removed) addSys('For your safety, never share your PIN, password or OTP in chat. The code you typed was hidden.', 'warn');
+    if (d.reply.meta && d.reply.meta.notice === 'ai_unavailable') addSys('SHOYI AI is not available right now. This answer comes from our help articles.', 'warn');
+  }
+  function askFeedback(next) {
+    if (SH.turns < 2 || SH.fbDone) { next(); return; }
+    SH.fbNext = next; SH.fbRate = '';
+    openSheet(`<div style="font-weight:900;font-size:18px;color:var(--blue-2);">How was SHOYI?</div><div class="sh-small">Your answer helps us improve support.</div>
+      <div class="sh-fb">${[['very_helpful', '😍  Very Helpful'], ['helpful', '🙂  Helpful'], ['not_helpful', '😕  Not Helpful']].map((o) => `<button data-sh="fbPick" data-r="${o[0]}">${o[1]}</button>`).join('')}</div>
+      <textarea class="sh-ad-in" id="shFbTxt" maxlength="500" placeholder="Optional comment…" style="min-height:70px;"></textarea>
+      <button class="sh-btn" data-sh="fbSend">Send feedback</button><button class="sh-btn out" style="margin-top:8px;" data-sh="fbSkip">Skip</button>`);
+  }
+  const fbDone = () => { SH.fbDone = true; closeSheet(); const n = SH.fbNext; SH.fbNext = null; if (n) n(); };
+  function newChatNow() { if (SH.conv) call('shoyi-end', { conversation_id: SH.conv }); SH.conv = null; SH.turns = 0; SH.fbDone = false; SH.loaded = true; resetLog(); }
+
+  /* ================= tickets ================= */
+  async function openTicketForm(opts) {
+    build(); opts = opts || {}; openPage('shoyi-ticket');
+    $('shTkBody').innerHTML = `<div class="field"><label>Issue category</label><select id="shTkCat">${CATS.map((c) => `<option value="${c[0]}">${c[1]}</option>`).join('')}</select></div>
+      <div class="field"><label>Related transaction (optional)</label><select id="shTkTx"><option value="">None</option></select></div>
+      <div class="field"><label>Describe the problem</label><textarea id="shTkDesc" maxlength="1000" placeholder="Tell us what happened…">${E(opts.desc || '')}</textarea>
+        <div class="sh-small" style="margin-top:6px;">Never write your PIN, password or OTP here.</div></div>
+      <div class="err-text" id="shTkErr"></div><button class="btn-primary" id="shTkBtn" data-sh="tkSubmit">Submit Ticket</button>`;
+    const r = await call('shoyi-recent-tx');
+    if (!r.errMsg && $('shTkTx')) $('shTkTx').insertAdjacentHTML('beforeend', r.data.items.map((t) => `<option value="${E(t.id)}">${E(t.type)} · ${m2(t.amount)} · ${E(t.status)} · ${E(when(t.created_at))}</option>`).join(''));
+  }
+  async function submitTicket() {
+    const d = $('shTkDesc').value.trim(); $('shTkErr').textContent = '';
+    if (d.length < 5) { $('shTkErr').textContent = 'Please describe the problem.'; return; }
+    setLoading('shTkBtn', true);
+    const r = await call('shoyi-ticket-create', { category: $('shTkCat').value, description: d, txRef: $('shTkTx').value });
+    if (r.errMsg) { setLoading('shTkBtn', false, 'Submit Ticket'); $('shTkErr').textContent = r.errMsg; return; }
+    $('shTkBody').innerHTML = `<div class="sh-ok"><div style="font-size:46px;">✅</div><b style="font-size:18px;">Ticket submitted</b><div class="big">${E(r.data.ref)}</div>
+      <div class="sh-small">Keep this reference. Status: Open.</div><button class="btn-primary" style="margin-top:18px;" data-sh="tickets">View My Tickets</button></div>`;
+  }
+  async function openTickets() {
+    build(); openPage('shoyi-tickets'); const box = $('shTksBody'); box.innerHTML = SKEL;
+    const r = await call('shoyi-my-tickets'); if (r.errMsg) { box.innerHTML = `<div class="empty-note">${E(r.errMsg)}</div>`; return; }
+    box.innerHTML = r.data.items.length ? r.data.items.map((t) => `<div class="sh-tkrow"><div class="h"><b>${E(t.ref)}</b>${tsBadge(t.status)}</div>
+      <p>${E(t.message)}</p><small>${E((CATS.find((c) => c[0] === t.category) || [0, t.category === 'human_handover' ? 'Human support' : t.category])[1])} · ${E(when(t.created_at))}</small>${t.note ? `<div class="nt"><b>Support note:</b> ${E(t.note)}</div>` : ''}</div>`).join('')
+      : '<div class="empty-note">You have no support tickets yet.</div>';
+  }
+  function openFaqs() { build(); openPage('shoyi-faqs'); $('shFaqQ').value = ''; loadFaqs(''); }
+  function handoverSheet(reason) {
+    openSheet(`<div style="font-weight:900;font-size:18px;color:var(--blue-2);">Talk to human support?</div>
+      <p class="sh-small" style="margin:10px 0 14px;">We will create a request and a ticket reference for the support team. We cannot promise an agent is online right now${SH.cfg && SH.cfg.hours ? '. Support hours: ' + E(SH.cfg.hours) : ''}.</p>
+      <button class="sh-btn" id="shHoBtn" data-sh="hoYes">Yes, request human support</button><button class="sh-btn out" style="margin-top:8px;" data-sh="closeSheet">Cancel</button>`);
+    SH.hoReason = reason;
+  }
+  async function doHandover() {
+    setLoading('shHoBtn', true);
+    const r = await call('shoyi-handover', { reason: SH.hoReason || SH.lastUser || 'Customer asked for a human agent', conversation_id: SH.conv });
+    closeSheet(); if (r.errMsg) { showToast(r.errMsg, 'error'); return; }
+    if (!$('page-shoyi-chat').classList.contains('active')) openPage('shoyi-chat');
+    addBot('Your request has been recorded. Here is your reference:', { ticket: { kind: 'handover', ref: r.data.ref, status: 'requested', hours: r.data.hours, whatsapp: r.data.whatsapp } });
+  }
+
+  /* ---- in-app navigation (permission-checked list sent by the server; nothing else is accepted) ---- */
+  const GO = {
+    data: () => openPurchase('data'), airtime: () => openPurchase('airtime'), cable: () => showPage('cable'), electricity: () => showPage('electricity'), bulksms: () => showPage('bulksms'),
+    a2c: () => showPage('a2c'), exchange: () => showPage('exchange'), exam: () => showPage('exam'), card_data: () => openCardPurchase('data-card'), card_recharge: () => openCardPurchase('airtime-card'),
+    fund: () => showPage('fund'), wallet_main: () => openWallet('main'), wallet_exchange: () => openWallet('exchange'), wallet_atc: () => openWallet('atc'), withdraw: () => openWithdraw('exchange'),
+    history: () => showTab('transactions'), profile: () => showTab('profile'), personal_info: () => showPage('personal-info'), change_pin: () => showPage('change-pin'),
+    change_password: () => showPage('change-password'), referral: () => openReferral(), notifications: () => showPage('notifications'),
+    submit_ticket: () => openTicketForm(), my_tickets: () => openTickets(), faqs: () => openFaqs(),
+  };
+
+  /* ================= click handling ================= */
+  const ACT = {
+    chat: () => openChat(), ticket: () => openTicketForm(), tickets: () => { closePageSafe('shoyi-ticket'); openTickets(); }, faqs: () => openFaqs(),
+    topic: (t) => openChat(t.dataset.q), chip: (t) => send(t.textContent), send: () => send(), emo: () => $('shEmo').classList.toggle('on'),
+    emoji: (t) => { const i = $('shIn'); i.value += t.dataset.e; i.focus(); grow(); },
+    close: (t) => closePageSafe(t.dataset.p), closeSheet: () => closeSheet(),
+    chatClose: () => askFeedback(() => closePageSafe('shoyi-chat')), newChat: () => askFeedback(newChatNow),
+    go: (t) => { const f = GO[t.dataset.p]; if (f) f(); }, copy: (t) => copyText(t.dataset.t),
+    item: (t) => t.classList.toggle('open'),
+    offerTicket: () => openTicketForm({ desc: SH.lastUser }), offerHandover: () => handoverSheet(SH.lastUser), hoYes: () => doHandover(),
+    tkSubmit: () => submitTicket(),
+    fbPick: (t) => { SH.fbRate = t.dataset.r; document.querySelectorAll('.sh-fb button').forEach((b) => b.classList.toggle('on', b === t)); },
+    fbSend: async () => { if (!SH.fbRate) { showToast('Please choose a rating', 'error'); return; } await call('shoyi-feedback', { conversation_id: SH.conv, rating: SH.fbRate, comment: ($('shFbTxt') || {}).value || '' }); showToast('Thank you for your feedback', 'success'); fbDone(); },
+    fbSkip: () => fbDone(),
+  };
+  function closePageSafe(n) { const p = $('page-' + n); if (p) p.classList.remove('active'); }
+  document.addEventListener('click', (e) => { const t = e.target.closest('[data-sh]'); if (!t) return; const f = ACT[t.dataset.sh] || ADM[t.dataset.sh]; if (f) { e.preventDefault(); f(t, e); } });
+
+  /* ================= hooks into the existing app ================= */
+  const _showPage = showPage;
+  showPage = function (n) { _showPage(n); if (n === 'support') { build(); ensureLanding(); loadCfg(true); } };
+  const _adminSetTab = adminSetTab;
+  adminSetTab = function (t) {
+    const box = $('atab-shoyi'); if (!box) return _adminSetTab(t);
+    if (t === 'shoyi') {
+      document.querySelectorAll('#adminTabs .atab').forEach((b) => b.classList.toggle('on', b.dataset.tab === 'shoyi'));
+      ['overview', 'users', 'tx', 'rem', 'settings', 'log'].forEach((n) => { const x = $('atab-' + n); if (x) x.style.display = 'none'; });
+      box.style.display = 'block'; adOpen();
+    } else { box.style.display = 'none'; _adminSetTab(t); }
+  };
+
+  /* ================= ADMIN ================= */
+  const AD = { sec: 'avatar', cache: {} };
+  const SECS = [['avatar', 'Avatar'], ['kb', 'Knowledge'], ['faq', 'FAQs'], ['svc', 'Services'], ['q', 'Questions'], ['tk', 'Tickets'], ['fb', 'Feedback'], ['ai', 'AI settings']];
+  const ac = (body) => call('shoyi-admin', body);
+  const body = () => $('shAdBody');
+  function injectAdmin() {
+    const tabs = $('adminTabs'), panel = $('page-admin-panel'); if (!tabs || !panel || $('atab-shoyi')) return;
+    tabs.insertAdjacentHTML('beforeend', '<button class="atab" data-tab="shoyi" onclick="adminSetTab(\'shoyi\')">SHOYI</button>');
+    panel.querySelector('.page-body').insertAdjacentHTML('beforeend', '<div id="atab-shoyi" style="display:none;"><div class="sh-ad-card" style="padding:12px;"><b style="color:var(--blue-2);">SHOYI AI Appearance &amp; Support</b><div id="shAdStats" style="margin-top:10px;"></div></div><div class="sh-ad-chips" id="shAdChips"></div><div id="shAdBody"></div></div>');
+  }
+  async function adOpen() { adChips(); adStats(); adSection(AD.sec); }
+  function adChips() { $('shAdChips').innerHTML = SECS.map((s) => `<button class="${AD.sec === s[0] ? 'on' : ''}" data-sh="adSec" data-s="${s[0]}">${s[1]}</button>`).join(''); }
+  async function adStats() {
+    const r = await ac({ action: 'overview' }), b = $('shAdStats'); if (r.errMsg) { b.innerHTML = `<div class="err-text">${E(r.errMsg)}</div>`; return; }
+    const d = r.data;
+    b.innerHTML = `<div class="sh-ad-stats"><div><b>${d.conversations_week}</b><span>chats (7 days)</span></div><div><b>${d.open_tickets}</b><span>open tickets</span></div><div><b>${d.unanswered}</b><span>unanswered</span></div></div>
+      <div class="sh-small">AI: ${d.ai_available ? '<b style="color:#16a05f;">available</b>' : d.ai_configured ? '<b style="color:#e98a0c;">key saved, temporarily unavailable</b>' : '<b style="color:#e14848;">not configured (help-article mode)</b>'} · Pictures stored in: ${d.bucket ? 'R2 bucket' : 'database'} · Human requests waiting: ${d.handoffs_waiting}</div>`;
+  }
+  function adSection(s) {
+    AD.sec = s; adChips(); body().innerHTML = SKEL;
+    ({ avatar: adAvatar, kb: () => adKb('article'), faq: () => adKb('faq'), svc: adSvc, q: adQ, tk: adTk, fb: adFb, ai: adAi })[s]();
+  }
+  const emptyOrErr = (r) => `<div class="empty-note">${E(r.errMsg || 'Nothing here yet.')}</div>`;
+
+  /* ---- Avatar ---- */
+  async function adAvatar() {
+    const r = await ac({ action: 'avatar_get' }); if (r.errMsg) { body().innerHTML = emptyOrErr(r); return; }
+    const d = r.data, a = d.active, custom = !a.is_default;
+    AD.hist = d.history;
+    body().innerHTML = `<div class="sh-ad-card"><b style="color:var(--blue-2);">Current SHOYI Avatar</b>
+      <div class="sh-av-cur" style="margin-top:10px;"><img class="sh-av" src="${E(custom ? a.url + '?s=lg' : d.default_url)}" onerror="shAvErr(this)" alt="">
+        <div class="meta"><b>${custom ? 'Active picture' : 'Default avatar in use'}</b><br>Uploaded: ${a.uploaded_at ? E(when(a.uploaded_at)) : '—'}<br>Last updated: ${a.updated_at ? E(when(a.updated_at)) : '—'}<br>By: ${E(a.updated_by || '—')}<br>Status: <b style="color:#16a05f;">${custom ? 'Active' : 'Default active'}</b></div></div>
+      <div class="sh-btns"><button class="sh-btn" data-sh="adPick">Upload SHOYI Picture</button>
+        ${custom ? '<button class="sh-btn out" data-sh="adPick">Replace Current Picture</button><button class="sh-btn red" data-sh="adRemove">Remove Current Picture</button>' : ''}</div>
+      <input type="file" id="shFile" accept="image/jpeg,image/png,image/webp" style="display:none;">
+      <div class="sh-small" style="margin-top:10px;">JPG, PNG or WEBP, up to 8 MB. You will crop and preview the picture before it goes live. The change shows everywhere SHOYI appears.</div></div>
+      <div class="sh-ad-card"><b style="color:var(--blue-2);">Avatar History</b><div style="margin-top:8px;">
+      ${d.history.map((h) => `<div class="sh-hist"><img class="sh-av" src="${E(h.url)}?s=sm" onerror="shAvErr(this)" alt=""><div class="t"><b>${E(when(h.uploaded_at))}</b><br>By ${E(h.uploaded_by)} · ${h.is_active ? '<b style="color:#16a05f;">Active</b>' : 'Inactive'}</div>${h.is_active ? '' : `<button class="sh-btn sm" data-sh="adRestore" data-id="${E(h.id)}">Restore</button>`}</div>`).join('') || '<div class="sh-small">No history yet.</div>'}</div></div>`;
+    $('shFile').addEventListener('change', adFile);
+  }
+
+  const CR = { img: null, base: 1, z: 1, ox: 0, oy: 0, S: 300, drag: null };
+  const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+  function adFile(e) {
+    const f = e.target.files && e.target.files[0]; e.target.value = ''; if (!f) return;
+    if (!/^image\/(jpeg|png|webp)$/.test(f.type)) { showToast('Only JPG, PNG or WEBP pictures are allowed.', 'error'); return; }
+    if (f.size > 8 * 1024 * 1024) { showToast('The picture is too large (maximum 8 MB).', 'error'); return; }
+    const url = URL.createObjectURL(f), img = new Image();
+    img.onload = () => { URL.revokeObjectURL(url);
+      if (img.width < 200 || img.height < 200) { showToast('The picture is too small (at least 200 x 200 pixels).', 'error'); return; }
+      if (img.width > 8000 || img.height > 8000) { showToast('The picture is too big (at most 8000 x 8000 pixels).', 'error'); return; }
+      cropSheet(img); };
+    img.onerror = () => { URL.revokeObjectURL(url); showToast('That picture could not be opened.', 'error'); };
+    img.src = url;
+  }
+  function cropSheet(img) {
+    CR.img = img; CR.S = 300; CR.base = Math.max(CR.S / img.width, CR.S / img.height); CR.z = 1; CR.ox = (CR.S - img.width * CR.base) / 2; CR.oy = (CR.S - img.height * CR.base) / 2;
+    const hasPrev = (AD.hist || []).some((h) => !h.is_active);
+    openSheet(`<div style="font-weight:900;font-size:18px;color:var(--blue-2);">Crop and preview</div>
+      <div class="sh-small">Drag the picture to position it. Use the slider to zoom.</div>
+      <div class="sh-crop" id="shCrop"><canvas id="shCv" width="300" height="300"></canvas></div>
+      <input class="sh-range" id="shZoom" type="range" min="1" max="4" step="0.01" value="1">
+      <div class="sh-small" style="margin-bottom:4px;"><b>Live preview</b></div>
+      <div class="sh-prev"><div>Support Center welcome<div class="mini-hero"><img class="sh-av" data-pv alt=""><span>We're Here to Help</span></div></div>
+        <div>Chat header<div class="mini-head"><img class="sh-av" data-pv alt=""><span>SHOYI<br><small style="font-weight:600;">AI Customer Support</small></span></div></div>
+        <div>Chat message<div class="mini-msg"><img class="sh-av" data-pv alt=""><span>Hello! I'm SHOYI…</span></div></div>
+        <div>Small mobile avatar<div class="small"><img class="sh-av" data-pv alt=""><img class="sh-av s2" data-pv alt=""></div></div></div>
+      <button class="sh-btn" id="shSaveAv" data-sh="adSave">Save and Activate</button>
+      <div class="sh-row2" style="margin-top:8px;"><button class="sh-btn out sm" style="flex:1;" data-sh="adPick2">Replace (choose another)</button>${hasPrev ? '<button class="sh-btn out sm" style="flex:1;" data-sh="adRestorePrev">Restore Previous Avatar</button>' : ''}<button class="sh-btn red sm" style="flex:1;" data-sh="closeSheet">Cancel</button></div>`);
+    const cv = $('shCv'), box = $('shCrop');
+    box.addEventListener('pointerdown', (e) => { CR.drag = { x: e.clientX, y: e.clientY, ox: CR.ox, oy: CR.oy }; box.setPointerCapture(e.pointerId); box.style.cursor = 'grabbing'; });
+    box.addEventListener('pointermove', (e) => { if (!CR.drag) return; const k = CR.S / box.clientWidth; CR.ox = CR.drag.ox + (e.clientX - CR.drag.x) * k; CR.oy = CR.drag.oy + (e.clientY - CR.drag.y) * k; crDraw(); });
+    const up = () => { if (CR.drag) { CR.drag = null; box.style.cursor = 'grab'; crPrev(); } };
+    box.addEventListener('pointerup', up); box.addEventListener('pointercancel', up);
+    $('shZoom').addEventListener('input', (e) => { const old = CR.base * CR.z, cx = (CR.S / 2 - CR.ox) / old, cy = (CR.S / 2 - CR.oy) / old; CR.z = +e.target.value; const k = CR.base * CR.z; CR.ox = CR.S / 2 - cx * k; CR.oy = CR.S / 2 - cy * k; crDraw(); });
+    $('shZoom').addEventListener('change', crPrev);
+    crDraw(); crPrev(); cv.getContext('2d');
+  }
+  function crDraw() {
+    const c = $('shCv'); if (!c) return; const x = c.getContext('2d'), S = CR.S, k = CR.base * CR.z, w = CR.img.width * k, h = CR.img.height * k;
+    CR.ox = clamp(CR.ox, S - w, 0); CR.oy = clamp(CR.oy, S - h, 0);
+    x.fillStyle = '#fff'; x.fillRect(0, 0, S, S); x.drawImage(CR.img, CR.ox, CR.oy, w, h);
+    x.save(); x.fillStyle = 'rgba(8,14,40,.55)'; x.beginPath(); x.rect(0, 0, S, S); x.arc(S / 2, S / 2, S / 2 - 6, 0, Math.PI * 2, true); x.fill('evenodd'); x.restore();
+    x.strokeStyle = '#fff'; x.lineWidth = 2; x.beginPath(); x.arc(S / 2, S / 2, S / 2 - 6, 0, Math.PI * 2); x.stroke();
+  }
+  function crOut(N) {
+    const k = CR.base * CR.z, c = document.createElement('canvas'); c.width = c.height = N; const x = c.getContext('2d');
+    x.imageSmoothingQuality = 'high'; x.fillStyle = '#fff'; x.fillRect(0, 0, N, N);
+    x.drawImage(CR.img, -CR.ox / k, -CR.oy / k, CR.S / k, CR.S / k, 0, 0, N, N); return c;
+  }
+  function crPrev() { const u = crOut(160).toDataURL('image/jpeg', 0.9); document.querySelectorAll('img[data-pv]').forEach((i) => { i.src = u; }); }
+  const b64 = (canvas, q) => canvas.toDataURL('image/jpeg', q).split(',')[1];
+  const byteLen = (s) => Math.floor(s.length * 3 / 4);
+  async function adSave() {
+    const btn = $('shSaveAv'); setLoading('shSaveAv', true);
+    try {
+      const lg = b64(crOut(512), 0.9), sm = b64(crOut(128), 0.9);
+      const long = Math.max(CR.img.width, CR.img.height), sc = Math.min(1, 1400 / long), oc = document.createElement('canvas');
+      oc.width = Math.round(CR.img.width * sc); oc.height = Math.round(CR.img.height * sc);
+      const ox = oc.getContext('2d'); ox.fillStyle = '#fff'; ox.fillRect(0, 0, oc.width, oc.height); ox.drawImage(CR.img, 0, 0, oc.width, oc.height);
+      let q = 0.88, orig = b64(oc, q); while (byteLen(orig) > 850 * 1024 && q > 0.4) { q -= 0.1; orig = b64(oc, q); }
+      if (byteLen(orig) > 850 * 1024) throw new Error('The picture is still too large. Please choose a simpler picture.');
+      const r = await ac({ action: 'avatar_upload', orig, lg, sm, activate: true });
+      if (r.errMsg) throw new Error(r.errMsg);
+      closeSheet(); showToast('SHOYI picture updated', 'success'); loadCfg(true); adAvatar();
+    } catch (e) { setLoading('shSaveAv', false, 'Save and Activate'); showToast(e.message || 'Could not save the picture', 'error'); }
+  }
+  async function adActivate(id) {
+    const r = await ac({ action: 'avatar_activate', id }); if (r.errMsg) { showToast(r.errMsg, 'error'); return; }
+    closeSheet(); showToast('Previous avatar restored', 'success'); loadCfg(true); adAvatar();
+  }
+
+  /* ---- Knowledge / FAQ ---- */
+  async function adKb(kind) {
+    const r = await ac({ action: 'kb_list', kind }); if (r.errMsg) { body().innerHTML = emptyOrErr(r); return; }
+    AD.cache[kind] = r.data.items; const A = kind === 'article';
+    body().innerHTML = `<button class="sh-btn" data-sh="kbNew" data-k="${kind}">+ New ${A ? 'article' : 'FAQ'}</button><div class="sh-small" style="margin:8px 0 12px;">SHOYI only uses <b>published</b> items. Drafts are never used.</div>`
+      + (r.data.items.map((i) => `<div class="sh-ad-card"><div class="sh-row2" style="justify-content:space-between;"><b style="font-size:14px;">${E(A ? i.title : i.question)}</b><span class="sh-st" style="background:${i.status === 'published' ? '#e7f8ef' : '#eceff5'};color:${i.status === 'published' ? '#16a05f' : '#5b6b8c'};">${i.status}</span></div>
+        <div class="sh-small" style="margin:6px 0;">${A ? E(i.category) + ' · ' : ''}${E(i.language)} · updated ${E(when(i.updated_at))}${i.author === 'system' ? ' · starter content, please review' : ''}</div>
+        <div class="sh-row2"><button class="sh-btn out sm" data-sh="kbEdit" data-k="${kind}" data-id="${E(i.id)}">Edit</button><button class="sh-btn red sm" data-sh="kbDel" data-k="${kind}" data-id="${E(i.id)}">Delete</button></div></div>`).join('') || '<div class="empty-note">Nothing here yet.</div>');
+  }
+  function kbForm(kind, item, pre) {
+    const A = kind === 'article'; item = item || pre || {}; AD.edit = { kind, id: item.id || '' };
+    const sel = (id, opts, v) => `<select class="sh-ad-in" id="${id}">${opts.map((o) => `<option value="${o[0]}" ${o[0] === v ? 'selected' : ''}>${o[1]}</option>`).join('')}</select>`;
+    openSheet(`<div style="font-weight:900;font-size:18px;color:var(--blue-2);margin-bottom:10px;">${item.id ? 'Edit' : 'New'} ${A ? 'article' : 'FAQ'}</div>
+      ${A ? `<input class="sh-ad-in" id="kbT" maxlength="120" placeholder="Title" value="${E(item.title || '')}"><input class="sh-ad-in" id="kbC" maxlength="40" placeholder="Category (e.g. Services, Wallets, Announcement)" value="${E(item.category || '')}">
+        <textarea class="sh-ad-in" id="kbB" maxlength="6000" placeholder="Content">${E(item.content || '')}</textarea>`
+      : `<input class="sh-ad-in" id="kbT" maxlength="200" placeholder="Question" value="${E(item.question || '')}"><textarea class="sh-ad-in" id="kbB" maxlength="2000" placeholder="Answer">${E(item.answer || '')}</textarea>`}
+      ${sel('kbL', [['en', 'English'], ['ha', 'Hausa'], ['both', 'Both']], item.language || 'en')}${sel('kbS', [['published', 'Published (SHOYI uses it)'], ['draft', 'Draft (not used)']], item.status || 'published')}
+      ${A ? `<label class="sh-small" style="display:flex;gap:8px;align-items:center;margin-bottom:10px;"><input type="checkbox" id="kbP" ${item.pinned ? 'checked' : ''}> Always give SHOYI this article (use sparingly)</label>` : `<input class="sh-ad-in" id="kbO" type="number" placeholder="Order (0 = first)" value="${E(item.sort_order || 0)}">`}
+      <button class="sh-btn" id="kbSave" data-sh="kbSave">Save</button>`);
+  }
+  async function kbSave() {
+    const { kind, id } = AD.edit, A = kind === 'article';
+    const p = { action: 'kb_save', kind, id: id || undefined, language: $('kbL').value, status: $('kbS').value };
+    if (A) Object.assign(p, { title: $('kbT').value, category: $('kbC').value, content: $('kbB').value, pinned: $('kbP').checked }); else Object.assign(p, { question: $('kbT').value, answer: $('kbB').value, sort_order: $('kbO').value });
+    setLoading('kbSave', true); const r = await ac(p); setLoading('kbSave', false, 'Save');
+    if (r.errMsg) { showToast(r.errMsg, 'error'); return; }
+    closeSheet(); showToast('Saved', 'success'); adKb(kind);
+  }
+
+  /* ---- Services ---- */
+  async function adSvc() {
+    const r = await ac({ action: 'svc_list' }); if (r.errMsg) { body().innerHTML = emptyOrErr(r); return; }
+    const eff = Object.fromEntries(r.data.effective.map((s) => [s.key, s.available]));
+    body().innerHTML = '<div class="sh-small" style="margin-bottom:10px;">SHOYI only describes a service as available when it is switched on here AND its provider/settings are really ready (for example the VTUAgent key, Exchange switched on).</div>'
+      + r.data.items.map((s) => `<div class="sh-ad-card"><div class="sh-row2" style="justify-content:space-between;"><b>${E(s.name)}</b><span class="sh-st" style="background:${eff[s.key] ? '#e7f8ef' : '#fdeaea'};color:${eff[s.key] ? '#16a05f' : '#e14848'};">${eff[s.key] ? 'Available to customers' : 'Not available'}</span></div>
+        <div class="sh-row2" style="margin-top:8px;"><label class="sh-small" style="display:flex;gap:6px;align-items:center;"><input type="checkbox" data-sv="${s.key}" ${s.enabled ? 'checked' : ''}> Switched on</label></div>
+        <input class="sh-ad-in" style="margin:8px 0;" data-sn="${s.key}" maxlength="160" placeholder="Note for SHOYI (optional)" value="${E(s.note || '')}"><button class="sh-btn sm" data-sh="svcSave" data-k="${s.key}">Save</button></div>`).join('');
+  }
+
+  /* ---- Unanswered questions ---- */
+  async function adQ() {
+    const r = await ac({ action: 'unanswered' }); if (r.errMsg) { body().innerHTML = emptyOrErr(r); return; }
+    AD.q = r.data.items;
+    body().innerHTML = '<div class="sh-small" style="margin-bottom:10px;">Questions SHOYI could not answer from verified knowledge. Add an answer so it can help next time.</div>'
+      + (r.data.items.map((i, n) => `<div class="sh-ad-card"><b style="font-size:14px;">${E(i.q)}</b><div class="sh-small">${E(when(i.created_at))}</div><div class="sh-row2" style="margin-top:8px;"><button class="sh-btn sm" data-sh="qAnswer" data-n="${n}">Add answer</button><button class="sh-btn out sm" data-sh="qDone" data-id="${E(i.id)}">Done</button></div></div>`).join('') || '<div class="empty-note">No unanswered questions. 🎉</div>');
+  }
+
+  /* ---- Tickets + human handover ---- */
+  const TKS = ['open', 'in_progress', 'waiting_customer', 'resolved', 'closed'];
+  async function adTk() {
+    const f = AD.tkf || 'active', [r, h] = await Promise.all([ac({ action: 'tickets_list', status: f }), ac({ action: 'handoff_list' })]);
+    if (r.errMsg) { body().innerHTML = emptyOrErr(r); return; }
+    const opt = (v) => TKS.map((s) => `<option value="${s}" ${s === v ? 'selected' : ''}>${TS[s][2]}</option>`).join('');
+    body().innerHTML = `<div class="sh-ad-chips">${[['active', 'Active'], ['all', 'All']].map((c) => `<button class="${f === c[0] ? 'on' : ''}" data-sh="tkFilter" data-f="${c[0]}">${c[1]}</button>`).join('')}</div>`
+      + (r.data.items.map((t) => `<div class="sh-ad-card"><div class="sh-row2" style="justify-content:space-between;"><b style="color:var(--blue-2);">${E(t.ref || t.id.slice(0, 8))}</b>${tsBadge(t.status)}</div>
+        <div class="sh-small">@${E(t.username)} · ${E(t.category || 'other')} · ${E(when(t.created_at))}${t.tx_id ? ' · tx ' + E(t.tx_id.slice(0, 8)) : ''}</div><p style="font-size:13.5px;margin:8px 0;white-space:pre-wrap;">${E(t.message)}</p>
+        <select class="sh-ad-in" data-ts="${E(t.id)}">${opt(t.status)}</select><input class="sh-ad-in" data-tn="${E(t.id)}" maxlength="400" placeholder="Note shown to the customer (optional)" value="${E(t.admin_note || '')}"><button class="sh-btn sm" data-sh="tkSave" data-id="${E(t.id)}">Save</button></div>`).join('') || '<div class="empty-note">No tickets.</div>')
+      + `<div class="section-title" style="padding:0;margin:18px 0 10px;">Human support requests</div>`
+      + ((h.data && h.data.items || []).map((x) => `<div class="sh-ad-card"><div class="sh-row2" style="justify-content:space-between;"><b style="color:var(--blue-2);">${E(x.ref || '—')}</b>${tsBadge(x.status)}</div>
+        <div class="sh-small">@${E(x.username || '?')} · ${E(when(x.created_at))}</div><p style="font-size:13.5px;margin:8px 0;">${E(x.reason || '')}</p>
+        <div class="sh-row2"><select class="sh-ad-in" style="flex:1;margin:0;" data-hs="${E(x.id)}">${['requested', 'contacted', 'closed'].map((s) => `<option value="${s}" ${s === x.status ? 'selected' : ''}>${s}</option>`).join('')}</select><button class="sh-btn sm" data-sh="hoSave" data-id="${E(x.id)}">Save</button>${x.phone ? `<a class="sh-btn out sm" style="text-decoration:none;" target="_blank" rel="noopener" href="https://wa.me/${wa(x.phone)}">WhatsApp</a>` : ''}</div></div>`).join('') || '<div class="empty-note">No human support requests.</div>');
+  }
+
+  /* ---- Feedback ---- */
+  async function adFb() {
+    const r = await ac({ action: 'feedback_list' }); if (r.errMsg) { body().innerHTML = emptyOrErr(r); return; }
+    const c = r.data.counts || {}, L = { very_helpful: '😍 Very Helpful', helpful: '🙂 Helpful', not_helpful: '😕 Not Helpful' };
+    body().innerHTML = `<div class="sh-ad-stats">${Object.keys(L).map((k) => `<div><b>${c[k] || 0}</b><span>${L[k]}</span></div>`).join('')}</div>`
+      + (r.data.items.map((i) => `<div class="sh-ad-card"><b>${L[i.rating] || E(i.rating)}</b><div class="sh-small">@${E(i.username || '?')} · ${E(when(i.created_at))}</div>${i.comment ? `<p style="font-size:13.5px;margin:6px 0 0;">${E(i.comment)}</p>` : ''}</div>`).join('') || '<div class="empty-note">No feedback yet.</div>');
+  }
+
+  /* ---- AI settings (key is saved encrypted by the existing settings system) ---- */
+  async function adAi() {
+    const r = await adminCall({ action: 'get_settings' }); if (r.errMsg) { body().innerHTML = emptyOrErr(r); return; }
+    const items = r.data.items.filter((s) => s.group === 'SHOYI'); AD.set = items;
+    const f = (s) => {
+      const id = 'shs_' + s.key, lab = `<label>${E(s.label)}${s.type === 'secret' ? ` <span style="font-weight:700;color:${s.is_set ? '#16a05f' : '#e14848'};">${s.is_set ? '✓ set' : '✗ not set'}</span>` : ''}</label>`;
+      if (s.type === 'bool') return `<div class="field">${lab}<select id="${id}"><option value="1" ${s.value !== '0' ? 'selected' : ''}>On</option><option value="0" ${s.value === '0' ? 'selected' : ''}>Off</option></select></div>`;
+      if (s.type === 'secret') return `<div class="field">${lab}<input id="${id}" type="password" autocomplete="new-password" placeholder="${s.is_set ? 'Leave empty to keep the saved key' : 'Paste the key'}"></div>`;
+      return `<div class="field">${lab}<input id="${id}" value="${E(s.value || '')}" placeholder="${E(s.hint)}"></div>`;
+    };
+    body().innerHTML = `<div class="sh-ad-card">${items.map(f).join('')}<button class="btn-primary" id="shAiBtn" data-sh="aiSave">Save</button>
+      <div class="sh-small" style="margin-top:12px;">The AI key stays on the server (encrypted in your database) and is never sent to the browser. Without a key SHOYI still answers from your Knowledge and FAQs, but it is not shown as Online.${r.data.keys_can_be_saved ? '' : ' <b style="color:#e14848;">AUTH_SECRET is missing or too short, so keys cannot be saved yet.</b>'}</div></div>`;
+  }
+  async function aiSave() {
+    const values = {};
+    for (const s of AD.set || []) { const el = $('shs_' + s.key); if (!el) continue; const v = el.value.trim(); if (s.type === 'secret') { if (v) values[s.key] = v; } else if (v !== String(s.value ?? '')) values[s.key] = v; }
+    if (!Object.keys(values).length) { showToast('Nothing changed', 'success'); return; }
+    setLoading('shAiBtn', true); const r = await adminCall({ action: 'save_settings', values }); setLoading('shAiBtn', false, 'Save');
+    if (r.errMsg) { showToast(r.errMsg, 'error'); return; }
+    showToast('Saved', 'success'); loadCfg(true); adOpen();
+  }
+
+  const ADM = {
+    adSec: (t) => adSection(t.dataset.s), adPick: () => $('shFile') && $('shFile').click(),
+    adPick2: () => { closeSheet(); setTimeout(() => $('shFile') && $('shFile').click(), 50); }, adSave: () => adSave(),
+    adRemove: () => openSheet(`<div style="font-weight:900;font-size:18px;color:var(--blue-2);">Remove current picture?</div><p class="sh-small" style="margin:10px 0 14px;">SHOYI will use the professional default avatar. The picture stays in the history and can be restored.</p><button class="sh-btn red" data-sh="adRemoveYes">Yes, remove it</button><button class="sh-btn out" style="margin-top:8px;" data-sh="closeSheet">Cancel</button>`),
+    adRemoveYes: async () => { const r = await ac({ action: 'avatar_remove' }); closeSheet(); if (r.errMsg) { showToast(r.errMsg, 'error'); return; } showToast('Picture removed. Default avatar in use.', 'success'); loadCfg(true); adAvatar(); },
+    adRestore: (t) => adActivate(t.dataset.id),
+    adRestorePrev: () => { const h = (AD.hist || []).find((x) => !x.is_active); if (h) adActivate(h.id); },
+    kbNew: (t) => kbForm(t.dataset.k), kbEdit: (t) => kbForm(t.dataset.k, (AD.cache[t.dataset.k] || []).find((i) => i.id === t.dataset.id)),
+    kbDel: (t) => openSheet(`<div style="font-weight:900;font-size:18px;color:var(--blue-2);">Delete this item?</div><button class="sh-btn red" style="margin-top:14px;" data-sh="kbDelYes" data-k="${t.dataset.k}" data-id="${E(t.dataset.id)}">Yes, delete</button><button class="sh-btn out" style="margin-top:8px;" data-sh="closeSheet">Cancel</button>`),
+    kbDelYes: async (t) => { const r = await ac({ action: 'kb_delete', kind: t.dataset.k, id: t.dataset.id }); closeSheet(); if (r.errMsg) { showToast(r.errMsg, 'error'); return; } adKb(t.dataset.k); }, kbSave: () => kbSave(),
+    svcSave: async (t) => { const k = t.dataset.k, r = await ac({ action: 'svc_save', key: k, enabled: document.querySelector(`[data-sv="${k}"]`).checked, note: document.querySelector(`[data-sn="${k}"]`).value }); showToast(r.errMsg || 'Saved', r.errMsg ? 'error' : 'success'); if (!r.errMsg) adSvc(); },
+    qAnswer: (t) => { const i = AD.q[+t.dataset.n]; AD.cache.faq = AD.cache.faq || []; kbForm('faq', null, { question: i.q, status: 'published' }); },
+    qDone: async (t) => { await ac({ action: 'unanswered_done', id: t.dataset.id }); adQ(); },
+    tkFilter: (t) => { AD.tkf = t.dataset.f; adTk(); },
+    tkSave: async (t) => { const id = t.dataset.id, r = await ac({ action: 'ticket_set', id, status: document.querySelector(`[data-ts="${id}"]`).value, note: document.querySelector(`[data-tn="${id}"]`).value }); showToast(r.errMsg || 'Saved', r.errMsg ? 'error' : 'success'); if (!r.errMsg) adTk(); },
+    hoSave: async (t) => { const id = t.dataset.id, r = await ac({ action: 'handoff_set', id, status: document.querySelector(`[data-hs="${id}"]`).value }); showToast(r.errMsg || 'Saved', r.errMsg ? 'error' : 'success'); },
+    aiSave: () => aiSave(),
+  };
+
+  /* ================= start ================= */
+  function boot() { build(); ensureLanding(); injectAdmin(); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
 })();
 
 </script>

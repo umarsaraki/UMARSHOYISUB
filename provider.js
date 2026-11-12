@@ -117,7 +117,7 @@ export async function checkStatus(env, requestRef) {
   }
   if (r.status === 202) return { state: 'pending' };
   if (r.status === 424) return { state: 'failed', message: r.json.message };
-  if (r.status === 404 || r.status === 403) return { state: 'missing' };
+  if (r.status === 404) return { state: 'missing' };   // 403 is NOT "missing" (key/IP problem): it throws and the purchase stays pending
   throw new Error(`VTUAgent status error (${r.status})`);
 }
 

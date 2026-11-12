@@ -146,9 +146,198 @@
   .arow .top{display:flex; justify-content:space-between; gap:10px; font-weight:700; font-size:14px;}
   .arow .sub{font-size:12px; color:var(--sub); margin-top:4px; word-break:break-word;}
   .field textarea{width:100%; padding:14px 16px; background:var(--card); border:1px solid var(--line); border-radius:12px; color:var(--text); font-size:15px; font-family:inherit; resize:vertical;}
+
+  /* ===================== PREMIUM THEME (blue & white) ===================== */
+  :root{--bg:#f1f5ff; --card:#ffffff; --line:#e1e9fb; --text:#0d1b4c; --sub:#5f6f9a; --blue-1:#1f4fe0; --blue-2:#0a2fb0; --electric:#3b82ff; --green:#119a55; --danger:#e03d45; --accent:#f08a00; --sh:0 10px 28px rgba(31,79,224,.10); --sh-sm:0 4px 14px rgba(31,79,224,.08);}
+  body{background:linear-gradient(180deg,#e6eeff 0,#f4f8ff 280px,#f1f5ff 100%) fixed; -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; letter-spacing:-.005em;}
+  .ic{width:22px; height:22px; fill:none; stroke:currentColor; stroke-width:1.9; stroke-linecap:round; stroke-linejoin:round; flex:none;}
+  .ic.sm{width:17px; height:17px;} .ic.lg{width:28px; height:28px;}
+  button{font-family:inherit;}
+  /* shared components, restyled */
+  .page{background:linear-gradient(180deg,#e9f0ff 0,#f4f8ff 220px,#f1f5ff 100%);}
+  .page-head{background:rgba(255,255,255,.88); backdrop-filter:blur(10px); border-bottom:1px solid var(--line); padding:14px 18px;}
+  .back-btn{width:40px; height:40px; border-radius:50%; background:#fff; border:none; box-shadow:var(--sh-sm); color:var(--blue-2); font-size:19px; cursor:pointer;}
+  .page-title{font-size:18px; font-weight:800; color:var(--blue-2);}
+  .btn-primary{background:linear-gradient(135deg,var(--electric),var(--blue-1) 55%,var(--blue-2)); box-shadow:0 8px 20px rgba(31,79,224,.28); border-radius:16px; padding:16px; transition:transform .12s, box-shadow .12s;}
+  .btn-primary:active{transform:scale(.985); box-shadow:0 4px 12px rgba(31,79,224,.25);}
+  .field label{font-size:12.5px; color:var(--sub); font-weight:700; letter-spacing:.01em;}
+  .field input,.field select,.field textarea{background:#fff; border:1.5px solid var(--line); border-radius:14px; padding:14px 16px; color:var(--text); transition:border-color .15s, box-shadow .15s;}
+  .field input:focus,.field select:focus,.field textarea:focus{outline:none; border-color:var(--electric); box-shadow:0 0 0 4px rgba(59,130,255,.14);}
+  .plan-row,.settings-list{border:none; box-shadow:var(--sh-sm); border-radius:18px;}
+  .plan-row.selected{box-shadow:0 0 0 2px var(--electric),var(--sh-sm);}
+  .settings-row{padding:17px 18px;}
+  .section-title{color:var(--blue-2);}
+  .toast{border-radius:16px; box-shadow:0 14px 34px rgba(13,27,76,.22);}
+  .arow{border:none; box-shadow:var(--sh-sm); border-radius:18px;}
+  .net-item{border:none; box-shadow:var(--sh-sm); border-radius:18px;}
+  .net-item.selected{box-shadow:0 0 0 2px var(--electric),var(--sh-sm);}
+  .empty-note{color:var(--sub);}
+  .hint{border-radius:16px !important;}
+  /* skeleton loading */
+  @keyframes shimmer{0%{background-position:-300px 0}100%{background-position:300px 0}}
+  .skel{border-radius:12px; background:linear-gradient(90deg,#e8eefc 0,#f6f9ff 40%,#e8eefc 80%); background-size:600px 100%; animation:shimmer 1.3s infinite linear; min-height:16px;}
+  /* ---- home ---- */
+  .app{padding-bottom:104px;}
+  .hd{display:flex; align-items:center; gap:14px; padding:18px 18px 6px;}
+  .avatar{position:relative; width:62px; height:62px; border-radius:50%; background:linear-gradient(145deg,var(--electric),var(--blue-2)); color:#fff; font-weight:800; font-size:24px; display:flex; align-items:center; justify-content:center; box-shadow:var(--sh); flex:none; border:3px solid #fff;}
+  .avatar .ver{position:absolute; right:-3px; bottom:-3px; width:22px; height:22px; border-radius:50%; background:var(--green); border:2px solid #fff; display:flex; align-items:center; justify-content:center;}
+  .avatar .ver .ic{width:12px; height:12px; stroke:#fff; stroke-width:3.2;}
+  .hd-text{flex:1; min-width:0;} .hd-greet{font-size:14px; color:var(--blue-1); font-weight:600;}
+  .hd-name{font-size:25px; font-weight:800; color:var(--blue-2); line-height:1.15; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .hd-sub{font-size:12.5px; color:var(--blue-1); opacity:.85; margin-top:1px;}
+  .bell2{position:relative; width:52px; height:52px; border-radius:50%; background:#fff; border:none; box-shadow:var(--sh); color:var(--blue-2); display:flex; align-items:center; justify-content:center; cursor:pointer; flex:none;}
+  .bell-badge{position:absolute; top:-3px; right:-3px; min-width:21px; height:21px; padding:0 5px; border-radius:11px; background:#ef4444; color:#fff; font-size:11px; font-weight:800; display:flex; align-items:center; justify-content:center; border:2px solid #fff;}
+  .bal-card{margin:12px 14px 0; border-radius:28px; padding:18px 14px 14px; color:#fff; position:relative; overflow:hidden; background:radial-gradient(120% 90% at 88% -10%,#5b97ff 0,rgba(91,151,255,0) 56%),radial-gradient(90% 70% at 0% 100%,rgba(0,24,150,.55) 0,rgba(0,24,150,0) 70%),linear-gradient(150deg,#2a5cf0,#0b2fb8 72%); box-shadow:0 18px 38px rgba(20,56,200,.33);}
+  .bal-top{display:flex; align-items:center; justify-content:space-between; padding:0 6px;}
+  .bal-label{display:flex; align-items:center; gap:9px; font-size:14px; font-weight:700; letter-spacing:.03em; opacity:.95;}
+  .eye2{width:46px; height:46px; border-radius:50%; border:none; background:rgba(255,255,255,.2); color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer;}
+  .bal-amount{font-size:40px; font-weight:800; letter-spacing:-.02em; margin:2px 6px 14px; line-height:1.1;}
+  .wgrid{display:grid; grid-template-columns:repeat(3,1fr); gap:9px;}
+  .wmini{background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.18); border-radius:20px; padding:10px 6px 11px; text-align:center; cursor:pointer; backdrop-filter:blur(6px); min-width:0;}
+  .wmini:active{background:rgba(255,255,255,.22);}
+  .wtag{display:inline-block; font-size:11px; font-weight:800; padding:3px 12px; border-radius:12px; background:rgba(120,170,255,.45); margin-bottom:5px;}
+  .wname{font-size:12.5px; font-weight:600; opacity:.95;} .wamt{font-size:15.5px; font-weight:800; margin:3px 0 2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .wsub{font-size:11px; opacity:.85;}
+  .bal-actions{display:grid; grid-template-columns:1.1fr 1fr; gap:10px; margin-top:12px;}
+  .btn-white,.btn-glass{display:flex; align-items:center; justify-content:center; gap:9px; border:none; border-radius:30px; padding:15px 10px; font-size:16.5px; font-weight:800; cursor:pointer;}
+  .btn-white{background:#fff; color:var(--blue-1); box-shadow:0 8px 18px rgba(0,20,120,.2);} .btn-glass{background:rgba(255,255,255,.18); color:#fff; border:1px solid rgba(255,255,255,.2);}
+  .sec-head{display:flex; align-items:center; justify-content:space-between; padding:0 18px; margin:22px 0 10px;}
+  .sec-title{display:flex; align-items:center; gap:9px; font-size:19px; font-weight:800; color:var(--blue-2);} .sec-title .ic{color:var(--blue-1);}
+  .sec-sub{font-size:13px; color:var(--blue-1); font-weight:500; margin-top:2px;}
+  .sec-link{font-size:14px; font-weight:700; color:var(--blue-1); cursor:pointer; display:flex; align-items:center; gap:2px;}
+  .qa-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:9px; padding:0 14px;}
+  .qa{background:linear-gradient(180deg,#fff,#eef3ff); border:1px solid #dfe8ff; border-radius:20px; padding:13px 2px 11px; text-align:center; font-size:13.5px; font-weight:700; color:var(--blue-2); cursor:pointer; box-shadow:var(--sh-sm);}
+  .qa .ic{display:block; margin:0 auto 7px; width:31px; height:31px; color:var(--blue-1);}
+  .qa:active,.svc:active{transform:scale(.97);}
+  .svc-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; padding:0 14px;}
+  .svc{background:linear-gradient(180deg,#fff,#f0f5ff); border:1px solid #e0e9ff; border-radius:20px; padding:15px 4px 13px; text-align:center; font-size:14px; font-weight:700; color:var(--blue-2); cursor:pointer; box-shadow:var(--sh-sm); transition:transform .1s;}
+  .svc .ic{display:block; margin:0 auto 9px; width:34px; height:34px;}
+  .c-data{color:#1f6bff}.c-air{color:#14a85a}.c-cash{color:#f08a00}.c-elec{color:#f5b000}.c-tv{color:#1f4fe0}.c-exam{color:#2c5ce6}.c-card{color:#1f6bff}.c-tick{color:#7c3aed}.c-mail{color:#12a05c}.c-swap{color:#1f4fe0}.c-ref{color:#6d4ee8}.c-rec{color:#1f4fe0}
+  .txlist{padding:0 14px;}
+  .txr{display:flex; align-items:center; gap:12px; padding:13px 6px; border-bottom:1px solid var(--line); cursor:pointer;}
+  .txr:last-child{border-bottom:none;} .txr:active{background:rgba(31,79,224,.04);}
+  .txic{width:48px; height:48px; border-radius:50%; background:#eaf1ff; display:flex; align-items:center; justify-content:center; flex:none;} .txic .ic{width:24px; height:24px;}
+  .txic.in{background:#e6f7ee; color:var(--green);} .txic.ex{background:#fff1e0; color:var(--accent);} .txic.out{background:#eaf1ff; color:var(--blue-1);}
+  .txm{flex:1; min-width:0;} .txt{font-size:15.5px; font-weight:700; color:var(--blue-2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .txs{font-size:12.5px; color:var(--sub); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .txa{text-align:right; flex:none;} .txamt{font-size:16px; font-weight:800;} .txamt.in{color:var(--green);} .txamt.out{color:var(--blue-2);}
+  .txwhen{font-size:11.5px; color:var(--sub); margin-top:2px;}
+  .bdg{display:inline-block; font-size:12px; font-weight:800; padding:6px 13px; border-radius:12px; margin-left:6px; flex:none;}
+  .bdg-ok{background:#dcf5e6; color:#0f8a4b;} .bdg-pending{background:#ffeedd; color:#d97706;} .bdg-fail{background:#fde3e4; color:#d12e37;} .bdg-neutral{background:#e8edfb; color:#4a5b8f;}
+  .txr .bdg{margin-left:0; font-size:11.5px; padding:5px 11px;}
+  .banner{margin:18px 14px 0; border-radius:22px; padding:12px 14px; background:linear-gradient(100deg,#cfe0ff,#e6efff 60%,#d7e5ff); display:flex; align-items:center; gap:12px; cursor:pointer; box-shadow:var(--sh-sm);}
+  .banner .gift{width:58px; height:58px; border-radius:16px; background:linear-gradient(145deg,#3b82ff,#1237b8); color:#fff; display:flex; align-items:center; justify-content:center; flex:none; box-shadow:0 8px 16px rgba(31,79,224,.3);} .banner .gift .ic{width:32px; height:32px;}
+  .banner-t{font-size:21px; font-weight:800; color:var(--blue-2);} .banner-s{font-size:12.5px; color:var(--blue-1);}
+  .btn-dark{margin-left:auto; background:var(--blue-2); color:#fff; border:none; border-radius:20px; padding:14px 14px; font-weight:800; font-size:14px; display:flex; align-items:center; gap:7px; cursor:pointer; flex:none;}
+  .notice{margin:12px 14px 0; border-radius:20px; padding:13px 14px; background:#e8f0ff; display:flex; align-items:center; gap:12px; cursor:pointer; color:var(--blue-2);} .notice .ic{width:30px; height:30px; color:var(--blue-1);}
+  .notice b{display:block; font-size:16px;} .notice span{font-size:13px; color:var(--sub);}
+  /* ---- bottom navigation (4 items) ---- */
+  .nav{left:12px; right:12px; bottom:10px; width:auto; height:70px; border-radius:26px; border:none; background:#fff; box-shadow:0 12px 34px rgba(20,56,200,.2); z-index:100; max-width:600px; margin:0 auto; padding:0 4px;}
+  .nav-item{position:relative; font-size:13px; font-weight:700; gap:3px; color:#1b2b63;} .nav-item .ic{width:27px; height:27px;}
+  .nav-item.active{color:var(--blue-1);} .nav-item.active::after{content:''; position:absolute; bottom:5px; left:22%; right:22%; height:3.5px; border-radius:3px; background:var(--blue-1);}
+  .nav-item+.nav-item{border-left:1px solid #e6ecfb;} .nav-item:first-child{border-left:none;}
+  .page.tab{z-index:90; padding-bottom:104px;}
+  .tab-head{padding:20px 20px 6px;} .tab-title{font-size:26px; font-weight:800; color:var(--blue-2);}
+  .support-fab{display:none;}
+  /* ---- search, chips ---- */
+  .searchbar{margin:8px 16px 4px; background:#fff; border-radius:16px; box-shadow:var(--sh-sm); display:flex; align-items:center; gap:10px; padding:0 14px; color:var(--sub);} .searchbar input{flex:1; border:none; background:transparent; padding:14px 0; font-size:15px; color:var(--text); outline:none;}
+  .chips{display:flex; gap:8px; overflow-x:auto; padding:8px 16px; scrollbar-width:none;} .chips::-webkit-scrollbar{display:none;}
+  .chip{flex:none; padding:8px 15px; border-radius:20px; background:#fff; color:var(--sub); font-weight:700; font-size:13px; border:none; box-shadow:var(--sh-sm); cursor:pointer;} .chip.on{background:var(--blue-1); color:#fff;}
+  .btn-more{display:block; margin:12px auto 0; padding:12px 26px; border-radius:20px; border:none; background:#e4ecff; color:var(--blue-1); font-weight:800; cursor:pointer;}
+  .btn-outline{width:100%; padding:14px; border-radius:16px; border:1.5px dashed #9db5f5; background:#f5f8ff; color:var(--blue-1); font-weight:800; font-size:14.5px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; margin:6px 0 14px;}
+  /* ---- wallet cards / dashboards ---- */
+  .wcard{border-radius:26px; padding:20px; color:#fff; box-shadow:0 16px 34px rgba(20,56,200,.28); background:linear-gradient(150deg,#2a5cf0,#0b2fb8);}
+  .wcard.ex{background:linear-gradient(150deg,#f59a1b,#d9650a);} .wcard.atc{background:linear-gradient(150deg,#14a85a,#0a6b3a);}
+  .wcard .lbl{font-size:13px; font-weight:700; opacity:.92; letter-spacing:.04em;} .wcard .amt{font-size:36px; font-weight:800; margin:4px 0 10px;}
+  .wcard .pend{display:inline-flex; align-items:center; gap:7px; background:rgba(255,255,255,.2); padding:7px 12px; border-radius:14px; font-size:13px; font-weight:700;}
+  .wcard .acts{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:16px;}
+  .wcard .acts button{border:none; border-radius:24px; padding:13px 8px; font-weight:800; font-size:14.5px; cursor:pointer; background:#fff; color:var(--blue-2);} .wcard .acts button.g{background:rgba(255,255,255,.2); color:#fff;}
+  .stat3{display:grid; grid-template-columns:repeat(3,1fr); gap:9px; margin:14px 0;}
+  .stat{border-radius:20px; padding:14px 10px; text-align:center; color:#fff;} .stat .v{font-size:19px; font-weight:800;} .stat .l{font-size:11.5px; font-weight:700; opacity:.92; margin-top:3px;}
+  .stat.s1{background:linear-gradient(150deg,#2a5cf0,#0b2fb8);} .stat.s2{background:linear-gradient(150deg,#f59a1b,#d9650a);} .stat.s3{background:linear-gradient(150deg,#16a85d,#0b7a41);}
+  .copyrow{display:flex; align-items:center; gap:10px; background:#fff; border-radius:16px; padding:12px 14px; box-shadow:var(--sh-sm); margin-bottom:12px;}
+  .copyrow .cl{font-size:11.5px; color:var(--sub); font-weight:700;} .copyrow .cv{font-size:16px; font-weight:800; color:var(--blue-2); word-break:break-all;}
+  .copybtn{margin-left:auto; border:none; background:#e4ecff; color:var(--blue-1); border-radius:12px; padding:10px 14px; font-weight:800; cursor:pointer; display:flex; align-items:center; gap:6px; flex:none;}
+  .sumbox{background:#fff; border-radius:18px; box-shadow:var(--sh-sm); padding:6px 16px; margin:10px 0 14px;}
+  .sumrow{display:flex; justify-content:space-between; gap:12px; padding:11px 0; border-bottom:1px solid var(--line); font-size:14px;} .sumrow:last-child{border-bottom:none;} .sumrow span:first-child{color:var(--sub);} .sumrow b{color:var(--blue-2); text-align:right; word-break:break-word;}
+  .seg{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px;}
+  .segi{background:#fff; border-radius:18px; padding:13px; box-shadow:var(--sh-sm); cursor:pointer; border:2px solid transparent;} .segi.on{border-color:var(--electric); background:#f3f7ff;} .segi .n{font-size:12.5px; font-weight:700; color:var(--sub);} .segi .a{font-size:17px; font-weight:800; color:var(--blue-2); margin-top:2px;}
+  .bankc{display:flex; align-items:center; gap:12px; background:#fff; border-radius:18px; padding:13px 14px; box-shadow:var(--sh-sm); margin-bottom:10px; border:2px solid transparent; cursor:pointer;} .bankc.on{border-color:var(--electric); background:#f3f7ff;}
+  .bankc .bi{width:42px; height:42px; border-radius:50%; background:#eaf1ff; color:var(--blue-1); display:flex; align-items:center; justify-content:center; flex:none;}
+  .bankc .bt{font-weight:800; color:var(--blue-2); font-size:14.5px;} .bankc .bs{font-size:12.5px; color:var(--sub); margin-top:1px;}
+  .iconbtn{margin-left:auto; border:none; background:#eef2ff; color:var(--blue-1); width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; flex:none;} .iconbtn.del{color:var(--danger); background:#fdeced; margin-left:6px;}
+  /* ---- receipt / detail ---- */
+  .rhero{text-align:center; padding:22px 10px 12px;} .rhero .txic{width:70px; height:70px; margin:0 auto 10px;} .rhero .txic .ic{width:34px; height:34px;}
+  .ramt{font-size:32px; font-weight:800; color:var(--blue-2);} .rlabel{color:var(--sub); font-size:14px; margin:4px 0 10px;}
+  .tl{background:#fff; border-radius:18px; box-shadow:var(--sh-sm); padding:14px 16px; margin:14px 0;} .tli{display:flex; gap:12px; position:relative; padding-bottom:16px;} .tli:last-child{padding-bottom:0;}
+  .tli::before{content:''; position:absolute; left:8px; top:20px; bottom:0; width:2px; background:#dbe5fb;} .tli:last-child::before{display:none;}
+  .tld{width:18px; height:18px; border-radius:50%; flex:none; margin-top:2px; background:#c8d6fb; border:3px solid #fff; box-shadow:0 0 0 2px #c8d6fb;} .tld.done{background:var(--green); box-shadow:0 0 0 2px #bfeed3;} .tld.failed{background:var(--danger); box-shadow:0 0 0 2px #f8cdd0;} .tld.pending{background:var(--accent); box-shadow:0 0 0 2px #ffe0b8;}
+  .tlt{font-weight:700; color:var(--blue-2); font-size:14px;} .tls{font-size:12px; color:var(--sub);}
+  .rbtns{display:grid; grid-template-columns:1fr 1fr 1fr; gap:9px; margin:14px 0;} .rbtns button{border:none; border-radius:16px; padding:13px 6px; background:#fff; box-shadow:var(--sh-sm); color:var(--blue-1); font-weight:800; font-size:12.5px; display:flex; flex-direction:column; align-items:center; gap:6px; cursor:pointer;}
+  /* ---- bottom sheet ---- */
+  .sheet-back{position:fixed; inset:0; background:rgba(8,16,60,.45); z-index:500; display:none; align-items:flex-end; justify-content:center;} .sheet-back.on{display:flex;}
+  .sheet{background:#fff; width:100%; max-width:600px; border-radius:26px 26px 0 0; padding:20px 18px 26px; max-height:88vh; overflow-y:auto; animation:up .22s ease-out;} @keyframes up{from{transform:translateY(40px); opacity:.4}to{transform:none; opacity:1}}
+  .sheet h3{font-size:19px; color:var(--blue-2); margin-bottom:4px;} .sheet .sub{font-size:13px; color:var(--sub); margin-bottom:14px;}
+  /* ---- favourites ---- */
+  .inputwrap{position:relative;} .inputwrap input{padding-right:52px;}
+  .star-btn{position:absolute; right:6px; top:50%; transform:translateY(-50%); width:40px; height:40px; border:none; background:transparent; color:#9fb0dd; cursor:pointer; display:flex; align-items:center; justify-content:center; border-radius:50%;} .star-btn.on{color:#f5b000;} .star-btn.on .ic{fill:#f5b000;}
+  .fav-bar{display:flex; gap:8px; overflow-x:auto; margin:-4px 0 14px; padding-bottom:2px; scrollbar-width:none; align-items:center;} .fav-bar::-webkit-scrollbar{display:none;}
+  .fav-chip{flex:none; display:flex; align-items:center; gap:6px; background:#fff; border:1.5px solid #cfdcfb; color:var(--blue-2); border-radius:18px; padding:7px 13px; font-weight:700; font-size:13px; cursor:pointer;} .fav-chip .ic{width:14px; height:14px; color:#f5b000; fill:#f5b000;}
+  .fav-manage{flex:none; color:var(--blue-1); font-weight:800; font-size:12.5px; cursor:pointer; padding:7px 6px;}
+  .favrow{display:flex; align-items:center; gap:10px; padding:12px 0; border-bottom:1px solid var(--line);} .favrow:last-child{border-bottom:none;}
+  .favrow .fn{font-weight:800; color:var(--blue-2);} .favrow .fd{font-size:12.5px; color:var(--sub); word-break:break-all;}
+  /* ---- desktop ---- */
+  @media(min-width:720px){ .page>*{max-width:600px; margin-left:auto; margin-right:auto;} .app{max-width:600px; margin:0 auto;} .nav{left:50%; right:auto; width:576px; transform:translateX(-50%);} .tab-head,.searchbar,.chips{max-width:600px;} }
+  @media(max-width:360px){ .bal-amount{font-size:32px} .wamt{font-size:13.5px} .qa,.svc{font-size:12px} .hd-name{font-size:21px} }
 </style>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="i-wallet" viewBox="0 0 24 24"><path d="M3 7.5A2.5 2.5 0 0 1 5.5 5H17a2 2 0 0 1 2 2v1"/><path d="M3 7.5V17a2.5 2.5 0 0 0 2.5 2.5h13A1.5 1.5 0 0 0 20 18v-7a1.5 1.5 0 0 0-1.5-1.5h-13A2.5 2.5 0 0 1 3 7.5z"/><circle cx="16.5" cy="14.5" r="1.2"/></symbol>
+<symbol id="i-plus" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></symbol>
+<symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+<symbol id="i-down" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v9M8.5 12.5 12 16l3.5-3.5"/></symbol>
+<symbol id="i-upright" viewBox="0 0 24 24"><path d="M7 17 17 7M9 7h8v8"/></symbol>
+<symbol id="i-swap" viewBox="0 0 24 24"><path d="M4 10a8 8 0 0 1 14-3.5L20 8"/><path d="M20 4v4h-4"/><path d="M20 14a8 8 0 0 1-14 3.5L4 16"/><path d="M4 20v-4h4"/></symbol>
+<symbol id="i-bars" viewBox="0 0 24 24"><path d="M5 20v-5M10 20v-9M15 20v-13M20 20V3" stroke-width="3"/></symbol>
+<symbol id="i-phone" viewBox="0 0 24 24"><rect x="6.5" y="2.5" width="11" height="19" rx="2.8"/><path d="M10.5 18.5h3"/></symbol>
+<symbol id="i-cash" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2.5"/><circle cx="12" cy="12" r="2.7"/><path d="M6.5 9.5h.01M17.5 14.5h.01"/></symbol>
+<symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2.5 4.5 13.5H11l-1 8 8.5-11H12z"/></symbol>
+<symbol id="i-tv" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2.5"/><path d="m8 3 4 4 4-4"/></symbol>
+<symbol id="i-cap" viewBox="0 0 24 24"><path d="M2 9l10-5 10 5-10 5z"/><path d="M6 11.5V16c0 1.5 3 3 6 3s6-1.5 6-3v-4.5"/></symbol>
+<symbol id="i-card" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2.8"/><path d="M3 10h18M7 15h3"/></symbol>
+<symbol id="i-ticket" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2.5"/><path d="M9 6v12" stroke-dasharray="2 2.4"/></symbol>
+<symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2.8"/><path d="m3.5 7.5 8.5 6 8.5-6"/></symbol>
+<symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.3"/><path d="M3 19.5c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><circle cx="17" cy="9" r="2.4"/><path d="M17 14c2.5 0 4 1.7 4 4.2"/></symbol>
+<symbol id="i-receipt" viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></symbol>
+<symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 2h-15z"/><path d="M10 21a2.2 2.2 0 0 0 4 0"/></symbol>
+<symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.7-7 10-7 10 7 10 7-3.7 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></symbol>
+<symbol id="i-eyeoff" viewBox="0 0 24 24"><path d="M3 3l18 18"/><path d="M10.6 5.1A10 10 0 0 1 12 5c6.3 0 10 7 10 7a17 17 0 0 1-3.3 4.3M6.5 6.7A16.5 16.5 0 0 0 2 12s3.7 7 10 7c1.6 0 3-.4 4.3-1"/></symbol>
+<symbol id="i-gift" viewBox="0 0 24 24"><rect x="3" y="9" width="18" height="12" rx="2"/><path d="M3 13h18M12 9v12"/><path d="M12 9C9 9 7 8 7 6.2a2 2 0 0 1 3.9-.6L12 9zM12 9c3 0 5-1 5-2.8a2 2 0 0 0-3.9-.6L12 9z"/></symbol>
+<symbol id="i-megaphone" viewBox="0 0 24 24"><path d="M3 11v3a1 1 0 0 0 1 1h2l5 4V6L6 10H4a1 1 0 0 0-1 1z"/><path d="M15 9a4 4 0 0 1 0 6M18 6.5a8 8 0 0 1 0 11"/></symbol>
+<symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9.5h13V10"/><path d="M10 19.5v-5h4v5"/></symbol>
+<symbol id="i-headset" viewBox="0 0 24 24"><path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="3" y="14" width="4" height="6" rx="1.6"/><rect x="17" y="14" width="4" height="6" rx="1.6"/><path d="M19 20c0 1.5-2 2-5 2"/></symbol>
+<symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></symbol>
+<symbol id="i-star" viewBox="0 0 24 24"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></symbol>
+<symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h8"/></symbol>
+<symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M7.5 11 12 15.5 16.5 11M5 20h14"/></symbol>
+<symbol id="i-share" viewBox="0 0 24 24"><circle cx="6" cy="12" r="2.5"/><circle cx="17" cy="6" r="2.5"/><circle cx="17" cy="18" r="2.5"/><path d="m8.2 10.8 6.6-3.6M8.2 13.2l6.6 3.6"/></symbol>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></symbol>
+<symbol id="i-chev" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+<symbol id="i-trash" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></symbol>
+<symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+<symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+<symbol id="i-bank" viewBox="0 0 24 24"><path d="M3 10 12 4l9 6"/><path d="M5 10v8M10 10v8M14 10v8M19 10v8M3 20.5h18"/></symbol>
+<symbol id="i-flag" viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></symbol>
+<symbol id="i-chat" viewBox="0 0 24 24"><path d="M20 12a8 8 0 0 1-11.6 7.1L4 20l1-4.2A8 8 0 1 1 20 12z"/></symbol>
+<symbol id="i-tools" viewBox="0 0 24 24"><path d="M14.5 6.5a4 4 0 0 0 5 5L10 21l-3-3 9.5-9.5z"/><path d="M5 5l3 3"/></symbol>
+<symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20V4M4 20h16"/><path d="M8 16v-4M12 16V8M16 16v-6" stroke-width="2.6"/></symbol>
+<symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2.5"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
+<symbol id="i-doc" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/></symbol>
+<symbol id="i-out" viewBox="0 0 24 24"><path d="M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4M15 8l4 4-4 4M19 12H9"/></symbol>
+</defs></svg>
+
 
 <!-- ===================== CONFIG ===================== -->
 <script>
@@ -242,56 +431,78 @@
 
 <!-- ===================== HOME ===================== -->
 <div class="app" id="appShell">
-  <div class="home-hero">
-    <div class="hero-top">
-      <div><div class="greet-label" id="greetLabel">Good Morning 👋</div><div class="greet-name" id="userName">…</div></div>
-      <div class="bell" onclick="showPage('notifications')" style="cursor:pointer; position:relative;">🔔<span id="notifDot" style="display:none; position:absolute; top:6px; right:6px; width:8px; height:8px; background:var(--danger); border-radius:50%;"></span></div>
+  <div class="hd">
+    <div class="avatar" id="avatar"><span id="avatarLetter">U</span><span class="ver"><svg class="ic"><use href="#i-check"/></svg></span></div>
+    <div class="hd-text">
+      <div class="hd-greet"><span id="greetLabel">Good morning,</span> 👋</div>
+      <div class="hd-name" id="userName">…</div>
+      <div class="hd-sub">Welcome back to UMARSHOYI-SUB</div>
     </div>
-    <div class="wallet-label">WALLET BALANCE</div>
-    <div class="wallet-amount-row">
-      <button class="eye-btn" onclick="toggleBalance()" id="eyeBtn">👁️</button>
-      <div class="wallet-amount"><span>₦</span><span id="walletBalance">••••</span></div>
-      <button class="refresh-btn" onclick="loadProfile()">🔄</button>
+    <button class="bell2" onclick="showPage('notifications')" aria-label="Notifications"><svg class="ic"><use href="#i-bell"/></svg><span class="bell-badge" id="notifDot" style="display:none;">0</span></button>
+  </div>
+
+  <div class="bal-card">
+    <div class="bal-top">
+      <div class="bal-label"><svg class="ic"><use href="#i-wallet"/></svg>TOTAL WALLET BALANCE</div>
+      <button class="eye2" id="eyeBtn" onclick="toggleBalance()" aria-label="Show or hide balance"><svg class="ic"><use href="#i-eye"/></svg></button>
+    </div>
+    <div class="bal-amount" id="walletTotal">₦0.00</div>
+    <div class="wgrid">
+      <div class="wmini" onclick="openWallet('main')"><span class="wtag">VTU</span><div class="wname">Main Wallet</div><div class="wamt" id="wMain">₦0.00</div><div class="wsub">VTU Wallet</div></div>
+      <div class="wmini" onclick="openWallet('exchange')"><span class="wtag">EX</span><div class="wname">Exchange Wallet</div><div class="wamt" id="wExchange">₦0.00</div><div class="wsub">Exchange Balance</div></div>
+      <div class="wmini" onclick="openWallet('atc')"><span class="wtag">ATM</span><div class="wname">Airtime-to-Cash</div><div class="wamt" id="wAtc">₦0.00</div><div class="wsub">Airtime-to-Cash</div></div>
+    </div>
+    <div class="bal-actions">
+      <button class="btn-white" onclick="showPage('fund')"><svg class="ic"><use href="#i-plus"/></svg>Fund Wallet</button>
+      <button class="btn-glass" onclick="showTab('transactions')"><svg class="ic"><use href="#i-clock"/></svg>History</button>
     </div>
   </div>
 
-  <div class="fund-card">
-    <div class="fund-title">Fund Your Wallet</div>
-    <div class="fund-actions">
-      <button onclick="showPage('fund')">💳 Fund Wallet</button>
-      <button onclick="showPage('history')">🕐 History</button>
-    </div>
+  <div class="sec-head"><div class="sec-title"><svg class="ic"><use href="#i-bolt"/></svg>Quick Actions</div></div>
+  <div class="qa-grid">
+    <div class="qa" onclick="showPage('fund')"><svg class="ic"><use href="#i-down"/></svg>Deposit</div>
+    <div class="qa" onclick="openWithdraw()"><svg class="ic"><use href="#i-upright"/></svg>Withdraw</div>
+    <div class="qa" onclick="showPage('exchange')"><svg class="ic"><use href="#i-swap"/></svg>Exchange</div>
+    <div class="qa" onclick="showTab('transactions')"><svg class="ic"><use href="#i-clock"/></svg>History</div>
   </div>
 
-  <div class="section-title">Features</div>
-  <div class="feature-grid">
-    <div class="feature-item" onclick="openPurchase('data')"><div class="feature-icon">📶</div><div class="feature-title">Data Bundle</div></div>
-    <div class="feature-item" onclick="showPage('a2c')"><div class="feature-icon">💵</div><div class="feature-title">Airtime to Cash</div></div>
-    <div class="feature-item" onclick="openPurchase('airtime')"><div class="feature-icon">📱</div><div class="feature-title">Airtime</div></div>
-    <div class="feature-item" onclick="showPage('electricity')"><div class="feature-icon">💡</div><div class="feature-title">Electricity</div></div>
-    <div class="feature-item" onclick="showPage('refer')"><div class="feature-icon">₦</div><div class="feature-title">Refer & Earn</div></div>
-    <div class="feature-item" onclick="showPage('cable')"><div class="feature-icon">📺</div><div class="feature-title">Cable</div></div>
-    <div class="feature-item" onclick="showPage('exam')"><div class="feature-icon">📝</div><div class="feature-title">Exam PIN</div></div>
-    <div class="feature-item" onclick="openCardPurchase('airtime-card')"><div class="feature-icon">🎫</div><div class="feature-title">Recharge Card</div></div>
-    <div class="feature-item" onclick="openCardPurchase('data-card')"><div class="feature-icon">💳</div><div class="feature-title">Data Card</div></div>
-    <div class="feature-item" onclick="showPage('bulksms')"><div class="feature-icon">📨</div><div class="feature-title">Bulk SMS</div></div>
-    <div class="feature-item" onclick="showPage('exchange')"><div class="feature-icon">🌍</div><div class="feature-title">Exchange</div></div>
-    <div class="feature-item" onclick="showPage('history')"><div class="feature-icon">🧾</div><div class="feature-title">Transactions</div></div>
-    <div class="feature-item" id="profitTile" style="display:none;" onclick="showPage('profit')"><div class="feature-icon">📊</div><div class="feature-title">My Profit</div></div>
-    <div class="feature-item" id="adminPanelTile" style="display:none;" onclick="showPage('admin-panel')"><div class="feature-icon">🛠️</div><div class="feature-title">Admin Panel</div></div>
+  <div class="sec-head" id="servicesAnchor"><div><div class="sec-title"><svg class="ic"><use href="#i-bars"/></svg>All Services</div><div class="sec-sub">Data, airtime, bills and other services</div></div></div>
+  <div class="svc-grid">
+    <div class="svc" onclick="openPurchase('data')"><svg class="ic c-data"><use href="#i-bars"/></svg>Data Bundle</div>
+    <div class="svc" onclick="openPurchase('airtime')"><svg class="ic c-air"><use href="#i-phone"/></svg>Airtime</div>
+    <div class="svc" onclick="showPage('a2c')"><svg class="ic c-cash"><use href="#i-cash"/></svg>Airtime to Cash</div>
+    <div class="svc" onclick="showPage('electricity')"><svg class="ic c-elec"><use href="#i-bolt"/></svg>Electricity</div>
+    <div class="svc" onclick="showPage('cable')"><svg class="ic c-tv"><use href="#i-tv"/></svg>Cable TV</div>
+    <div class="svc" onclick="showPage('exam')"><svg class="ic c-exam"><use href="#i-cap"/></svg>Exam PIN</div>
+    <div class="svc" onclick="openCardPurchase('airtime-card')"><svg class="ic c-card"><use href="#i-card"/></svg>Recharge Card</div>
+    <div class="svc" onclick="openCardPurchase('data-card')"><svg class="ic c-tick"><use href="#i-ticket"/></svg>Data Card</div>
+    <div class="svc" onclick="showPage('bulksms')"><svg class="ic c-mail"><use href="#i-mail"/></svg>Bulk SMS</div>
+    <div class="svc" onclick="showPage('exchange')"><svg class="ic c-swap"><use href="#i-swap"/></svg>Exchange</div>
+    <div class="svc" onclick="openReferral()"><svg class="ic c-ref"><use href="#i-users"/></svg>Refer &amp; Earn</div>
+    <div class="svc" onclick="showTab('transactions')"><svg class="ic c-rec"><use href="#i-receipt"/></svg>Transactions</div>
   </div>
 
-  <div class="section-title">Recent Transactions</div>
-  <div id="recentTx"></div>
+  <div class="sec-head"><div class="sec-title"><svg class="ic"><use href="#i-receipt"/></svg>Recent Transactions</div><a class="sec-link" onclick="showTab('transactions')">View All<svg class="ic sm"><use href="#i-chev"/></svg></a></div>
+  <div class="txlist" id="recentTx"><div class="skel" style="height:56px; margin-bottom:10px;"></div><div class="skel" style="height:56px; margin-bottom:10px;"></div><div class="skel" style="height:56px;"></div></div>
+
+  <div class="banner" onclick="openReferral()">
+    <div class="gift"><svg class="ic"><use href="#i-gift"/></svg></div>
+    <div><div class="banner-t">Refer &amp; Earn</div><div class="banner-s">Invite friends and earn exciting rewards!</div></div>
+    <button class="btn-dark" onclick="event.stopPropagation(); shareReferral()">Invite Friends<svg class="ic sm"><use href="#i-chev"/></svg></button>
+  </div>
+  <div class="notice" id="serviceNotice" style="display:none;" onclick="showPage('notifications')">
+    <svg class="ic"><use href="#i-megaphone"/></svg>
+    <div style="flex:1; min-width:0;"><b>Service Update</b><span id="serviceNoticeText"></span></div>
+    <svg class="ic sm"><use href="#i-chev"/></svg>
+  </div>
 </div>
-
-<div class="support-fab" id="supportFab" onclick="showPage('support')">💬</div>
 
 <!-- ===================== PURCHASE PAGE ===================== -->
 <div class="page" id="page-purchase">
   <div class="page-head"><button class="back-btn" onclick="closePage('purchase')">←</button><div class="page-title" id="purchaseTitle">Buy Data</div></div>
   <div class="page-body">
-    <div class="field"><label>Phone Number</label><input id="purchasePhone" placeholder="080XXXXXXXX" oninput="onPhoneInput()"></div>
+    <div class="field"><label>Phone Number</label><div class="inputwrap"><input id="purchasePhone" placeholder="080XXXXXXXX" oninput="onPhoneInput(); favSync(purchaseMode)"><button type="button" class="star-btn" id="star-purchase" onclick="favToggle(purchaseMode)" aria-label="Save number"><svg class="ic"><use href="#i-star"/></svg></button></div></div>
+    <div class="fav-bar" id="fav-purchase"></div>
     <div id="networkBadge" style="display:none; align-items:center; gap:10px; background:#eef1fb; border-radius:12px; padding:10px 14px; margin:-6px 0 16px;">
       <div class="net-badge" id="networkBadgeIcon" style="width:26px; height:26px; font-size:10px;"></div>
       <div style="font-size:13px; font-weight:600;" id="networkBadgeText"></div>
@@ -365,12 +576,17 @@
 </div>
 
 <!-- ===================== SUPPORT PAGE ===================== -->
-<div class="page" id="page-support">
-  <div class="page-head"><button class="back-btn" onclick="closePage('support')">←</button><div class="page-title">Support</div></div>
-  <div id="chatLog" style="padding:16px 20px; display:flex; flex-direction:column; gap:10px; padding-bottom:100px;"></div>
-  <div style="position:fixed; bottom:0; left:0; width:100%; background:#fff; border-top:1px solid var(--line); padding:12px 16px; display:flex; gap:8px;">
-    <input id="chatInput" placeholder="Ask a question…" style="flex:1; padding:12px 14px; border:1px solid var(--line); border-radius:20px; font-size:14px;" onkeypress="if(event.key==='Enter') sendChatMessage()">
-    <button onclick="sendChatMessage()" style="background:var(--blue-1); color:#fff; border:none; border-radius:50%; width:44px; height:44px; font-size:16px;">➤</button>
+<div class="page tab" id="page-support">
+  <div class="tab-head"><div class="tab-title">Support</div></div>
+  <div class="page-body" style="padding-top:10px;">
+    <div id="supportContacts"></div>
+    <button class="btn-outline" onclick="reportIssue('')"><svg class="ic"><use href="#i-flag"/></svg>Report an issue</button>
+    <div class="section-title" style="padding:0; margin:8px 0 10px;">Quick answers</div>
+    <div id="chatLog" style="display:flex; flex-direction:column; gap:10px; margin-bottom:12px;"></div>
+    <div style="display:flex; gap:8px;">
+      <input id="chatInput" placeholder="Ask a question…" style="flex:1; padding:13px 16px; border:1.5px solid var(--line); border-radius:22px; font-size:14px; background:#fff;" onkeypress="if(event.key==='Enter') sendChatMessage()">
+      <button onclick="sendChatMessage()" aria-label="Send" style="background:var(--blue-1); color:#fff; border:none; border-radius:50%; width:46px; height:46px; display:flex; align-items:center; justify-content:center;"><svg class="ic"><use href="#i-upright"/></svg></button>
+    </div>
   </div>
 </div>
 
@@ -380,7 +596,8 @@
   <div class="page-body">
     <div id="cableProviderTabs" style="display:flex; gap:8px; margin-bottom:14px; overflow-x:auto;"></div>
     <div class="plan-list" id="cablePlanList" style="margin-bottom:16px;"></div>
-    <div class="field"><label>Smartcard / IUC Number</label><input id="cableSmartcard" placeholder="e.g. 1234567890"></div>
+    <div class="field"><label>Smartcard / IUC Number</label><div class="inputwrap"><input id="cableSmartcard" placeholder="e.g. 1234567890" oninput="favSync('cable')"><button type="button" class="star-btn" id="star-cable" onclick="favToggle('cable')" aria-label="Save smartcard"><svg class="ic"><use href="#i-star"/></svg></button></div></div>
+    <div class="fav-bar" id="fav-cable"></div>
     <div class="field"><label>Transaction PIN</label><input id="cablePin" type="password" autocomplete="one-time-code" inputmode="numeric" maxlength="4" placeholder="••••"></div>
     <div class="err-text" id="cableErr"></div>
     <button class="btn-primary" id="cableBtn" onclick="confirmCablePurchase()">Confirm Purchase</button>
@@ -396,11 +613,12 @@
     </div>
     <div class="field"><label>Meter Type</label>
       <select id="meterTypeSelect" style="width:100%; padding:14px 16px; background:var(--card); border:1px solid var(--line); border-radius:12px; font-size:15px;">
-        <option value="01">Prepaid</option>
-        <option value="02">Postpaid</option>
+        <option value="prepaid">Prepaid</option>
+        <option value="postpaid">Postpaid</option>
       </select>
     </div>
-    <div class="field"><label>Meter Number</label><input id="meterNumber" placeholder="e.g. 04012345678"></div>
+    <div class="field"><label>Meter Number</label><div class="inputwrap"><input id="meterNumber" placeholder="e.g. 04012345678" oninput="favSync('electricity')"><button type="button" class="star-btn" id="star-electricity" onclick="favToggle('electricity')" aria-label="Save meter"><svg class="ic"><use href="#i-star"/></svg></button></div></div>
+    <div class="fav-bar" id="fav-electricity"></div>
     <div class="field"><label>Amount (₦1,000 – ₦200,000)</label><input id="electricityAmount" type="number" placeholder="5000" oninput="updateElectricityFee()"></div>
     <div id="electricityFeeRow" style="display:none; background:#eef1fb; border-radius:12px; padding:12px 14px; font-size:13px; margin-bottom:14px;">
       <div style="display:flex; justify-content:space-between;"><span style="color:var(--sub);">Service Fee</span><span id="electricityFeeAmt" style="font-weight:700;">₦0</span></div>
@@ -436,23 +654,10 @@
   <div class="page-head"><button class="back-btn" onclick="closePage('a2c')">←</button><div class="page-title">Airtime to Cash</div></div>
   <div class="page-body">
 
-    <!-- Airtime-to-Cash balance + withdraw -->
-    <div class="wallet-card" style="margin:0 0 20px; background:linear-gradient(150deg, #16202a 0%, #0f151c 100%);">
-      <div class="wallet-label">AIRTIME-TO-CASH BALANCE</div>
-      <div class="wallet-amount"><span>₦</span><span id="atcBalanceDisplay">0.00</span></div>
-      <div class="wallet-actions">
-        <button onclick="atcWithdraw('to_wallet')">💰 To Wallet</button>
-        <button onclick="showAtcBankForm()">🏦 To Bank</button>
-      </div>
-    </div>
-
-    <div id="atcBankForm" style="display:none; margin-bottom:20px;">
-      <div class="field"><label>Bank</label>
-        <select id="atcBankSelect" style="width:100%; padding:14px 16px; background:var(--card); border:1px solid var(--line); border-radius:12px; font-size:15px;"><option>Loading banks…</option></select>
-      </div>
-      <div class="field"><label>Account Number</label><input id="atcAccountNumber" maxlength="10" placeholder="0123456789"></div>
-      <div class="err-text" id="atcBankErr"></div>
-      <button class="btn-primary" id="atcBankWithdrawBtn" onclick="atcWithdraw('to_bank')">Withdraw to Bank</button>
+    <div class="wcard atc" style="margin-bottom:18px;">
+      <div class="lbl">AIRTIME-TO-CASH WALLET</div>
+      <div class="amt"><span id="atcBalanceDisplay">₦0.00</span></div>
+      <div class="acts"><button onclick="openWallet('atc')">History</button><button class="g" onclick="openWithdraw('atc')">Withdraw</button></div>
     </div>
 
     <div class="section-title" style="padding:0; margin:0 0 14px;">Convert Airtime</div>
@@ -460,7 +665,8 @@
     <!-- Step 1: phone number + network -->
     <div id="a2cStep1">
       <div class="network-grid" id="a2cNetworkGrid"></div>
-      <div class="field"><label>Phone Number Sending Airtime</label><input id="a2cPhone" placeholder="080XXXXXXXX"></div>
+      <div class="field"><label>Phone Number Sending Airtime</label><div class="inputwrap"><input id="a2cPhone" placeholder="080XXXXXXXX" oninput="favSync('a2c')"><button type="button" class="star-btn" id="star-a2c" onclick="favToggle('a2c')" aria-label="Save number"><svg class="ic"><use href="#i-star"/></svg></button></div></div>
+      <div class="fav-bar" id="fav-a2c"></div>
       <div class="err-text" id="a2cStep1Err"></div>
       <button class="btn-primary" id="a2cSendOtpBtn" onclick="a2cSendOtp()">Send OTP to Confirm</button>
     </div>
@@ -482,7 +688,7 @@
       <div class="err-text" id="a2cStep3Err"></div>
       <button class="btn-primary" id="a2cConvertBtn" onclick="a2cConvert()">Convert to Cash</button>
       <div class="hint" style="background:#eef1fb; border-radius:12px; padding:14px; font-size:12px; color:var(--sub); line-height:1.6; margin-top:16px;">
-        A ₦30 fee applies for every ₦100 converted. Your balance updates instantly above — withdraw anytime to your wallet or bank.
+        A ₦30 fee applies for every ₦100 converted. Your balance stays in your Airtime-to-Cash Wallet until you choose to withdraw it to your bank.
       </div>
     </div>
 
@@ -537,24 +743,21 @@
 <div class="page" id="page-exchange">
   <div class="page-head"><button class="back-btn" onclick="closePage('exchange')">←</button><div class="page-title">Exchange</div></div>
   <div class="page-body">
-    <div id="xInfo" style="display:none; background:#eef1fb; border-radius:12px; padding:14px; font-size:13px; line-height:1.6; margin-bottom:16px;"></div>
+    <div id="xInfo" style="display:none; background:#eef1fb; border-radius:16px; padding:14px; font-size:13px; line-height:1.6; margin-bottom:16px;"></div>
     <div id="xForm" style="display:none;">
       <div class="field"><label>You pay</label>
         <div style="display:flex; gap:8px;">
           <select id="xCurrency" style="flex:0 0 54%;" onchange="xQuoteUpdate()"></select>
           <input id="xAmount" type="number" inputmode="decimal" placeholder="Amount" oninput="xQuoteDebounced()">
         </div></div>
-      <div id="xPreview" style="background:#eef1fb; border-radius:12px; padding:14px; font-size:13px; line-height:1.8; margin-bottom:16px; display:none;"></div>
-      <div class="field"><label>Recipient bank (Nigeria)</label><select id="xBank" onchange="xResolveDebounced()"><option value="">Loading banks…</option></select></div>
-      <div class="field"><label>Account number</label><input id="xAccount" inputmode="numeric" maxlength="10" placeholder="10 digits" oninput="xResolveDebounced()"></div>
-      <div id="xAccountName" style="font-weight:700; font-size:14px; margin:-6px 0 14px; min-height:20px;"></div>
+      <div id="xPreview" class="sumbox" style="display:none;"></div>
       <div class="field"><label>Transaction PIN</label><input id="xPin" type="password" inputmode="numeric" maxlength="4" autocomplete="one-time-code" placeholder="••••"></div>
       <div class="err-text" id="xErr"></div>
       <button class="btn-primary" id="xBtn" onclick="xConfirm()">I Agree &amp; Pay</button>
-      <div style="font-size:11px; color:var(--sub); line-height:1.6; margin-top:12px;">You pay by card. After your payment is confirmed, the naira is sent to the bank account above. The rate is an estimate and is fixed when you start the payment. Check the account name carefully: transfers cannot be cancelled once sent.</div>
+      <div style="font-size:11.5px; color:var(--sub); line-height:1.6; margin-top:12px;">You pay online. After your payment is confirmed, the naira is added to your Exchange Wallet, where you can keep it and withdraw whenever you choose. The rate is fixed when you start the payment.</div>
     </div>
-    <div class="section-title" style="padding:0; margin:26px 0 10px;">My Exchanges</div>
-    <div id="xHistory"></div>
+    <div class="section-title" style="padding:0; margin:24px 0 10px;">My Exchanges</div>
+    <div class="txlist" id="xHistory" style="padding:0;"></div>
   </div>
 </div>
 
@@ -564,7 +767,9 @@
   <div class="page-body">
     <div class="field"><label>Sender name (3-11 letters or numbers)</label><input id="smsSender" maxlength="11" autocapitalize="none" placeholder="e.g. MyShop" oninput="bulkSmsUpdate()"></div>
     <div class="field"><label>Message</label><textarea id="smsMessage" rows="5" placeholder="Type your message here" oninput="bulkSmsUpdate()"></textarea></div>
-    <div class="field"><label>Phone numbers (separate with commas, spaces or new lines)</label><textarea id="smsRecipients" rows="5" placeholder="08031234567, 08129876543&#10;2348051112222" oninput="bulkSmsUpdate()"></textarea></div>
+    <div class="field"><label>Phone numbers (separate with commas, spaces or new lines)</label><textarea id="smsRecipients" rows="5" placeholder="08031234567, 08129876543&#10;2348051112222" oninput="bulkSmsUpdate(); favSync('sms')"></textarea></div>
+    <div style="display:flex; align-items:center; gap:10px; margin:-6px 0 12px;"><button type="button" class="chip" id="star-sms" onclick="favToggle('sms')" style="display:flex; align-items:center; gap:6px;"><svg class="ic sm"><use href="#i-star"/></svg>Save this list</button></div>
+    <div class="fav-bar" id="fav-sms"></div>
     <div class="hint" id="smsSummary" style="background:#eef1fb; border-radius:12px; padding:14px; font-size:13px; line-height:1.7; margin-bottom:14px;"></div>
     <div class="field"><label>Transaction PIN</label><input id="smsPin" type="password" inputmode="numeric" maxlength="4" autocomplete="one-time-code" placeholder="••••"></div>
     <div class="err-text" id="smsErr"></div>
@@ -673,62 +878,86 @@
   </div>
 </div>
 
-<!-- ===================== REFER PAGE ===================== -->
-<div class="page" id="page-refer">
-  <div class="page-head"><button class="back-btn" onclick="closePage('refer')">←</button><div class="page-title">Refer & Earn</div></div>
+<!-- ===================== REFERRAL DASHBOARD ===================== -->
+<div class="page" id="page-referral">
+  <div class="page-head"><button class="back-btn" onclick="closePage('referral')">←</button><div class="page-title">Refer &amp; Earn</div></div>
   <div class="page-body">
-    <div class="field"><label>Your Referral Code</label><input id="myReferralCode" disabled></div>
-    <div style="font-size:13px; color:var(--sub); line-height:1.6;">Share this code with friends. When they sign up and make their <b>first</b> deposit, you earn a bonus:</div>
-    <div class="hint" style="background:#eef1fb; border-radius:12px; padding:14px; font-size:12px; color:var(--sub); line-height:1.8; margin-top:12px;">
-      ₦1,000–1,999 deposit → ₦10 bonus<br>
-      ₦2,000–2,999 deposit → ₦20 bonus<br>
-      ₦3,000–3,999 deposit → ₦30 bonus<br>
-      ...and so on (₦10 for every ₦1,000 they deposit).<br><br>
-      Only their <b>first ever</b> deposit counts — later top-ups don't earn a bonus.
+    <div id="refOff" class="hint" style="display:none; background:#fff3e0; padding:14px; font-size:13px; margin-bottom:14px; color:#8a5200;">Referral rewards are paused right now. Rewards you have already earned are safe.</div>
+    <div class="wcard"><div class="lbl">TOTAL EARNED</div><div class="amt" id="refEarned">₦0.00</div><div style="font-size:12.5px; opacity:.92;">Everything you have earned from referrals. Rewards go to your Main Wallet.</div></div>
+    <div class="stat3" style="grid-template-columns:1fr 1fr;">
+      <div class="stat s2"><div class="v" id="refPending">₦0</div><div class="l">PENDING</div><div style="font-size:11px; opacity:.9; margin-top:4px;">Waiting for their first purchase</div></div>
+      <div class="stat s3"><div class="v" id="refToday">₦0</div><div class="l">TODAY EARN</div><div style="font-size:11px; opacity:.9; margin-top:4px;">Earned today only</div></div>
     </div>
+    <div class="copyrow"><div style="min-width:0;"><div class="cl">REFERRAL CODE</div><div class="cv" id="refCode">—</div></div><button class="copybtn" onclick="copyText(refData.code)"><svg class="ic sm"><use href="#i-copy"/></svg>Copy</button></div>
+    <div class="copyrow"><div style="min-width:0;"><div class="cl">REFERRAL LINK</div><div class="cv" id="refLink" style="font-size:13.5px;">—</div></div><button class="copybtn" onclick="copyText(refData.link)"><svg class="ic sm"><use href="#i-copy"/></svg>Copy</button></div>
+    <button class="btn-primary" style="margin-top:4px;" onclick="shareReferral()">Invite Friends</button>
+    <div class="hint" id="refHow" style="background:#eef1fb; border-radius:16px; padding:14px; font-size:12.5px; color:var(--sub); line-height:1.7; margin:16px 0;"></div>
+    <div class="section-title" style="padding:0; margin:6px 0 10px;">My Referrals</div>
+    <div id="refList"></div>
   </div>
 </div>
 
-<!-- ===================== HISTORY PAGE ===================== -->
-<div class="page" id="page-history">
-  <div class="page-head"><button class="back-btn" onclick="closePage('history')">←</button><div class="page-title">Transaction History</div></div>
-  <div id="fullTx"></div>
+<!-- ===================== TRANSACTIONS (tab) ===================== -->
+<div class="page tab" id="page-history">
+  <div class="tab-head"><div class="tab-title">Transactions</div></div>
+  <div class="searchbar"><svg class="ic sm"><use href="#i-search"/></svg><input id="txSearch" placeholder="Search by description or reference" oninput="txSearchDebounced()"></div>
+  <div class="chips" id="txStatusChips">
+    <button class="chip on" data-v="" onclick="txSetFilter('status','')">All</button>
+    <button class="chip" data-v="successful" onclick="txSetFilter('status','successful')">Successful</button>
+    <button class="chip" data-v="pending" onclick="txSetFilter('status','pending')">Pending</button>
+    <button class="chip" data-v="failed" onclick="txSetFilter('status','failed')">Failed</button>
+  </div>
+  <div class="chips" id="txWalletChips" style="padding-top:0;">
+    <button class="chip on" data-v="" onclick="txSetFilter('wallet','')">All wallets</button>
+    <button class="chip" data-v="main" onclick="txSetFilter('wallet','main')">Main</button>
+    <button class="chip" data-v="exchange" onclick="txSetFilter('wallet','exchange')">Exchange</button>
+    <button class="chip" data-v="atc" onclick="txSetFilter('wallet','atc')">Airtime-to-Cash</button>
+  </div>
+  <div class="txlist" id="fullTx"></div>
+  <button class="btn-more" id="txMore" style="display:none;" onclick="loadTxList(false)">Load more</button>
 </div>
 
-<!-- ===================== TRANSACTION RECEIPT PAGE ===================== -->
-<div class="page" id="page-tx-receipt">
-  <div class="page-head"><button class="back-btn" onclick="closePage('tx-receipt')">←</button><div class="page-title">Receipt</div></div>
-  <div class="page-body" id="receiptBody"></div>
+<!-- ===================== TRANSACTION DETAIL ===================== -->
+<div class="page" id="page-tx-detail">
+  <div class="page-head"><button class="back-btn" onclick="closePage('tx-detail')">←</button><div class="page-title">Transaction Details</div></div>
+  <div class="page-body" id="txDetailBody"><div class="skel" style="height:120px;"></div></div>
 </div>
 
-<!-- ===================== PROFILE PAGE ===================== -->
-<div class="page" id="page-profile">
-  <div class="page-head"><button class="back-btn" onclick="closePage('profile')">←</button><div class="page-title">Profile</div></div>
-  <div class="page-body">
-    <div class="settings-list">
-      <div class="settings-row" onclick="showPage('personal-info')"><span>👤 Personal Information</span><span>›</span></div>
+<!-- ===================== PROFILE (tab) ===================== -->
+<div class="page tab" id="page-profile">
+  <div class="tab-head"><div class="tab-title">Profile</div></div>
+  <div class="page-body" style="padding-top:8px;">
+    <div class="wcard" style="display:flex; align-items:center; gap:14px; padding:16px;">
+      <div class="avatar" style="width:60px; height:60px; border-color:rgba(255,255,255,.5);"><span id="profileAvatarLetter">U</span></div>
+      <div style="min-width:0;"><div style="font-size:19px; font-weight:800; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" id="profileCardName">—</div><div style="font-size:12.5px; opacity:.9;" id="profileCardEmail">—</div></div>
     </div>
-
-    <div class="section-title" style="padding:0; margin:26px 0 10px;">Security</div>
-    <div class="settings-list">
-      <div class="settings-row" onclick="showPage('change-pin')"><span>🔑 Change Transaction PIN</span><span>›</span></div>
-      <div class="settings-row" onclick="showPage('change-password')"><span>🔒 Change Password</span><span>›</span></div>
-      <div class="settings-row">
-        <span>🖐️ Biometric Login</span>
-        <label class="toggle-switch">
-          <input type="checkbox" id="biometricToggle" onchange="toggleBiometric()">
-          <span class="toggle-slider"></span>
-        </label>
+    <div class="settings-list" style="margin-top:16px;">
+      <div class="settings-row" onclick="showPage('personal-info')"><span>Personal Information</span><span>›</span></div>
+      <div class="settings-row" onclick="openWithdraw()"><span>Saved Bank Accounts &amp; Withdraw</span><span>›</span></div>
+      <div class="settings-row" onclick="openReferral()"><span>Refer &amp; Earn</span><span>›</span></div>
+    </div>
+    <div id="adminRows" style="display:none;">
+      <div class="section-title" style="padding:0; margin:22px 0 10px;">Admin</div>
+      <div class="settings-list">
+        <div class="settings-row" id="adminPanelTile" onclick="showPage('admin-panel')"><span>Admin Panel</span><span>›</span></div>
+        <div class="settings-row" id="profitTile" onclick="showPage('profit')"><span>My Profit</span><span>›</span></div>
       </div>
     </div>
-
-    <div class="section-title" style="padding:0; margin:26px 0 10px;">Legal</div>
+    <div class="section-title" style="padding:0; margin:22px 0 10px;">Security</div>
     <div class="settings-list">
-      <div class="settings-row" onclick="showPage('privacy')"><span>📄 Privacy Policy</span><span>›</span></div>
-      <div class="settings-row" onclick="showPage('terms')"><span>📄 Terms &amp; Conditions</span><span>›</span></div>
+      <div class="settings-row" onclick="showPage('change-pin')"><span>Change Transaction PIN</span><span>›</span></div>
+      <div class="settings-row" onclick="showPage('change-password')"><span>Change Password</span><span>›</span></div>
+      <div class="settings-row">
+        <span>Biometric Login</span>
+        <label class="toggle-switch"><input type="checkbox" id="biometricToggle" onchange="toggleBiometric()"><span class="toggle-slider"></span></label>
+      </div>
     </div>
-
-    <button class="btn-primary" style="background:transparent;border:1px solid var(--danger);color:var(--danger);margin-top:24px;" onclick="logout()">Log Out</button>
+    <div class="section-title" style="padding:0; margin:22px 0 10px;">Legal</div>
+    <div class="settings-list">
+      <div class="settings-row" onclick="showPage('privacy')"><span>Privacy Policy</span><span>›</span></div>
+      <div class="settings-row" onclick="showPage('terms')"><span>Terms &amp; Conditions</span><span>›</span></div>
+    </div>
+    <button class="btn-primary" style="background:transparent; box-shadow:none; border:1.5px solid var(--danger); color:var(--danger); margin-top:24px;" onclick="logout()">Log Out</button>
   </div>
 </div>
 
@@ -746,6 +975,54 @@
     <div id="notifList"></div>
   </div>
 </div>
+
+<!-- ===================== WALLET DASHBOARD ===================== -->
+<div class="page" id="page-wallet">
+  <div class="page-head"><button class="back-btn" onclick="closePage('wallet')">←</button><div class="page-title" id="walletTitle">Wallet</div></div>
+  <div class="page-body">
+    <div class="wcard" id="walletCard">
+      <div class="lbl" id="walletLbl">AVAILABLE BALANCE</div>
+      <div class="amt" id="walletAmt">₦0.00</div>
+      <div class="pend" id="walletPend" style="display:none;"></div>
+      <div class="acts" id="walletActs"></div>
+    </div>
+    <div class="hint" id="walletNote" style="background:#eef1fb; border-radius:16px; padding:13px 14px; font-size:12.5px; color:var(--sub); line-height:1.7; margin:14px 0;"></div>
+    <div class="section-title" style="padding:0; margin:6px 0 10px;">History</div>
+    <div class="txlist" id="walletTx" style="padding:0;"></div>
+    <button class="btn-more" id="walletMore" style="display:none;" onclick="loadWalletTx(false)">Load more</button>
+  </div>
+</div>
+
+<!-- ===================== WITHDRAW ===================== -->
+<div class="page" id="page-withdraw">
+  <div class="page-head"><button class="back-btn" onclick="closePage('withdraw')">←</button><div class="page-title">Withdraw</div></div>
+  <div class="page-body">
+    <div class="section-title" style="padding:0; margin:0 0 10px;">Withdraw from</div>
+    <div class="seg" id="wdWallets"></div>
+    <div class="field"><label>Amount (₦)</label><input id="wdAmount" type="number" inputmode="decimal" placeholder="e.g. 5000" oninput="wdQuoteDebounced()"></div>
+    <div class="sumbox" id="wdSummary" style="display:none;"></div>
+    <div class="section-title" style="padding:0; margin:14px 0 10px;">Send to</div>
+    <div id="wdBanks"></div>
+    <button class="btn-outline" onclick="wdToggleAdd()"><svg class="ic sm"><use href="#i-plus"/></svg>Add bank account</button>
+    <div id="wdAddBox" style="display:none; background:#fff; border-radius:18px; padding:14px; box-shadow:var(--sh-sm); margin-bottom:14px;">
+      <div class="field"><label>Bank</label><select id="wdBankSelect"><option value="">Loading banks…</option></select></div>
+      <div class="field"><label>Account number</label><input id="wdAccount" inputmode="numeric" maxlength="10" placeholder="10 digits" oninput="wdResolveDebounced()"></div>
+      <div id="wdAccName" style="font-weight:800; font-size:14px; margin:-6px 0 12px; min-height:18px;"></div>
+      <div class="field"><label>Friendly name (optional)</label><input id="wdNick" maxlength="30" placeholder="e.g. My Bank, Savings"></div>
+      <div class="err-text" id="wdAddErr"></div>
+      <button class="btn-primary" id="wdSaveBankBtn" onclick="wdSaveBank()">Verify &amp; save account</button>
+    </div>
+    <div class="field"><label>Transaction PIN</label><input id="wdPin" type="password" inputmode="numeric" maxlength="4" autocomplete="one-time-code" placeholder="••••"></div>
+    <div class="err-text" id="wdErr"></div>
+    <button class="btn-primary" id="wdReviewBtn" onclick="wdReview()">Review withdrawal</button>
+    <div class="hint" style="font-size:11.5px; color:var(--sub); line-height:1.6; margin:12px 0;">The Main Wallet is for buying services and cannot be withdrawn. Withdrawals go only to bank accounts you have verified here.</div>
+    <div class="section-title" style="padding:0; margin:22px 0 10px;">My withdrawals</div>
+    <div id="wdHistory"></div>
+  </div>
+</div>
+
+<!-- bottom sheet (used for confirmations, favourites, reports) -->
+<div class="sheet-back" id="sheetBack" onclick="if(event.target===this) closeSheet()"><div class="sheet" id="sheetBody"></div></div>
 
 <!-- ===================== PERSONAL INFORMATION PAGE ===================== -->
 <div class="page" id="page-personal-info">
@@ -824,8 +1101,11 @@
 </div>
 
 <div class="nav" id="bottomNav">
-  <div class="nav-item active" onclick="goHome()"><span class="nicon">🏠</span>Home</div>
-  <div class="nav-item" onclick="showPage('profile')"><span class="nicon">👤</span>Profile</div>
+  <div class="nav-item active" data-tab="home" onclick="showTab('home')"><svg class="ic"><use href="#i-home"/></svg>Home</div>
+  <div class="nav-item" data-tab="transactions" onclick="showTab('transactions')"><svg class="ic"><use href="#i-swap"/></svg>Transactions</div>
+  <div class="nav-item" data-tab="support" onclick="showTab('support')"><svg class="ic"><use href="#i-headset"/></svg>Support</div>
+  <div class="nav-item" data-tab="profile" onclick="showTab('profile')"><svg class="ic"><use href="#i-user"/></svg>Profile</div>
+</div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -2374,6 +2654,367 @@ window.addEventListener('load', async () => {
     if(data.session){ await loadProfile(); await renderTx(); }
   }
 });
+</script>
+<script>
+/* UMARSHOYI-SUB — app-v2.js
+   Loaded AFTER the main script in index.html. It adds the functions the new screens call
+   and replaces the old versions of a few functions (later definitions win). */
+const $ = (id) => document.getElementById(id);
+const fn = (name, body) => invokeFn(name, { body: body || {} });
+const dt = (s) => new Date(String(s).replace(' ', 'T') + (String(s).endsWith('Z') ? '' : 'Z'));
+const m2 = (n) => '₦' + Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const SKEL = '<div class="skel" style="height:56px; margin-bottom:10px;"></div>'.repeat(3);
+const WN = { main: 'Main Wallet', exchange: 'Exchange Wallet', atc: 'Airtime-to-Cash Wallet' };
+const ST = { successful: ['#e7f8ef', '#16a05f', 'Successful'], pending: ['#fff1e0', '#e98a0c', 'Pending'], processing: ['#fff1e0', '#e98a0c', 'Processing'], failed: ['#fdeaea', '#e14848', 'Failed'], reversed: ['#eaf0fb', '#5b6b8c', 'Reversed'], refunded: ['#eaf0fb', '#5b6b8c', 'Refunded'], earned: ['#e7f8ef', '#16a05f', 'Earned'] };
+const badge = (s) => { const c = ST[s] || ST.pending; return `<span style="background:${c[0]};color:${c[1]};padding:3px 10px;border-radius:12px;font-size:11px;font-weight:800;">${c[2]}</span>`; };
+let W = { main: 0, exchange: 0, atc: 0, total: 0, pending_exchange: 0, withdraw: { fee: 0, min: 1000 } }, CFG = {};
+balanceVisible = true;
+
+/* ---------- sheet, copy ---------- */
+function openSheet(html) { $('sheetBody').innerHTML = html; $('sheetBack').classList.add('on'); }
+function closeSheet() { $('sheetBack').classList.remove('on'); }
+function copyText(t) {
+  const done = () => showToast('Copied!', 'success');
+  if (navigator.clipboard?.writeText) navigator.clipboard.writeText(String(t)).then(done, () => showToast('Could not copy', 'error'));
+  else { const a = document.createElement('textarea'); a.value = t; document.body.appendChild(a); a.select(); try { document.execCommand('copy'); done(); } catch { showToast('Could not copy', 'error'); } a.remove(); }
+}
+
+/* ---------- boot / profile / wallets ---------- */
+async function onAuthed(s) {
+  session = s;
+  document.querySelectorAll('.auth-screen').forEach((x) => x.classList.remove('active'));
+  $('appShell').classList.add('active'); $('bottomNav').style.display = 'flex';
+  const h = new Date().getHours();
+  $('greetLabel').textContent = h < 12 ? 'Good morning,' : h < 17 ? 'Good afternoon,' : 'Good evening,';
+  await loadProfile();
+  loadAppConfig(); renderTx(); checkUnreadNotifications();
+}
+async function loadProfile() {
+  const { data, error } = await backend.from('profiles').select('*').eq('id', session.user.id).single();
+  if (error || !data) { showToast('Could not load profile', 'error'); return; }
+  profile = data;
+  if (profile.is_banned) { await backend.auth.signOut(); alert('Your account has been suspended. Please contact support.'); location.reload(); return; }
+  const nm = profile.full_name || session.user.email, L = nm.trim()[0].toUpperCase();
+  $('userName').textContent = nm; $('avatarLetter').textContent = L; $('profileAvatarLetter').textContent = L;
+  $('profileCardName').textContent = nm; $('profileCardEmail').textContent = session.user.email;
+  $('profileName').value = profile.full_name || ''; $('profileUsername').value = profile.username || '';
+  $('profileEmail').value = session.user.email; $('profilePhone').value = profile.phone || '';
+  $('adminRows').style.display = profile.is_admin ? 'block' : 'none';
+  await loadWallets();
+}
+async function loadWallets() { const { data } = await fn('wallet-summary'); if (data) { W = data; renderWallets(); } }
+function renderWallets() {
+  const v = (x) => (balanceVisible ? m2(x) : '₦••••');
+  $('walletTotal').textContent = v(W.total); $('wMain').textContent = v(W.main); $('wExchange').textContent = v(W.exchange); $('wAtc').textContent = v(W.atc);
+  $('eyeBtn').querySelector('use').setAttribute('href', balanceVisible ? '#i-eye' : '#i-eyeoff');
+  if ($('atcBalanceDisplay')) $('atcBalanceDisplay').textContent = m2(W.atc).slice(1);
+}
+function renderBalance() { renderWallets(); }
+function toggleBalance() { balanceVisible = !balanceVisible; renderWallets(); if ($('page-wallet').classList.contains('active')) walletRender(); }
+async function loadAppConfig() {
+  const { data } = await fn('app-config'); if (!data) return; CFG = data;
+  const n = $('serviceNotice'); if (data.service_notice) { $('serviceNoticeText').textContent = ' ' + data.service_notice; n.style.display = 'flex'; } else n.style.display = 'none';
+  const wa = String(data.support_whatsapp || '').replace(/\D/g, ''), em = data.support_email || '';
+  $('supportContacts').innerHTML = (wa ? `<a class="btn-outline" style="text-decoration:none;" href="https://wa.me/${wa}" target="_blank" rel="noopener"><svg class="ic"><use href="#i-chat"/></svg>Chat on WhatsApp</a>` : '')
+    + (em ? `<a class="btn-outline" style="text-decoration:none;" href="mailto:${esc(em)}"><svg class="ic"><use href="#i-mail"/></svg>${esc(em)}</a>` : '');
+  if (em && $('privacyEmail')) $('privacyEmail').textContent = em;
+}
+function openWhatsAppHandoff() {
+  const num = String(CFG.support_whatsapp || SUPPORT_WHATSAPP).replace(/\D/g, '');
+  window.open(`https://wa.me/${num}?text=${encodeURIComponent(`Hi, I need help with my UMARSHOYI-SUB account (${session?.user?.email ?? ''}).`)}`, '_blank');
+}
+
+/* ---------- bottom navigation ---------- */
+const TAB_PAGE = { transactions: 'history', support: 'support', profile: 'profile' };
+function showTab(t) {
+  document.querySelectorAll('#bottomNav .nav-item').forEach((n) => n.classList.toggle('active', n.dataset.tab === t));
+  if (t === 'home') { goHome(); loadWallets(); renderTx(); checkUnreadNotifications(); return; }
+  showPage(TAB_PAGE[t]);
+  if (t === 'transactions') loadTxList(true);
+}
+const _showPage = showPage;
+showPage = function (n) {
+  _showPage(n);
+  const f = { cable: 'cable', electricity: 'electricity', a2c: 'a2c', bulksms: 'sms' }[n]; if (f) favSync(f);
+};
+const _openPurchase = openPurchase;
+openPurchase = function (m) { _openPurchase(m); favSync(m); };
+
+/* ---------- transactions ---------- */
+function txRowHtml(t) {
+  const sign = t.direction === 'in' ? '+' : '-';
+  return `<div class="tx-row" onclick="showTxReceipt('${esc(t.id)}')" style="cursor:pointer;">
+    <div class="tx-left"><div class="tx-icon">${txIcon(t.type)}</div><div><div class="tx-name">${esc(t.label)}</div><div class="tx-date">${esc(dt(t.created_at).toLocaleString())}</div></div></div>
+    <div style="text-align:right;"><div class="tx-amt ${esc(t.direction)}">${sign}${naira(t.amount)}</div><div style="margin-top:4px;">${badge(t.status)}</div></div></div>`;
+}
+async function renderTx() {
+  const { data, errMsg } = await fn('tx-list', { offset: 0 });
+  const box = $('recentTx');
+  if (errMsg) { box.innerHTML = `<div class="empty-note">${esc(errMsg)}</div>`; return; }
+  box.innerHTML = data.items.length ? data.items.slice(0, 4).map(txRowHtml).join('') : '<div class="empty-note">No transactions yet.</div>';
+}
+let txF = { status: '', wallet: '', q: '' }, txOff = 0, txT;
+function txSetFilter(k, v) {
+  txF[k] = v;
+  document.querySelectorAll(`#${k === 'status' ? 'txStatusChips' : 'txWalletChips'} .chip`).forEach((c) => c.classList.toggle('on', c.dataset.v === v));
+  loadTxList(true);
+}
+function txSearchDebounced() { clearTimeout(txT); txT = setTimeout(() => { txF.q = $('txSearch').value.trim(); loadTxList(true); }, 350); }
+async function txPage(box, moreBtn, filters, reset, state) {
+  if (reset) { state.off = 0; box.innerHTML = SKEL; }
+  const { data, errMsg } = await fn('tx-list', { ...filters, offset: state.off });
+  if (errMsg) { box.innerHTML = `<div class="empty-note">${esc(errMsg)}</div>`; return; }
+  const rows = data.items.map(txRowHtml).join('');
+  box.innerHTML = reset ? (rows || '<div class="empty-note">No transactions found.</div>') : box.innerHTML + rows;
+  state.off += data.items.length; moreBtn.style.display = state.off < data.total ? 'block' : 'none';
+}
+const txState = { get off() { return txOff; }, set off(v) { txOff = v; } };
+function loadTxList(reset) { return txPage($('fullTx'), $('txMore'), txF, reset, txState); }
+
+let curTx = null;
+async function showTxReceipt(id) {
+  showPage('tx-detail'); $('txDetailBody').innerHTML = SKEL;
+  const { data, errMsg } = await fn('tx-detail', { id });
+  if (errMsg) { $('txDetailBody').innerHTML = `<div class="empty-note">${esc(errMsg)}</div>`; return; }
+  curTx = data; const t = data.transaction, isTok = String(t.reference || '').startsWith('Token:');
+  const row = (a, b) => `<div class="settings-row"><span>${a}</span><span style="color:var(--text); font-weight:600; font-size:12.5px; word-break:break-all; text-align:right;">${b}</span></div>`;
+  const ex = data.extra ? Object.entries(data.extra).map(([k, v]) => row(esc(k.replaceAll('_', ' ')), esc(v))).join('') : '';
+  const tl = data.timeline.map((s) => `<div style="display:flex; gap:10px; margin:0 0 12px;"><div style="width:12px; height:12px; border-radius:50%; margin-top:3px; background:${s.state === 'done' ? 'var(--green)' : s.state === 'failed' ? 'var(--danger)' : '#f0a23b'};"></div><div><div style="font-weight:700; font-size:13px;">${esc(s.label)}</div>${s.time ? `<div style="font-size:11px; color:var(--sub);">${esc(dt(s.time).toLocaleString())}</div>` : ''}</div></div>`).join('');
+  $('txDetailBody').innerHTML = `
+    <div style="text-align:center; padding:14px 0;"><div style="font-size:38px;">${txIcon(t.type)}</div>
+      <div style="font-size:26px; font-weight:800; margin-top:6px;">${t.direction === 'in' ? '+' : '-'}${m2(t.amount)}</div><div style="margin-top:6px;">${badge(t.status)}</div></div>
+    <div class="settings-list">${row('Description', esc(t.label))}${row('Wallet', esc(WN[t.wallet] || t.wallet))}${row('Date', esc(dt(t.created_at).toLocaleString()))}
+      ${t.reference ? row(isTok ? 'Token' : 'Reference', esc(t.reference)) : ''}${ex}${row('Transaction ID', esc(t.id))}${row('Receipt hash', esc(t.short_hash))}</div>
+    <div class="section-title" style="padding:0; margin:18px 0 10px;">Timeline</div>${tl}
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:14px;">
+      <button class="btn-outline" onclick="copyText(curTx.transaction.id)"><svg class="ic sm"><use href="#i-copy"/></svg>Copy ID</button>
+      <button class="btn-outline" onclick="copyText(curTx.transaction.hash)"><svg class="ic sm"><use href="#i-copy"/></svg>Copy hash</button>
+      <button class="btn-outline" onclick="printReceipt()"><svg class="ic sm"><use href="#i-download"/></svg>PDF receipt</button>
+      <button class="btn-outline" onclick="shareReceipt()"><svg class="ic sm"><use href="#i-share"/></svg>Share</button></div>
+    <button class="btn-outline" onclick="reportIssue('${esc(t.id)}')"><svg class="ic sm"><use href="#i-flag"/></svg>Report an issue</button>`;
+}
+function printReceipt() {
+  const t = curTx.transaction, w = window.open('', '_blank'); if (!w) { showToast('Allow pop-ups to download', 'error'); return; }
+  const r = (a, b) => `<tr><td>${a}</td><td>${esc(b)}</td></tr>`;
+  w.document.write(`<html><head><title>Receipt ${esc(t.id)}</title><style>body{font-family:sans-serif;padding:28px;color:#141a2b}table{width:100%;border-collapse:collapse;margin-top:14px}td{border-bottom:1px solid #e6e9f0;padding:10px 4px;font-size:14px;word-break:break-all}td:first-child{color:#7b8494;width:34%}.h{color:#1e35a8;font-weight:800;letter-spacing:3px}</style></head><body>
+    <div class="h">UMARSHOYI-SUB</div><h2>Transaction receipt</h2><p>${t.direction === 'in' ? '+' : '-'}${m2(t.amount)} · ${esc(t.status.toUpperCase())}</p><table>
+    ${r('Description', t.label)}${r('Wallet', WN[t.wallet] || t.wallet)}${r('Date', dt(t.created_at).toLocaleString())}${t.reference ? r('Reference', t.reference) : ''}${r('Transaction ID', t.id)}${r('Receipt hash', t.hash)}</table>
+    <p style="font-size:12px;color:#7b8494;margin-top:18px">Support can verify this receipt with the transaction ID and hash.</p><script>onload=()=>print()<\/script></body></html>`);
+  w.document.close();
+}
+async function shareReceipt() {
+  const t = curTx.transaction, text = `UMARSHOYI-SUB receipt\n${t.label}\n${m2(t.amount)} · ${t.status}\nID: ${t.id}\nHash: ${t.short_hash}`;
+  if (navigator.share) { try { await navigator.share({ title: 'Receipt', text }); } catch {} } else copyText(text);
+}
+function reportIssue(txId) {
+  openSheet(`<div style="font-weight:800; font-size:17px; margin-bottom:12px;">Report an issue</div>
+    <div class="field"><textarea id="issueText" rows="4" placeholder="Describe the problem" style="width:100%; padding:12px; border:1px solid var(--line); border-radius:12px;"></textarea></div>
+    <div class="err-text" id="issueErr"></div><button class="btn-primary" id="issueBtn" onclick="sendIssue('${esc(txId || '')}')">Send report</button>`);
+}
+async function sendIssue(txId) {
+  const message = $('issueText').value.trim(); setLoading('issueBtn', true);
+  const { errMsg } = await fn('support-ticket-create', { message, txId: txId || null });
+  setLoading('issueBtn', false, 'Send report');
+  if (errMsg) { $('issueErr').textContent = errMsg; return; }
+  closeSheet(); showToast('Report sent. We will get back to you.', 'success');
+}
+
+/* ---------- wallet dashboards ---------- */
+let wCur = 'main', wOff = 0;
+const wState = { get off() { return wOff; }, set off(v) { wOff = v; } };
+async function openWallet(w) { wCur = w; showPage('wallet'); walletRender(); loadWalletTx(true); await loadWallets(); walletRender(); }
+function walletRender() {
+  $('walletTitle').textContent = WN[wCur]; $('walletCard').className = 'wcard' + (wCur === 'exchange' ? ' ex' : wCur === 'atc' ? ' atc' : '');
+  $('walletAmt').textContent = balanceVisible ? m2(W[wCur]) : '₦••••';
+  const p = $('walletPend'); if (wCur === 'exchange' && W.pending_exchange > 0) { p.style.display = 'inline-flex'; p.textContent = 'Pending: ' + m2(W.pending_exchange) + ' (not yet available)'; } else p.style.display = 'none';
+  const A = { main: [['Fund Wallet', "showPage('fund')", ''], ['Buy Data', "openPurchase('data')", 'g']], exchange: [['Exchange', "showPage('exchange')", ''], ['Withdraw', "openWithdraw('exchange')", 'g']], atc: [['Convert Airtime', "showPage('a2c')", ''], ['Withdraw', "openWithdraw('atc')", 'g']] }[wCur];
+  $('walletActs').innerHTML = A.map((a) => `<button class="${a[2]}" onclick="${a[1]}">${a[0]}</button>`).join('');
+  $('walletNote').textContent = { main: 'The Main Wallet is for buying services and cannot be withdrawn.', exchange: 'Keep your money here and withdraw whenever you choose. Pending amounts become available only after payment is confirmed.', atc: 'Keep your money here and withdraw whenever you choose.' }[wCur];
+}
+function loadWalletTx(reset) { return txPage($('walletTx'), $('walletMore'), { wallet: wCur }, reset, wState); }
+
+/* ---------- withdraw ---------- */
+let wd = { wallet: 'exchange', bank: null, accts: [], banks: null, timer: null, quote: null };
+async function openWithdraw(w) {
+  if (w === 'atc' || w === 'exchange') wd.wallet = w; wd.quote = null;
+  showPage('withdraw'); $('wdSummary').style.display = 'none'; $('wdAmount').value = ''; wdRenderWallets();
+  await Promise.all([loadWallets(), wdLoadBanks(), wdLoadHistory()]); wdRenderWallets();
+}
+function wdRenderWallets() {
+  $('wdWallets').innerHTML = ['exchange', 'atc'].map((k) => `<div class="segi ${k === wd.wallet ? 'on' : ''}" onclick="wdPick('${k}')"><div class="n">${WN[k]}</div><div class="a">${m2(W[k])}</div></div>`).join('');
+}
+function wdPick(k) { wd.wallet = k; wdRenderWallets(); wdQuoteDebounced(); }
+function wdQuoteDebounced() { clearTimeout(wd.timer); wd.timer = setTimeout(wdQuoteNow, 400); }
+async function wdQuoteNow() {
+  const amount = parseFloat($('wdAmount').value), box = $('wdSummary'); wd.quote = null;
+  if (!(amount > 0)) { box.style.display = 'none'; return; }
+  box.style.display = 'block'; box.innerHTML = '<div class="empty-note">Calculating…</div>';
+  const { data, errMsg } = await fn('withdraw-quote', { wallet: wd.wallet, amount });
+  if (errMsg) { box.innerHTML = `<div class="err-text" style="margin:10px 0;">${esc(errMsg)}</div>`; return; }
+  const q = wd.quote = data.quote, r = (a, b, s = '') => `<div style="display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--line); ${s}"><span style="color:var(--sub);">${a}</span><b>${b}</b></div>`;
+  box.innerHTML = r('Available balance', m2(q.balance)) + r('Withdrawal amount', m2(q.amount)) + r('Fee', m2(q.fee)) + r('You will receive', m2(q.net), 'color:var(--green);') + r('Remaining in wallet', m2(q.remaining), 'border:none;');
+}
+async function wdLoadBanks() {
+  const { data } = await fn('bank-accounts'); wd.accts = data?.items || [];
+  if (!wd.accts.some((a) => a.id === wd.bank)) wd.bank = wd.accts[0]?.id || null;
+  wdRenderBanks();
+}
+function wdRenderBanks() {
+  $('wdBanks').innerHTML = wd.accts.length ? wd.accts.map((a) => `<div class="plan-row ${a.id === wd.bank ? 'selected' : ''}" onclick="wd.bank='${esc(a.id)}'; wdRenderBanks();">
+    <div><div class="plan-size">${esc(a.nickname || a.bank_name)}</div><div class="plan-valid">${esc(a.account_name)} · ${esc(a.bank_name)} ${esc(a.account_number)}</div></div>
+    <div style="display:flex; gap:12px;"><a onclick="event.stopPropagation(); wdRename('${esc(a.id)}')" style="font-size:12px; color:var(--blue-1); font-weight:700;">Edit</a><a onclick="event.stopPropagation(); wdRemove('${esc(a.id)}')" style="font-size:12px; color:var(--danger); font-weight:700;">Remove</a></div></div>`).join('') : '<div class="empty-note">No saved bank account yet. Add one below.</div>';
+}
+async function wdRename(id) {
+  const n = prompt('Friendly name (e.g. My Bank)'); if (n === null) return;
+  const { errMsg } = await fn('bank-account-rename', { id, nickname: n }); if (errMsg) return showToast(errMsg, 'error'); wdLoadBanks();
+}
+async function wdRemove(id) {
+  if (!confirm('Remove this saved bank account?')) return;
+  const { errMsg } = await fn('bank-account-delete', { id }); if (errMsg) return showToast(errMsg, 'error'); wdLoadBanks();
+}
+async function wdToggleAdd() {
+  const b = $('wdAddBox'); b.style.display = b.style.display === 'none' ? 'block' : 'none';
+  if (b.style.display === 'block' && !wd.banks) {
+    const { data, errMsg } = await fn('get-banks'); if (errMsg) { $('wdBankSelect').innerHTML = '<option value="">Could not load banks</option>'; return; }
+    wd.banks = data.banks; $('wdBankSelect').innerHTML = '<option value="">Select bank</option>' + wd.banks.map((k) => `<option value="${esc(k.code)}">${esc(k.name)}</option>`).join('');
+  }
+}
+let wdRT; function wdResolveDebounced() { clearTimeout(wdRT); wdRT = setTimeout(wdResolveNow, 400); }
+async function wdResolveNow() {
+  const bankCode = $('wdBankSelect').value, accountNumber = $('wdAccount').value.trim(), o = $('wdAccName');
+  if (!bankCode || !/^\d{10}$/.test(accountNumber)) { o.textContent = ''; return; }
+  o.style.color = 'var(--sub)'; o.textContent = 'Checking account…';
+  const { data, errMsg } = await fn('bank-resolve', { bankCode, accountNumber });
+  o.style.color = errMsg ? 'var(--danger)' : 'var(--green)'; o.textContent = errMsg || '✓ ' + data.account_name;
+}
+async function wdSaveBank() {
+  const bankCode = $('wdBankSelect').value, accountNumber = $('wdAccount').value.trim(), nickname = $('wdNick').value.trim(), e = $('wdAddErr'); e.textContent = '';
+  if (!bankCode || !/^\d{10}$/.test(accountNumber)) { e.textContent = 'Select a bank and enter a 10-digit account number'; return; }
+  setLoading('wdSaveBankBtn', true);
+  const { data, errMsg } = await fn('bank-account-add', { bankCode, accountNumber, nickname });
+  setLoading('wdSaveBankBtn', false, 'Verify & save account');
+  if (errMsg) { e.textContent = errMsg; return; }
+  $('wdAddBox').style.display = 'none'; $('wdAccount').value = ''; $('wdNick').value = ''; $('wdAccName').textContent = '';
+  await wdLoadBanks(); wd.bank = data.account.id; wdRenderBanks(); showToast('Account saved', 'success');
+}
+function wdReview() {
+  const e = $('wdErr'); e.textContent = ''; const q = wd.quote, b = wd.accts.find((a) => a.id === wd.bank), pin = $('wdPin').value.trim();
+  if (!q) { e.textContent = 'Enter an amount first'; return; }
+  if (!b) { e.textContent = 'Choose or add a bank account'; return; }
+  if (!/^\d{4}$/.test(pin)) { e.textContent = 'Enter your 4-digit transaction PIN'; return; }
+  const r = (a, c) => `<div style="display:flex; justify-content:space-between; padding:9px 0; border-bottom:1px solid var(--line);"><span style="color:var(--sub);">${a}</span><b style="text-align:right;">${c}</b></div>`;
+  openSheet(`<div style="font-weight:800; font-size:17px; margin-bottom:8px;">Confirm withdrawal</div>${r('From', WN[wd.wallet])}${r('Bank', esc(b.bank_name))}${r('Account name', esc(b.account_name))}${r('Account number', esc(b.account_number))}
+    ${r('Amount', m2(q.amount))}${r('Fee', m2(q.fee))}${r('You receive', m2(q.net))}${r('Remaining balance', m2(q.remaining))}
+    <button class="btn-primary" id="wdGoBtn" style="margin-top:16px;" onclick="wdSubmit()">Confirm withdrawal</button><button class="btn-outline" onclick="closeSheet()">Cancel</button>`);
+}
+async function wdSubmit() {
+  setLoading('wdGoBtn', true);
+  const { data, errMsg } = await fn('withdraw-create', { wallet: wd.wallet, amount: wd.quote.amount, bankAccountId: wd.bank, pin: $('wdPin').value.trim() });
+  wipePinFields(); closeSheet();
+  if (errMsg) { $('wdErr').textContent = errMsg; return; }
+  showToast(data.message || 'Withdrawal submitted', 'success'); $('wdAmount').value = ''; $('wdSummary').style.display = 'none'; wd.quote = null;
+  await Promise.all([loadWallets(), wdLoadHistory()]); wdRenderWallets(); renderTx();
+}
+async function wdLoadHistory() {
+  const { data } = await fn('withdraw-history'), box = $('wdHistory'), items = data?.items || [];
+  box.innerHTML = items.length ? items.map((i) => `<div class="arow" style="cursor:default;"><div class="top"><span>${m2(i.amount)} · ${esc(WN[i.wallet])}</span>${badge(i.status)}</div>
+    <div class="sub">${esc(i.bank_name)} ${esc(i.account_number)} · fee ${m2(i.fee)} · net ${m2(i.net)}<br>${esc(dt(i.created_at).toLocaleString())}</div></div>`).join('') : '<div class="empty-note">No withdrawals yet.</div>';
+}
+
+/* ---------- favourite beneficiaries ---------- */
+const FAVC = {};
+const keyPhone = (p) => normalizeNgNumber(p) || p;
+const FAVS = {
+  data: { star: 'star-purchase', bar: 'fav-purchase', get: () => ({ phone: $('purchasePhone').value.trim(), network: selectedNetwork || '' }), key: (d) => keyPhone(d.phone), ok: (d) => /^(0\d{10}|234\d{10})$/.test(d.phone), set: (d) => { $('purchasePhone').value = d.phone; onPhoneInput(); }, sub: (d) => d.phone },
+  airtime: null,
+  a2c: { star: 'star-a2c', bar: 'fav-a2c', get: () => ({ phone: $('a2cPhone').value.trim(), network: selectedA2CNetwork }), key: (d) => keyPhone(d.phone), ok: (d) => /^(0\d{10}|234\d{10})$/.test(d.phone), set: (d) => { if (d.network) selectedA2CNetwork = d.network; renderA2CNetworkGrid(); $('a2cPhone').value = d.phone; }, sub: (d) => d.phone },
+  electricity: { star: 'star-electricity', bar: 'fav-electricity', get: () => ({ discoCode: $('discoSelect').value, meterType: $('meterTypeSelect').value, meterNumber: $('meterNumber').value.trim() }), key: (d) => d.discoCode + '|' + d.meterNumber, ok: (d) => /^\d{6,15}$/.test(d.meterNumber), set: (d) => { $('discoSelect').value = d.discoCode; $('meterTypeSelect').value = d.meterType; $('meterNumber').value = d.meterNumber; }, sub: (d) => d.meterNumber },
+  cable: { star: 'star-cable', bar: 'fav-cable', get: () => ({ provider: selectedCableProvider, smartcard: $('cableSmartcard').value.trim() }), key: (d) => d.provider + '|' + d.smartcard, ok: (d) => /^\d{8,15}$/.test(d.smartcard), set: (d) => { selectCableProvider(d.provider); $('cableSmartcard').value = d.smartcard; }, sub: (d) => d.provider.toUpperCase() + ' ' + d.smartcard },
+  sms: { star: 'star-sms', bar: 'fav-sms', get: () => ({ numbers: [...new Set($('smsRecipients').value.split(/[\s,;]+/).map(normalizeNgNumber).filter(Boolean))] }), key: () => null, ok: (d) => d.numbers.length > 0, set: (d) => { $('smsRecipients').value = d.numbers.join(', '); bulkSmsUpdate(); }, sub: (d) => d.numbers.length + ' numbers' },
+};
+FAVS.airtime = FAVS.data;
+async function favLoad(s) { const { data } = await fn('fav-list', { service: s }); FAVC[s] = data?.items || []; }
+async function favSync(s) {
+  const F = FAVS[s]; if (!F) return;
+  if (!FAVC[s]) await favLoad(s);
+  const cur = F.get(), k = F.key(cur), saved = k && FAVC[s].some((f) => F.key(f.data) === k), st = $(F.star);
+  if (st) st.classList.toggle('on', !!saved);
+  $(F.bar).innerHTML = FAVC[s].map((f) => `<button type="button" class="chip" onclick="favPick('${s}','${esc(f.id)}')">★ ${esc(f.name)}</button>`).join('');
+}
+function favPick(s, id) { const f = FAVC[s].find((x) => x.id === id); if (!f) return; FAVS[s].set(f.data); favSync(s); }
+function favToggle(s) {
+  const F = FAVS[s], cur = F.get(); if (!F.ok(cur)) { showToast(s === 'sms' ? 'Add at least one valid number first' : 'Enter a valid number first', 'error'); return; }
+  const k = F.key(cur), hit = k && FAVC[s]?.find((f) => F.key(f.data) === k);
+  if (hit) {
+    openSheet(`<div style="font-weight:800; font-size:17px; margin-bottom:4px;">★ ${esc(hit.name)}</div><div style="color:var(--sub); font-size:13px; margin-bottom:14px;">${esc(F.sub(hit.data))}</div>
+      <div class="field"><input id="favName" maxlength="30" value="${esc(hit.name)}"></div><button class="btn-primary" onclick="favRename('${s}','${esc(hit.id)}')">Save name</button>
+      <button class="btn-outline" style="color:var(--danger);" onclick="favRemove('${s}','${esc(hit.id)}')">Remove from favourites</button>`); return;
+  }
+  const names = ['My Number', 'Mum', 'Dad', 'Brother', 'Sister', 'Friend'].map((n) => `<button type="button" class="chip" onclick="$('favName').value='${n}'">${n}</button>`).join('');
+  openSheet(`<div style="font-weight:800; font-size:17px; margin-bottom:4px;">Save to favourites</div><div style="color:var(--sub); font-size:13px; margin-bottom:12px;">${esc(F.sub(cur))}</div>
+    <div class="chips" style="padding:0 0 10px; flex-wrap:wrap;">${names}</div><div class="field"><input id="favName" maxlength="30" placeholder="Name, e.g. Home Meter"></div>
+    <div class="err-text" id="favErr"></div><button class="btn-primary" id="favSaveBtn" onclick="favSave('${s}')">Save</button>`);
+}
+async function favSave(s) {
+  const name = $('favName').value.trim(); setLoading('favSaveBtn', true);
+  const { errMsg } = await fn('fav-save', { service: s, name, data: FAVS[s].get() }); setLoading('favSaveBtn', false, 'Save');
+  if (errMsg) { $('favErr').textContent = errMsg; return; }
+  closeSheet(); await favLoad(s); favSync(s); showToast('Saved', 'success');
+}
+async function favRename(s, id) { const { errMsg } = await fn('fav-update', { id, name: $('favName').value }); if (errMsg) return showToast(errMsg, 'error'); closeSheet(); await favLoad(s); favSync(s); }
+async function favRemove(s, id) { const { errMsg } = await fn('fav-delete', { id }); if (errMsg) return showToast(errMsg, 'error'); closeSheet(); await favLoad(s); favSync(s); }
+
+/* ---------- referral dashboard ---------- */
+let refData = {};
+async function openReferral() {
+  showPage('referral');
+  const { data, errMsg } = await fn('referral-summary'); if (errMsg) { showToast(errMsg, 'error'); return; }
+  refData = data;
+  $('refOff').style.display = data.enabled ? 'none' : 'block';
+  $('refEarned').textContent = m2(data.total_earned); $('refPending').textContent = naira(data.pending); $('refToday').textContent = naira(data.today);
+  $('refCode').textContent = data.code; $('refLink').textContent = data.link;
+  $('refHow').innerHTML = `You earn <b>${naira(data.reward)}</b> when someone you invite makes their first purchase. Pending rewards are waiting for that purchase and are not available yet. Earned rewards go to your <b>Main Wallet</b> and can be used to buy services (they cannot be withdrawn).`;
+  $('refList').innerHTML = data.items.length ? data.items.map((i) => `<div class="arow" style="cursor:default;"><div class="top"><span>${esc(i.name)}</span>${badge(i.status)}</div><div class="sub">${esc(dt(i.joined).toLocaleDateString(undefined, { day: '2-digit', month: 'short' }))} · ${naira(i.reward)}</div></div>`).join('') : '<div class="empty-note">No referrals yet. Share your link to start earning.</div>';
+}
+async function shareReferral() {
+  if (!refData.link) { const { data } = await fn('referral-summary'); if (data) refData = data; }
+  if (!refData.link) return;
+  const text = 'Join UMARSHOYI-SUB - ' + refData.link;
+  if (navigator.share) { try { await navigator.share({ text }); } catch {} } else window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank');
+}
+
+/* ---------- notifications (bell) ---------- */
+async function loadNotifications() {
+  $('adminNotifyBox').style.display = profile?.is_admin ? 'block' : 'none';
+  const { data, errMsg } = await fn('my-notifications'); if (errMsg) { showToast(errMsg, 'error'); return; }
+  $('notifList').innerHTML = data.items.length ? data.items.map((n) => `<div class="plan-row" style="cursor:default; flex-direction:column; align-items:flex-start; margin-bottom:10px; ${n.unread ? 'border:1.5px solid var(--blue-1);' : ''}">
+    <div style="font-weight:700; font-size:13px;">${esc(n.title)}${n.from_admin ? ' <span style="font-size:10px; color:var(--blue-1);">· UMARSHOYI-SUB</span>' : ''}</div><div style="font-size:13px; color:var(--sub); margin-top:4px;">${esc(n.message)}</div>
+    <div style="font-size:11px; color:var(--sub); margin-top:6px;">${esc(dt(n.created_at).toLocaleString())}</div></div>`).join('') : '<div class="empty-note">No notifications yet.</div>';
+  if (data.unread) { await fn('notifications-seen'); $('notifDot').style.display = 'none'; }
+}
+async function checkUnreadNotifications() {
+  const { data } = await fn('my-notifications'); if (!data) return;
+  const b = $('notifDot'); b.textContent = data.unread > 9 ? '9+' : data.unread; b.style.display = data.unread ? 'flex' : 'none';
+}
+
+/* ---------- sign-up: referral code auto-fill (editable) ---------- */
+(function () {
+  const f = $('rReferral'); if (!f) return;
+  f.placeholder = 'e.g. USS1234'; f.parentElement.style.position = 'relative'; f.style.paddingRight = '44px';
+  f.insertAdjacentHTML('afterend', '<button type="button" id="refClear" aria-label="Clear code" style="display:none; position:absolute; right:8px; top:30px; width:36px; height:36px; border:none; background:transparent; font-size:18px; color:var(--sub);">✕</button><div id="refStatus" style="font-size:12px; margin-top:6px; min-height:14px;"></div>');
+  let t; const check = async () => {
+    const v = f.value.trim().toUpperCase(), s = $('refStatus'); $('refClear').style.display = v ? 'block' : 'none';
+    if (!v) { s.textContent = ''; return; }
+    const { data } = await api('/api/referral/check?code=' + encodeURIComponent(v));
+    s.style.color = data?.valid ? 'var(--green)' : 'var(--danger)';
+    s.textContent = data?.valid ? '✓ Referral code applied' : 'Invalid code – you can continue without it';
+  };
+  f.addEventListener('input', () => { clearTimeout(t); t = setTimeout(check, 350); $('refClear').style.display = f.value ? 'block' : 'none'; });
+  $('refClear').addEventListener('click', () => { f.value = ''; check(); });
+  const r = new URLSearchParams(location.search).get('ref');
+  if (r) { f.value = r.toUpperCase(); history.replaceState(null, '', location.pathname); check(); if (!localStorage.getItem('ums_access_token')) showAuth('register'); }
+})();
+
 </script>
 </body>
 </html>

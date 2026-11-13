@@ -290,6 +290,66 @@
   /* ---- desktop ---- */
   @media(min-width:720px){ .page>*{max-width:600px; margin-left:auto; margin-right:auto;} .app{max-width:600px; margin:0 auto;} .nav{left:50%; right:auto; width:576px; transform:translateX(-50%);} .tab-head,.searchbar,.chips{max-width:600px;} }
   @media(max-width:360px){ .bal-amount{font-size:32px} .wamt{font-size:13.5px} .qa,.svc{font-size:12px} .hd-name{font-size:21px} }
+
+  /* ===== SMART LOGIN / REGISTER (royal blue, white, gold) ===== */
+  .auth-screen.auth-screen.ux-screen{background:#dfe8ff; color:#0d1b4c;}
+  .auth-screen.auth-screen .ux-wrap{width:100%; max-width:480px; margin:0 auto; min-height:100vh; background:#eaf0ff; display:flex; flex-direction:column; position:relative; box-shadow:0 0 60px rgba(10,33,144,.18);}
+  .auth-screen.auth-screen .ux-hero{position:relative; overflow:hidden; color:#fff; padding:22px 20px 74px; background:radial-gradient(120% 100% at 85% 0%,#3d6dff 0%,#1237c9 45%,#081a78 100%);}
+  .auth-screen.auth-screen .ux-hero.sm{padding-bottom:62px;}
+  .auth-screen.auth-screen .ux-hero-row{display:flex; align-items:center; justify-content:space-between; gap:12px; position:relative; z-index:2;}
+  .auth-screen.auth-screen .ux-logo{display:flex; align-items:center; gap:8px;}
+  .auth-screen.auth-screen .ux-crown{width:46px; height:30px;}
+  .auth-screen.auth-screen .ux-us{font-size:44px; font-weight:900; font-style:italic; line-height:1; letter-spacing:-2px; color:#fff; text-shadow:0 3px 0 #f5b81c, 0 6px 14px rgba(0,0,0,.3);}
+  .auth-screen.auth-screen .ux-brand{margin-top:8px; font-size:21px; font-weight:900; letter-spacing:1.5px; background:linear-gradient(180deg,#ffe48a,#f5a800); -webkit-background-clip:text; background-clip:text; color:transparent;}
+  .auth-screen.auth-screen .ux-tag{font-size:12.5px; opacity:.92; margin-top:2px;} .auth-screen.auth-screen .ux-tag i{color:#ffd75e; font-style:normal; margin:0 2px;}
+  .auth-screen.auth-screen .ux-avatar{flex:none; width:112px; height:112px; border-radius:50%; padding:4px; background:linear-gradient(145deg,#ffe48a,#f5a800); box-shadow:0 10px 26px rgba(0,0,0,.35);}
+  .auth-screen.auth-screen .ux-avatar .in{width:100%; height:100%; border-radius:50%; background:#1a3fd6 center/cover no-repeat; display:flex; align-items:center; justify-content:center; overflow:hidden; border:3px solid #fff;}
+  .auth-screen.auth-screen .ux-avatar.has-img .in svg{display:none;}
+  .auth-screen.auth-screen .ux-avatar.sm{width:84px; height:84px;}
+  .auth-screen.auth-screen .ux-title{position:relative; z-index:2; margin-top:16px; font-size:24px; font-weight:800;}
+  .auth-screen.auth-screen .ux-sub{position:relative; z-index:2; font-size:13px; opacity:.88; margin-top:3px; line-height:1.45;}
+  .auth-screen.auth-screen .ux-notyou{color:#ffd75e; font-weight:700; cursor:pointer; margin-left:6px; text-decoration:underline; display:none;}
+  .auth-screen.auth-screen .ux-swoosh{position:absolute; left:0; right:0; bottom:-1px; width:100%; height:62px; z-index:1; display:block;}
+  .auth-screen.auth-screen .ux-card{position:relative; z-index:3; margin:-30px 14px 0; background:#fff; border-radius:26px; padding:20px 18px 18px; box-shadow:0 14px 34px rgba(10,33,144,.16); border:1.5px solid #e1e9fb; border-top:3px solid #f5b81c;}
+  .auth-screen.auth-screen .ux-f{margin-bottom:14px;}
+  .auth-screen.auth-screen .ux-l{display:block; font-size:12.5px; font-weight:800; color:#0a2190; margin-bottom:6px;}
+  .auth-screen.auth-screen .ux-l small{font-weight:600; color:#6b7aa6;}
+  .auth-screen.auth-screen .ux-in{position:relative;}
+  .auth-screen.auth-screen .ux-in input{width:100%; height:50px; border:1.5px solid #d6e0fa; border-radius:14px; padding:0 46px 0 44px; background:#f5f8ff; font-size:15px; color:#0d1b4c;}
+  .auth-screen.auth-screen .ux-in input::placeholder{color:#8a97bd;}
+  .auth-screen.auth-screen .ux-in input:focus{outline:none; border-color:#1f4fe0; background:#fff; box-shadow:0 0 0 3px rgba(245,184,28,.28);}
+  .auth-screen.auth-screen .ux-ico{position:absolute; left:14px; top:14px; width:22px; height:22px; color:#1f4fe0; pointer-events:none;}
+  .auth-screen.auth-screen .ux-eye{position:absolute; right:6px; top:6px; width:38px; height:38px; border:none; background:transparent; color:#5f6f9a; cursor:pointer; display:flex; align-items:center; justify-content:center;}
+  .auth-screen.auth-screen .ux-eye svg{width:22px; height:22px;}
+  .auth-screen.auth-screen #refClear{top:6px !important; right:6px !important;}
+  .auth-screen.auth-screen .ux-row{display:flex; align-items:center; justify-content:space-between; gap:10px; margin:2px 0 14px; font-size:13px;}
+  .auth-screen.auth-screen .ux-chk{display:flex; align-items:center; gap:8px; color:#3a4a7c; cursor:pointer; font-weight:600;}
+  .auth-screen.auth-screen .ux-chk input{width:18px; height:18px; accent-color:#1f4fe0; margin:0;}
+  .auth-screen.auth-screen .ux-a{color:#1f4fe0; font-weight:800; cursor:pointer; text-decoration:none;}
+  .auth-screen.auth-screen .ux-err{color:#d6303a; font-size:13px; font-weight:600; min-height:18px; margin:0 0 10px; line-height:1.4;}
+  .auth-screen.auth-screen .ux-btn{width:100%; height:54px; border:none; border-radius:18px; color:#fff; font-weight:800; font-size:16px; cursor:pointer; background:linear-gradient(135deg,#3b82ff,#1237c9 55%,#0a2190); box-shadow:0 10px 22px rgba(18,55,201,.32); display:flex; align-items:center; justify-content:center; gap:10px; transition:transform .15s;}
+  .auth-screen.auth-screen .ux-btn:active{transform:scale(.985);} .auth-screen.auth-screen .ux-btn:disabled{opacity:.6;}
+  .auth-screen.auth-screen .ux-btn svg{width:22px; height:22px;}
+  .auth-screen.auth-screen .ux-bio{width:100%; margin-top:12px; min-height:58px; border-radius:18px; border:2px solid transparent; background:linear-gradient(#fff,#fff) padding-box, linear-gradient(135deg,#ffe48a,#f5a800) border-box; color:#0a2190; font-weight:800; font-size:15px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:12px; padding:8px 14px; text-align:left;}
+  .auth-screen.auth-screen .ux-bio svg{width:30px; height:30px; color:#e39b00; flex:none;} .auth-screen.auth-screen .ux-bio small{display:block; font-weight:600; font-size:11.5px; color:#6b7aa6;}
+  .auth-screen.auth-screen .ux-or{display:flex; align-items:center; gap:10px; color:#8a97bd; font-size:12px; margin:14px 0 0; font-weight:700;} .auth-screen.auth-screen .ux-or::before,.auth-screen.auth-screen .ux-or::after{content:''; flex:1; height:1px; background:#dbe4fb;}
+  .auth-screen.auth-screen .ux-note{font-size:12px; color:#6b7aa6; text-align:center; margin-top:8px; line-height:1.45;}
+  .auth-screen.auth-screen .ux-switch{text-align:center; margin-top:16px; font-size:13.5px; color:#4b5a8a;}
+  .auth-screen.auth-screen .ux-trust{display:flex; justify-content:space-around; gap:6px; padding:20px 10px 10px; margin-top:auto;}
+  .auth-screen.auth-screen .ux-trust div{display:flex; flex-direction:column; align-items:center; gap:5px; font-size:11.5px; font-weight:800; color:#0a2190; text-align:center;}
+  .auth-screen.auth-screen .ux-trust span{width:38px; height:38px; border-radius:50%; background:#fff; border:1.5px solid #f5b81c; display:flex; align-items:center; justify-content:center; color:#1f4fe0;} .auth-screen.auth-screen .ux-trust svg{width:20px; height:20px;}
+  .auth-screen.auth-screen .ux-foot{height:46px; background:linear-gradient(180deg,#1237c9,#081a78); border-radius:60% 60% 0 0/100% 100% 0 0; border-top:3px solid #f5b81c;}
+  .auth-screen.auth-screen .ux-str{display:flex; gap:4px; margin-top:7px;} .auth-screen.auth-screen .ux-str i{flex:1; height:5px; border-radius:3px; background:#dbe4fb; transition:background .2s;}
+  .auth-screen.auth-screen .ux-strt{font-size:11.5px; color:#6b7aa6; margin-top:5px; font-weight:600;}
+  .auth-screen.auth-screen .ux-2{display:grid; grid-template-columns:1fr 1fr; gap:10px;} @media(max-width:360px){.auth-screen.auth-screen .ux-2{grid-template-columns:1fr;}}
+  .auth-screen.auth-screen .ux-terms{display:flex; align-items:flex-start; gap:9px; font-size:12.5px; color:#4b5a8a; margin:4px 0 14px; cursor:pointer; line-height:1.45;}
+  .auth-screen.auth-screen .ux-terms input{width:18px; height:18px; margin-top:1px; accent-color:#1f4fe0; flex:none;}
+  .auth-screen.auth-screen .ux-box{background:#fff8e1; border:1px solid #f5d77a; border-radius:14px; padding:11px 13px; font-size:12.5px; color:#6a5200; line-height:1.5; margin-bottom:14px;}
+  @media(min-width:700px){ .auth-screen.auth-screen.ux-screen{align-items:center;} .auth-screen.auth-screen .ux-wrap{min-height:min(100vh,900px); margin:auto; border-radius:28px; overflow:hidden;} }
+  .ux-sheet-ico{width:60px; height:60px; border-radius:50%; margin:0 auto 12px; background:linear-gradient(145deg,#ffe48a,#f5a800); display:flex; align-items:center; justify-content:center; color:#0a2190;} .ux-sheet-ico svg{width:32px; height:32px;}
+  .ux-dev{display:flex; align-items:center; gap:10px; padding:11px 0; border-bottom:1px solid var(--line);} .ux-dev:last-child{border-bottom:none;} .ux-dev b{font-size:14px;} .ux-dev small{display:block; color:var(--sub); font-size:11.5px; margin-top:2px;}
+  .ux-dev button{margin-left:auto; border:1px solid var(--danger); color:var(--danger); background:transparent; border-radius:10px; padding:7px 11px; font-weight:700; font-size:12px; cursor:pointer;}
+  .ux-tag-this{background:#e7f8ef; color:#16a05f; border-radius:8px; font-size:10.5px; font-weight:800; padding:2px 7px; margin-left:6px;}
 </style>
 <style>
 /* ===== SHOYI (added) ===== */
@@ -703,49 +763,115 @@ html[data-theme=dark] .pf-wal b{color:#d6e3ff}
   }
 </script>
 
+<!-- ===================== SMART LOGIN: icons ===================== -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="ux-user" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c.6-4.2 3.6-6.5 8-6.5s7.4 2.3 8 6.5"/></symbol>
+<symbol id="ux-at" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8"/></symbol>
+<symbol id="ux-mail" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m4 7 8 6 8-6"/></symbol>
+<symbol id="ux-phone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18.5h2"/></symbol>
+<symbol id="ux-gift" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="5" rx="1"/><path d="M5 13v7h14v-7M12 8v12M12 8c-2-4-6-3-5 0 .6 1.5 3 1 5 0Zm0 0c2-4 6-3 5 0-.6 1.5-3 1-5 0Z"/></symbol>
+<symbol id="ux-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5M12 14.5v2.5"/></symbol>
+<symbol id="ux-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4.5 6v5.5c0 4.5 3 8 7.5 9.5 4.5-1.5 7.5-5 7.5-9.5V6Z"/><path d="m9 12 2.2 2.2L15.5 10"/></symbol>
+<symbol id="ux-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></symbol>
+<symbol id="ux-eyeoff" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18M10.6 5.1A9.7 9.7 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4M6.5 6.6C3.7 8.4 2 12 2 12s3.6 7 10 7c1.6 0 3-.4 4.3-1M9.9 9.9a3 3 0 0 0 4.2 4.2"/></symbol>
+<symbol id="ux-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+<symbol id="ux-finger" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 11v3.2c0 1.8-.5 3.4-1.5 4.8M8.5 19c1.1-1.5 1.7-3.1 1.7-5V11a1.8 1.8 0 0 1 3.6 0v2.4c0 2.2.6 4 1.8 5.4M5.2 16.2c.5-1.2.8-2.7.8-4.2a6 6 0 0 1 12 0c0 1.4.2 2.6.7 3.7M3.5 10.5A8.5 8.5 0 0 1 12 3.5a8.5 8.5 0 0 1 8.5 7M17 20.2c-.6-.5-1.2-1.2-1.6-1.8"/></symbol>
+<symbol id="ux-bolt" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4.5 13.5H11L10 22l8.5-11.5H12Z"/></symbol>
+<symbol id="ux-help" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="3" y="13" width="4" height="6" rx="1.5"/><rect x="17" y="13" width="4" height="6" rx="1.5"/><path d="M19 19c0 1.5-2 2.5-5 2.5"/></symbol>
+<symbol id="ux-person" viewBox="0 0 64 64"><circle cx="32" cy="24" r="12" fill="#fff"/><path d="M8 62c2-16 12-23 24-23s22 7 24 23Z" fill="#fff"/></symbol>
+<linearGradient id="uxGold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe48a"/><stop offset="1" stop-color="#f5a800"/></linearGradient>
+</defs></svg>
+
 <!-- ===================== WELCOME / LOGIN ===================== -->
-<div class="auth-screen active" id="screen-welcome">
-  <div class="auth-hero">
-    <div class="brand">UMARSHOYI-SUB</div>
-    <div class="auth-title display">Welcome 👋</div>
-    <div class="auth-sub">Buy data, airtime, cable & bills in seconds.</div>
+<div class="auth-screen ux-screen active" id="screen-welcome"><div class="ux-wrap">
+  <div class="ux-hero">
+    <div class="ux-hero-row">
+      <div>
+        <div class="ux-logo"><svg class="ux-crown" viewBox="0 0 64 40"><path d="M5 36 2 11l16 12L32 4l14 19L62 11l-3 25Z" fill="url(#uxGold)"/><circle cx="2" cy="10" r="3" fill="#ffe48a"/><circle cx="32" cy="4" r="3" fill="#ffe48a"/><circle cx="62" cy="10" r="3" fill="#ffe48a"/></svg><div class="ux-us">US</div></div>
+        <div class="ux-brand">UMARSHOYI-SUB</div>
+        <div class="ux-tag">Smart <i>•</i> Fast <i>•</i> Reliable</div>
+      </div>
+      <div class="ux-avatar" id="uxAvatar"><div class="in" id="uxAvatarIn"><svg width="62" height="62" viewBox="0 0 64 64"><use href="#ux-person"/></svg></div></div>
+    </div>
+    <div class="ux-title" id="uxWelcome">Welcome 👋</div>
+    <div class="ux-sub">Buy data, airtime, cable &amp; bills in seconds.<span class="ux-notyou" id="uxNotYou" onclick="uxNotYou()">Not you?</span></div>
+    <svg class="ux-swoosh" viewBox="0 0 400 62" preserveAspectRatio="none"><path d="M0 40C90 10 170 6 260 24s110 8 140-10" fill="none" stroke="#f5b81c" stroke-width="3" opacity=".9"/><path d="M0 62V44C90 16 180 12 270 30s90 6 130-8v40Z" fill="#eaf0ff"/></svg>
   </div>
-  <div class="auth-body">
-    <div class="field"><label>Email or Username</label><input id="loginEmail" placeholder="you@example.com"></div>
-    <div class="field"><label>Password</label><input id="loginPass" type="password" autocomplete="current-password" placeholder="••••••••"></div>
-    <div class="err-text" id="loginErr"></div>
-    <button class="btn-primary" id="loginBtn" onclick="login()">Log In</button>
-    <div class="switch-link">New here? <a onclick="showAuth('register')">Create an account</a></div>
+  <div class="ux-card">
+    <div class="ux-f"><label class="ux-l" for="loginEmail">Email or Username</label><div class="ux-in"><svg class="ux-ico"><use href="#ux-user"/></svg><input id="loginEmail" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="you@example.com"></div></div>
+    <div class="ux-f"><label class="ux-l" for="loginPass">Password</label><div class="ux-in"><svg class="ux-ico"><use href="#ux-lock"/></svg><input id="loginPass" type="password" autocomplete="current-password" placeholder="Enter your password"><button type="button" class="ux-eye" onclick="uxEye(this)" aria-label="Show or hide password"><svg><use href="#ux-eye"/></svg></button></div></div>
+    <div class="ux-row"><label class="ux-chk"><input type="checkbox" id="uxRemember" checked> Remember me</label><a class="ux-a" onclick="showForgot()">Forgot Password?</a></div>
+    <div class="ux-err" id="loginErr" role="alert"></div>
+    <button class="ux-btn" id="loginBtn" onclick="login()">Login Now <svg><use href="#ux-arrow"/></svg></button>
+    <div class="ux-or" id="uxOr">or</div>
+    <button class="ux-bio" id="uxBioBtn" onclick="bioLogin()"><svg><use href="#ux-finger"/></svg><span>Login with Fingerprint<small id="uxBioSub">Use the fingerprint or screen lock on this phone</small></span></button>
+    <div class="ux-note" id="uxBioNote"></div>
+    <div class="ux-switch">New here? <a class="ux-a" onclick="showAuth('register')">Create Account</a></div>
   </div>
-</div>
+  <div class="ux-trust"><div><span><svg><use href="#ux-pin"/></svg></span>Secure &amp; Safe</div><div><span><svg><use href="#ux-bolt"/></svg></span>Instant</div><div><span><svg><use href="#ux-help"/></svg></span>24/7 Support</div></div>
+  <div class="ux-foot"></div>
+</div></div>
 
 <!-- ===================== REGISTER ===================== -->
-<div class="auth-screen" id="screen-register">
-  <div class="auth-hero">
-    <div class="brand">UMARSHOYI-SUB</div>
-    <div class="auth-title display">Create Account</div>
-    <div class="auth-sub">Just a few details to get you started.</div>
-  </div>
-  <div class="auth-body">
-    <div class="field"><label>Full Name</label><input id="rFullName" placeholder="Aisha Bello"></div>
-    <div class="field"><label>Username</label><input id="rUsername" placeholder="aisha_b"></div>
-    <div class="field"><label>Email</label><input id="rEmail" type="email" placeholder="you@example.com"></div>
-    <div class="field"><label>Phone Number</label><input id="rPhone" placeholder="080XXXXXXXX"></div>
-    <div class="field"><label>Referral Code (optional)</label><input id="rReferral" placeholder="e.g. SIGN1234"></div>
-    <div class="field"><label>Transaction PIN (4 digits)</label><input id="rPin" type="password" autocomplete="one-time-code" inputmode="numeric" maxlength="4" placeholder="••••"></div>
-    <div class="field-row">
-      <div class="field"><label>Password</label><input id="rPass" type="password" autocomplete="new-password" placeholder="Min 6 characters"></div>
-      <div class="field"><label>Confirm Password</label><input id="rPass2" type="password" autocomplete="new-password" placeholder="Repeat password"></div>
+<div class="auth-screen ux-screen" id="screen-register"><div class="ux-wrap">
+  <div class="ux-hero sm">
+    <div class="ux-hero-row">
+      <div>
+        <div class="ux-logo"><svg class="ux-crown" viewBox="0 0 64 40"><path d="M5 36 2 11l16 12L32 4l14 19L62 11l-3 25Z" fill="url(#uxGold)"/><circle cx="2" cy="10" r="3" fill="#ffe48a"/><circle cx="32" cy="4" r="3" fill="#ffe48a"/><circle cx="62" cy="10" r="3" fill="#ffe48a"/></svg><div class="ux-us">US</div></div>
+        <div class="ux-brand">UMARSHOYI-SUB</div>
+        <div class="ux-tag">Smart <i>•</i> Fast <i>•</i> Reliable</div>
+      </div>
+      <div class="ux-avatar sm"><div class="in"><svg width="48" height="48" viewBox="0 0 64 64"><use href="#ux-person"/></svg></div></div>
     </div>
-    <div class="err-text" id="registerErr"></div>
-    <label style="display:flex; align-items:flex-start; gap:8px; font-size:12px; color:var(--sub); margin-bottom:16px; cursor:pointer;">
-      <input type="checkbox" id="agreeTerms" style="margin-top:3px;">
-      <span>I agree to the <a onclick="event.preventDefault(); showAuth('register'); showPage('terms')" style="color:var(--blue-1); font-weight:600;">Terms & Conditions</a> and <a onclick="event.preventDefault(); showPage('privacy')" style="color:var(--blue-1); font-weight:600;">Privacy Policy</a></span>
-    </label>
-    <button class="btn-primary" id="registerBtn" onclick="register()">Create Account</button>
-    <div class="switch-link">Already have an account? <a onclick="showAuth('welcome')">Log in</a></div>
+    <div class="ux-title">Create Account</div>
+    <div class="ux-sub">Just a few details to get you started.</div>
+    <svg class="ux-swoosh" viewBox="0 0 400 62" preserveAspectRatio="none"><path d="M0 40C90 10 170 6 260 24s110 8 140-10" fill="none" stroke="#f5b81c" stroke-width="3" opacity=".9"/><path d="M0 62V44C90 16 180 12 270 30s90 6 130-8v40Z" fill="#eaf0ff"/></svg>
   </div>
-</div>
+  <div class="ux-card">
+    <div class="ux-f"><label class="ux-l" for="rFullName">Full Name</label><div class="ux-in"><svg class="ux-ico"><use href="#ux-user"/></svg><input id="rFullName" autocomplete="name" placeholder="Aisha Bello"></div></div>
+    <div class="ux-f"><label class="ux-l" for="rUsername">Username</label><div class="ux-in"><svg class="ux-ico"><use href="#ux-at"/></svg><input id="rUsername" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="aisha_b" maxlength="20"></div></div>
+    <div class="ux-f"><label class="ux-l" for="rEmail">Email Address</label><div class="ux-in"><svg class="ux-ico"><use href="#ux-mail"/></svg><input id="rEmail" type="email" autocomplete="email" autocapitalize="none" placeholder="you@example.com"></div></div>
+    <div class="ux-f"><label class="ux-l" for="rPhone">Phone Number</label><div class="ux-in"><svg class="ux-ico"><use href="#ux-phone"/></svg><input id="rPhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="080XXXXXXXX"></div></div>
+    <div class="ux-f"><label class="ux-l" for="rReferral">Referral Code <small>(optional)</small></label><div class="ux-in"><svg class="ux-ico"><use href="#ux-gift"/></svg><input id="rReferral" autocapitalize="characters" placeholder="e.g. USS1234"></div></div>
+    <div class="ux-f"><label class="ux-l" for="rPin">Transaction PIN <small>(4 digits)</small></label><div class="ux-in"><svg class="ux-ico"><use href="#ux-pin"/></svg><input id="rPin" type="password" autocomplete="one-time-code" inputmode="numeric" maxlength="4" placeholder="••••"><button type="button" class="ux-eye" onclick="uxEye(this)" aria-label="Show or hide PIN"><svg><use href="#ux-eye"/></svg></button></div></div>
+    <div class="ux-f"><label class="ux-l" for="rPass">Password</label><div class="ux-in"><svg class="ux-ico"><use href="#ux-lock"/></svg><input id="rPass" type="password" autocomplete="new-password" placeholder="At least 8 characters" oninput="uxStrength()"><button type="button" class="ux-eye" onclick="uxEye(this)" aria-label="Show or hide password"><svg><use href="#ux-eye"/></svg></button></div>
+      <div class="ux-str" id="uxStr"><i></i><i></i><i></i><i></i></div><div class="ux-strt" id="uxStrT">Use 8+ characters with capital and small letters, a number and a symbol.</div></div>
+    <div class="ux-f"><label class="ux-l" for="rPass2">Confirm Password</label><div class="ux-in"><svg class="ux-ico"><use href="#ux-lock"/></svg><input id="rPass2" type="password" autocomplete="new-password" placeholder="Repeat password" oninput="uxStrength()"><button type="button" class="ux-eye" onclick="uxEye(this)" aria-label="Show or hide password"><svg><use href="#ux-eye"/></svg></button></div></div>
+    <label class="ux-terms"><input type="checkbox" id="agreeTerms"><span>I agree to the <a class="ux-a" onclick="event.preventDefault(); showPage('terms')">Terms &amp; Conditions</a> and <a class="ux-a" onclick="event.preventDefault(); showPage('privacy')">Privacy Policy</a></span></label>
+    <div class="ux-err" id="registerErr" role="alert"></div>
+    <button class="ux-btn" id="registerBtn" onclick="register()">Create Account <svg><use href="#ux-arrow"/></svg></button>
+    <div class="ux-note">After sign-up you can choose to turn on fingerprint login. It is never switched on without your permission.</div>
+    <div class="ux-switch">Already have an account? <a class="ux-a" onclick="showAuth('welcome')">Login Now</a></div>
+  </div>
+  <div class="ux-trust"><div><span><svg><use href="#ux-pin"/></svg></span>Secure &amp; Safe</div><div><span><svg><use href="#ux-bolt"/></svg></span>Instant</div><div><span><svg><use href="#ux-help"/></svg></span>24/7 Support</div></div>
+  <div class="ux-foot"></div>
+</div></div>
+
+<!-- ===================== FORGOT PASSWORD ===================== -->
+<div class="auth-screen ux-screen" id="screen-forgot"><div class="ux-wrap">
+  <div class="ux-hero sm">
+    <div class="ux-hero-row">
+      <div><div class="ux-logo"><svg class="ux-crown" viewBox="0 0 64 40"><path d="M5 36 2 11l16 12L32 4l14 19L62 11l-3 25Z" fill="url(#uxGold)"/></svg><div class="ux-us">US</div></div><div class="ux-brand">UMARSHOYI-SUB</div><div class="ux-tag">Smart <i>•</i> Fast <i>•</i> Reliable</div></div>
+      <div class="ux-avatar sm"><div class="in"><svg width="48" height="48" viewBox="0 0 64 64"><use href="#ux-person"/></svg></div></div>
+    </div>
+    <div class="ux-title">Forgot Password</div>
+    <div class="ux-sub">Confirm it is you, then choose a new password.</div>
+    <svg class="ux-swoosh" viewBox="0 0 400 62" preserveAspectRatio="none"><path d="M0 40C90 10 170 6 260 24s110 8 140-10" fill="none" stroke="#f5b81c" stroke-width="3" opacity=".9"/><path d="M0 62V44C90 16 180 12 270 30s90 6 130-8v40Z" fill="#eaf0ff"/></svg>
+  </div>
+  <div class="ux-card">
+    <div class="ux-box">We confirm your identity with the phone number you registered with and your 4-digit transaction PIN. If you forgot your PIN too, <a class="ux-a" id="fgHelp" target="_blank" rel="noopener">contact support on WhatsApp</a>.</div>
+    <div class="ux-f"><label class="ux-l" for="fgId">Email or Username</label><div class="ux-in"><svg class="ux-ico"><use href="#ux-user"/></svg><input id="fgId" autocapitalize="none" spellcheck="false" placeholder="you@example.com"></div></div>
+    <div class="ux-f"><label class="ux-l" for="fgPhone">Registered Phone Number</label><div class="ux-in"><svg class="ux-ico"><use href="#ux-phone"/></svg><input id="fgPhone" type="tel" inputmode="tel" placeholder="080XXXXXXXX"></div></div>
+    <div class="ux-f"><label class="ux-l" for="fgPin">Transaction PIN</label><div class="ux-in"><svg class="ux-ico"><use href="#ux-pin"/></svg><input id="fgPin" type="password" autocomplete="one-time-code" inputmode="numeric" maxlength="4" placeholder="••••"><button type="button" class="ux-eye" onclick="uxEye(this)" aria-label="Show or hide PIN"><svg><use href="#ux-eye"/></svg></button></div></div>
+    <div class="ux-f"><label class="ux-l" for="fgPass">New Password</label><div class="ux-in"><svg class="ux-ico"><use href="#ux-lock"/></svg><input id="fgPass" type="password" autocomplete="new-password" placeholder="At least 8 characters"><button type="button" class="ux-eye" onclick="uxEye(this)" aria-label="Show or hide password"><svg><use href="#ux-eye"/></svg></button></div></div>
+    <div class="ux-f"><label class="ux-l" for="fgPass2">Confirm New Password</label><div class="ux-in"><svg class="ux-ico"><use href="#ux-lock"/></svg><input id="fgPass2" type="password" autocomplete="new-password" placeholder="Repeat new password"><button type="button" class="ux-eye" onclick="uxEye(this)" aria-label="Show or hide password"><svg><use href="#ux-eye"/></svg></button></div></div>
+    <div class="ux-err" id="fgErr" role="alert"></div>
+    <button class="ux-btn" id="fgBtn" onclick="forgotSubmit()">Reset Password <svg><use href="#ux-arrow"/></svg></button>
+    <div class="ux-switch"><a class="ux-a" onclick="showAuth('welcome')">← Back to Login</a></div>
+  </div>
+  <div class="ux-trust"><div><span><svg><use href="#ux-pin"/></svg></span>Secure &amp; Safe</div><div><span><svg><use href="#ux-bolt"/></svg></span>Instant</div><div><span><svg><use href="#ux-help"/></svg></span>24/7 Support</div></div>
+  <div class="ux-foot"></div>
+</div></div>
 
 <!-- ===================== HOME ===================== -->
 <div class="app" id="appShell">
@@ -1141,7 +1267,7 @@ html[data-theme=dark] .pf-wal b{color:#d6e3ff}
       <div class="chips" id="adminRemChips">
         <button class="atab on" data-f="attention" onclick="adminSetRemFilter('attention')">Needs attention</button>
         <button class="atab" data-f="all" onclick="adminSetRemFilter('all')">All</button>
-        <button class="atab" data-f="completed" onclick="adminSetRemFilter('completed')">Completed</button>
+        <button class="atab" data-f="credited" onclick="adminSetRemFilter('credited')">Credited</button>
       </div>
       <div class="admin-count" id="adminRemCount"></div>
       <div id="adminRemList"></div>
@@ -1289,8 +1415,13 @@ html[data-theme=dark] .pf-wal b{color:#d6e3ff}
     <div class="st-card">
       <div class="st-row" onclick="showPage('change-pin')"><span class="st-ic"><svg class="ic"><use href="#s-shield"/></svg></span><div class="st-t"><b>Change Transaction PIN</b></div><span class="st-arr">›</span></div>
       <div class="st-row" onclick="showPage('change-password')"><span class="st-ic"><svg class="ic"><use href="#s-shield"/></svg></span><div class="st-t"><b>Change Password</b></div><span class="st-arr">›</span></div>
-      <div class="st-row" style="cursor:default;"><span class="st-ic"><svg class="ic"><use href="#i-user"/></svg></span><div class="st-t"><b>Biometric Login</b></div>
-        <label class="toggle-switch"><input type="checkbox" id="biometricToggle" onchange="toggleBiometric()"><span class="toggle-slider"></span></label></div>
+      <div class="st-row" style="cursor:default;"><span class="st-ic"><svg class="ic"><use href="#i-user"/></svg></span><div class="st-t"><b>Biometric Login</b><small>Log in with fingerprint, face or screen lock</small></div>
+        <label class="toggle-switch"><input type="checkbox" id="bioLoginToggle" onchange="uxToggle('login', this.checked)"><span class="toggle-slider"></span></label></div>
+      <div class="st-row" style="cursor:default;"><span class="st-ic"><svg class="ic"><use href="#s-shield"/></svg></span><div class="st-t"><b>Biometric Transaction Confirmation</b><small>Confirm purchases with fingerprint. PIN still works.</small></div>
+        <label class="toggle-switch"><input type="checkbox" id="bioTxToggle" onchange="uxToggle('tx', this.checked)"><span class="toggle-slider"></span></label></div>
+    </div>
+    <div class="st-card" style="padding:6px 16px 12px;"><div style="font-weight:800; font-size:14px; padding:10px 0 2px;">Registered Devices</div><div id="bioDevices"></div></div>
+    <div class="st-card" style="padding:6px 16px 10px;"><div style="font-weight:800; font-size:14px; padding:10px 0 2px;">Login Security</div><div id="secInfo"></div>
     </div>
     <div class="st-card">
       <div class="st-row" onclick="showPage('privacy')"><span class="st-ic"><svg class="ic"><use href="#s-doc"/></svg></span><div class="st-t"><b>Privacy Policy</b></div><span class="st-arr">›</span></div>
@@ -1714,48 +1845,7 @@ function showAuth(name){
   document.getElementById('screen-'+name).classList.add('active');
 }
 
-/* ---------- Register ---------- */
-async function register(){
-  const fullName = document.getElementById('rFullName').value.trim();
-  const username = document.getElementById('rUsername').value.trim().toLowerCase();
-  const email = document.getElementById('rEmail').value.trim();
-  const phone = document.getElementById('rPhone').value.trim();
-  const referral = document.getElementById('rReferral').value.trim();
-  const pin = document.getElementById('rPin').value.trim();
-  const pass = document.getElementById('rPass').value;
-  const pass2 = document.getElementById('rPass2').value;
-  const errEl = document.getElementById('registerErr');
-  errEl.textContent = '';
-
-  if(!fullName || !username || !email || !phone){ errEl.textContent = 'Fill all required fields'; return; }
-  if(!document.getElementById('agreeTerms').checked){ errEl.textContent = 'Please agree to the Terms & Conditions and Privacy Policy'; return; }
-  if(!/^\d{4}$/.test(pin)){ errEl.textContent = 'Transaction PIN must be exactly 4 digits'; return; }
-  if(pass.length < 6){ errEl.textContent = 'Password must be at least 6 characters'; return; }
-  if(pass !== pass2){ errEl.textContent = 'Passwords do not match'; return; }
-
-  setLoading('registerBtn', true);
-  // Sign up. The transaction PIN is hashed on the server — never stored in plain text.
-  const { data, error } = await backend.auth.signUp({
-    email, password: pass,
-    options: { data: { full_name: fullName, username, phone, referral_code_used: referral, raw_pin: pin } }
-  });
-  setLoading('registerBtn', false, 'Create Account');
-  if(error){ errEl.textContent = error.message; return; }
-  if(data.session){ await onAuthed(data.session); }
-  else showToast('Check your email to confirm your account', 'success');
-}
-
-/* ---------- Login / Logout ---------- */
-async function login(){
-  const email = document.getElementById('loginEmail').value.trim();
-  const pass = document.getElementById('loginPass').value;
-  const errEl = document.getElementById('loginErr'); errEl.textContent = '';
-  setLoading('loginBtn', true);
-  const { data, error } = await backend.auth.signInWithPassword({ email, password: pass });
-  setLoading('loginBtn', false, 'Log In');
-  if(error){ errEl.textContent = error.message; return; }
-  await onAuthed(data.session);
-}
+/* Login, Register and Forgot Password now live in the "SMART LOGIN" script at the end of this file. */
 async function logout(){ await backend.auth.signOut(); location.reload(); }
 
 async function onAuthed(newSession){
@@ -2341,24 +2431,7 @@ async function changePassword(){
 function biometricAvailable(){
   return !!(window.PublicKeyCredential);
 }
-async function toggleBiometric(){
-  const checkbox = document.getElementById('biometricToggle');
-  if(checkbox.checked){
-    if(!biometricAvailable()){
-      showToast('Biometric login not supported on this device', 'error');
-      checkbox.checked = false;
-      return;
-    }
-    localStorage.setItem('signal_biometric_enabled', 'true');
-    showToast('Biometric login enabled', 'success');
-  } else {
-    localStorage.removeItem('signal_biometric_enabled');
-    showToast('Biometric login disabled', 'success');
-  }
-}
-function loadBiometricPref(){
-  document.getElementById('biometricToggle').checked = localStorage.getItem('signal_biometric_enabled') === 'true';
-}
+/* Fingerprint (passkey) settings now live in the "SMART LOGIN" script at the end of this file. */
 
 function loadLegalDates(){
   const d = new Date().toLocaleDateString(undefined, { year:'numeric', month:'long', day:'numeric' });
@@ -2415,7 +2488,7 @@ function goHome(){ document.querySelectorAll('.page').forEach(p=>{ p.classList.r
 
 /* ---------- Exchange ---------- */
 let xInfo = null, xBanks = null, xTimer = null, xResolveTimer = null, xQuote = null, xName = '';
-const X_STATUS = { awaiting_payment:'Awaiting payment', paid:'Processing', payout_pending:'Sending to bank', completed:'Completed', payout_failed:'Delayed \u2014 we are fixing it', amount_mismatch:'On hold', refunded:'Refunded', cancelled:'Cancelled' };
+const X_STATUS = { credited:'Added to Exchange Wallet', awaiting_payment:'Awaiting payment', paid:'Processing', payout_pending:'Sending to bank', completed:'Completed', payout_failed:'Delayed \u2014 we are fixing it', amount_mismatch:'On hold', refunded:'Refunded', cancelled:'Cancelled' };
 async function exchangeInit(){
   { const { data, errMsg } = await invokeFn('exchange-info', { body: {} }); xInfo = errMsg ? { enabled: false } : data; }
   const info = document.getElementById('xInfo'), form = document.getElementById('xForm');
@@ -2426,18 +2499,9 @@ async function exchangeInit(){
     const cur = document.getElementById('xCurrency'), keep = cur.value;
     cur.innerHTML = xInfo.currencies.map(c => `<option value="${esc(c.code)}">${esc(c.code)} \u00b7 ${esc(c.country)}</option>`).join('');
     if(keep && xInfo.currencies.some(c => c.code === keep)) cur.value = keep;
-    form.style.display = 'block'; xLoadBanks();
+    form.style.display = 'block';
   }
   xLoadHistory();
-}
-async function xLoadBanks(){
-  const sel = document.getElementById('xBank');
-  if(!xBanks){
-    const { data, errMsg } = await invokeFn('get-banks', { body: {} });
-    if(errMsg){ sel.innerHTML = '<option value="">Could not load banks</option>'; return; }
-    xBanks = data.banks;
-  }
-  sel.innerHTML = '<option value="">Select bank</option>' + xBanks.map(b => `<option value="${esc(b.code)}">${esc(b.name)}</option>`).join('');
 }
 function xQuoteDebounced(){ clearTimeout(xTimer); xTimer = setTimeout(xQuoteUpdate, 400); }
 async function xQuoteUpdate(){
@@ -2453,26 +2517,15 @@ async function xQuoteUpdate(){
     + `Service fee (${xQuote.fee_percent}%): ${xQuote.fee_amount} ${esc(xQuote.currency)}<br>`
     + `Recipient receives: <b>\u20a6${xQuote.receive_ngn.toLocaleString()}</b>`;
 }
-function xResolveDebounced(){ clearTimeout(xResolveTimer); xResolveTimer = setTimeout(xResolve, 400); }
-async function xResolve(){
-  const bankCode = document.getElementById('xBank').value, accountNumber = document.getElementById('xAccount').value.trim(), out = document.getElementById('xAccountName');
-  xName = '';
-  if(!bankCode || !/^\d{10}$/.test(accountNumber)){ out.textContent = ''; return; }
-  out.style.color = 'var(--sub)'; out.textContent = 'Checking account\u2026';
-  const { data, errMsg } = await invokeFn('exchange-resolve', { body: { bankCode, accountNumber } });
-  if(errMsg){ out.style.color = 'var(--danger)'; out.textContent = errMsg; return; }
-  xName = data.account_name; out.style.color = 'var(--green)'; out.textContent = '\u2713 ' + xName;
-}
 async function xConfirm(){
   const currency = document.getElementById('xCurrency').value, amount = parseFloat(document.getElementById('xAmount').value);
-  const bankCode = document.getElementById('xBank').value, accountNumber = document.getElementById('xAccount').value.trim(), pin = document.getElementById('xPin').value.trim();
+  const pin = document.getElementById('xPin').value.trim();
   const errEl = document.getElementById('xErr'); errEl.textContent = '';
   if(!(amount > 0) || !xQuote){ errEl.textContent = 'Enter the amount first'; return; }
-  if(!bankCode || !/^\d{10}$/.test(accountNumber) || !xName){ errEl.textContent = 'Choose the bank and enter a correct account number'; return; }
   if(!/^\d{4}$/.test(pin)){ errEl.textContent = 'Enter your 4-digit transaction PIN'; return; }
-  if(!confirm(`Send \u20a6${xQuote.receive_ngn.toLocaleString()} to ${xName}?\n\nYou pay ${xQuote.amount} ${xQuote.currency} (fee ${xQuote.fee_amount} ${xQuote.currency}).\nThis cannot be cancelled once sent.`)) return;
+  if(!confirm(`Add \u20a6${xQuote.receive_ngn.toLocaleString()} to your Exchange Wallet?\n\nYou pay ${xQuote.amount} ${xQuote.currency} (fee ${xQuote.fee_amount} ${xQuote.currency}).`)) return;
   setLoading('xBtn', true);
-  const { data, errMsg } = await invokeFn('exchange-create', { body: { currency, amount, bankCode, accountNumber, pin } });
+  const { data, errMsg } = await invokeFn('exchange-create', { body: { currency, amount, pin } });
   setLoading('xBtn', false, 'I Agree & Pay');
   if(errMsg || !data?.link){ errEl.textContent = errMsg || 'Could not start the payment'; return; }
   window.location.href = data.link;
@@ -2483,7 +2536,7 @@ async function xLoadHistory(){
   if(errMsg){ box.innerHTML = '<div class="empty-note">' + esc(errMsg) + '</div>'; return; }
   box.innerHTML = data.items.length ? data.items.map(i => `<div class="arow" style="cursor:default;">
     <div class="top"><span>${esc(i.source_amount)} ${esc(i.currency)} \u2192 \u20a6${Number(i.receive_ngn).toLocaleString()}</span><span class="sub" style="margin:0;">${esc(X_STATUS[i.status] || i.status)}</span></div>
-    <div class="sub">${esc(i.account_name || '')} \u00b7 ${esc(i.bank_name || '')} ${esc(i.account_number)}<br>${esc(new Date(i.created_at + 'Z').toLocaleString())}</div></div>`).join('') : '<div class="empty-note">No exchanges yet.</div>';
+    <div class="sub">${esc(new Date(String(i.created_at).replace(' ','T') + 'Z').toLocaleString())}</div></div>`).join('') : '<div class="empty-note">No exchanges yet.</div>';
 }
 
 /* ---------- Bulk SMS ---------- */
@@ -2718,10 +2771,10 @@ async function adminLoadRem(reset){
   const list = document.getElementById('adminRemList');
   if(errMsg){ list.innerHTML = '<div class="empty-note">' + esc(errMsg) + '</div>'; return; }
   const rows = data.items.map(i => {
-    const canRetry = ['paid','payout_failed'].includes(i.status), canRefund = ['paid','payout_failed','amount_mismatch'].includes(i.status);
+    const canRetry = false, canRefund = ['amount_mismatch'].includes(i.status);
     return `<div class="arow" style="cursor:default;">
       <div class="top"><span>${esc(i.source_amount)} ${esc(i.currency)} \u2192 \u20a6${Number(i.receive_ngn).toLocaleString()}</span><span class="sub" style="margin:0;">${esc(X_STATUS[i.status] || i.status)}</span></div>
-      <div class="sub">@${esc(i.username)} \u00b7 ${esc(i.account_name || '')} \u00b7 ${esc(i.bank_name || '')} ${esc(i.account_number)}<br>${esc(new Date(i.created_at + 'Z').toLocaleString())}${i.error ? '<br><span style="color:var(--danger);">' + esc(i.error) + '</span>' : ''}</div>
+      <div class="sub">@${esc(i.username)}<br>${esc(new Date(i.created_at + 'Z').toLocaleString())}${i.error ? '<br><span style="color:var(--danger);">' + esc(i.error) + '</span>' : ''}</div>
       ${(canRetry || canRefund) ? `<div style="display:flex; gap:8px; margin-top:10px;">
         ${canRetry ? `<button class="btn-sm" style="background:var(--blue-1);" onclick="adminRetryPayout('${esc(i.id)}')">Retry payout</button>` : ''}
         ${canRefund ? `<button class="btn-sm" style="background:var(--danger);" onclick="adminMarkRefunded('${esc(i.id)}')">Mark refunded</button>` : ''}</div>` : ''}</div>`;
@@ -4350,5 +4403,308 @@ const _applyPrefs0 = applyPrefs; applyPrefs = function () { if (PREFS.language !
 applyPrefs();
 </script>
 
+<script>
+/* ===== SMART LOGIN (added) =====
+   Login / Register / Forgot Password screens, fingerprint (passkey) login, fingerprint transaction confirmation,
+   and the Security & Privacy controls. The password is NEVER saved in the browser. The fingerprint itself never
+   leaves the phone: the phone only returns a signature that the server checks with a public key. */
+(function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const LS = { get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }, del(k) { try { localStorage.removeItem(k); } catch (e) {} } };
+  const K = { id: 'ums_remember_id', name: 'ums_last_name', av: 'ums_last_avatar', cred: 'ums_bio_cred', on: 'ums_remember_on', nudge: 'ums_bio_nudge_off' };
+  const LOGIN_LABEL = 'Login Now <svg><use href="#ux-arrow"/></svg>', REG_LABEL = 'Create Account <svg><use href="#ux-arrow"/></svg>', FG_LABEL = 'Reset Password <svg><use href="#ux-arrow"/></svg>';
+  const b64u = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  const unb64u = (s) => { s = String(s).replace(/-/g, '+').replace(/_/g, '/'); while (s.length % 4) s += '='; return Uint8Array.from(atob(s), (c) => c.charCodeAt(0)); };
+  const bioSupported = () => !!(window.PublicKeyCredential && navigator.credentials && window.isSecureContext);
+  let platformOk = false, SEC = null, BIOTOK = null, txBusy = false, pendingPw = '';
+  const post = (path, body) => api(path, { method: 'POST', body: JSON.stringify(body || {}) });
+  const fmtDate = (s) => { try { return new Date(String(s).replace(' ', 'T') + (String(s).endsWith('Z') ? '' : 'Z')).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }); } catch (e) { return ''; } };
+
+  /* ---------- small helpers ---------- */
+  window.uxEye = function (btn) {
+    const inp = btn.parentElement.querySelector('input'), show = inp.type === 'password';
+    inp.type = show ? 'text' : 'password'; btn.querySelector('use').setAttribute('href', show ? '#ux-eyeoff' : '#ux-eye');
+  };
+  const normPhone = (p) => String(p || '').replace(/[\s+\-()]/g, '');
+  const phoneOk = (p) => /^(0\d{10}|234\d{10})$/.test(normPhone(p));
+  function strengthOf(p) {
+    let s = 0; if (p.length >= 8) s++; if (/[a-z]/.test(p) && /[A-Z]/.test(p)) s++; if (/\d/.test(p)) s++; if (/[^A-Za-z0-9]/.test(p) || p.length >= 12) s++;
+    return p ? Math.max(1, s) : 0;
+  }
+  window.uxStrength = function () {
+    const p = $('rPass').value, p2 = $('rPass2').value, n = strengthOf(p), col = ['#dbe4fb', '#e5484d', '#f59e0b', '#3b82f6', '#16a05f'][n], txt = ['Use 8+ characters with capital and small letters, a number and a symbol.', 'Weak — add more characters', 'Fair — add a capital letter, number or symbol', 'Good', 'Strong'][n];
+    document.querySelectorAll('#uxStr i').forEach((b, i) => { b.style.background = i < n ? col : '#dbe4fb'; });
+    $('uxStrT').textContent = txt + (p2 ? (p === p2 ? '  ✓ Passwords match' : '  ✗ Passwords do not match') : '');
+  };
+
+  /* ---------- remembered account + the person's own picture ---------- */
+  const safeImg = (a) => /^data:image\/(jpeg|png|webp|gif);base64,[A-Za-z0-9+\/=]+$/.test(a || '');
+  function paintHero() {
+    const a = LS.get(K.av), el = $('uxAvatar'), nm = LS.get(K.name);
+    if (el) { const ok = safeImg(a); $('uxAvatarIn').style.backgroundImage = ok ? `url("${a}")` : ''; el.classList.toggle('has-img', ok); }
+    if ($('uxWelcome')) { $('uxWelcome').textContent = nm ? 'Welcome back, ' + nm + ' 👋' : 'Welcome 👋'; $('uxNotYou').style.display = nm ? 'inline' : 'none'; }
+  }
+  window.uxNotYou = function () { [K.id, K.name, K.av, K.cred].forEach(LS.del); $('loginEmail').value = ''; $('loginPass').value = ''; paintHero(); refreshBioButton(); };
+  function remember(id) {
+    if ($('uxRemember').checked) { LS.set(K.on, '1'); LS.set(K.id, id); }
+    else { LS.set(K.on, '0'); [K.id, K.name, K.av].forEach(LS.del); }
+  }
+  async function refreshBioButton() {
+    const btn = $('uxBioBtn'), note = $('uxBioNote'); if (!btn) return;
+    if (!bioSupported()) { btn.style.display = 'none'; $('uxOr').style.display = 'none'; note.textContent = 'Fingerprint login is not available on this browser. Please use your password.'; return; }
+    try { platformOk = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable(); } catch (e) { platformOk = false; }
+    if (!platformOk) { btn.style.display = 'none'; $('uxOr').style.display = 'none'; note.textContent = 'This device has no fingerprint or screen lock set up. Please use your password.'; return; }
+    btn.style.display = 'flex'; $('uxOr').style.display = 'flex';
+    const has = !!LS.get(K.cred);
+    $('uxBioSub').textContent = has ? 'Use the fingerprint or screen lock on this phone' : 'Not set up on this device yet';
+    note.textContent = has ? '' : 'Log in with your password once, then switch on fingerprint login (or turn it on later in Profile › Security & Privacy).';
+  }
+  function initLogin() {
+    const id = LS.get(K.id); $('uxRemember').checked = LS.get(K.on) !== '0';
+    if (id) { $('loginEmail').value = id; }
+    paintHero(); refreshBioButton();
+    $('fgHelp').href = 'https://wa.me/' + (typeof SUPPORT_WHATSAPP !== 'undefined' ? SUPPORT_WHATSAPP : '2349073342170');
+  }
+  const _showAuth = window.showAuth;
+  window.showAuth = function (n) { _showAuth(n); if (n === 'welcome') paintHero(); window.scrollTo(0, 0); };
+  window.showForgot = function () { $('fgId').value = $('loginEmail').value.trim(); $('fgErr').textContent = ''; showAuth('forgot'); };
+
+  /* ---------- password login ---------- */
+  let loginBusy = false;
+  window.login = async function () {
+    if (loginBusy) return;
+    const id = $('loginEmail').value.trim(), pass = $('loginPass').value, err = $('loginErr'); err.textContent = '';
+    if (!id || !pass) { err.textContent = 'Enter your email or username and your password.'; return; }
+    loginBusy = true; setLoading('loginBtn', true);
+    const { data, error } = await backend.auth.signInWithPassword({ email: id, password: pass });
+    loginBusy = false; setLoading('loginBtn', false, LOGIN_LABEL);
+    if (error) { err.textContent = error.message; return; }
+    remember(id); $('loginPass').value = '';
+    await onAuthed(data.session);
+    offerBio(pass);
+  };
+  $('loginPass').addEventListener('keydown', (e) => { if (e.key === 'Enter') login(); });
+  $('loginEmail').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('loginPass').focus(); });
+
+  /* ---------- fingerprint login ---------- */
+  const bioErr = (e) => {
+    const n = e && e.name;
+    if (n === 'NotAllowedError' || n === 'AbortError') return 'Fingerprint was cancelled or timed out. Please try again or use your password.';
+    if (n === 'SecurityError') return 'Fingerprint login is not allowed on this web address. Please use your password.';
+    if (n === 'NotSupportedError' || n === 'InvalidStateError') return 'This device cannot use fingerprint login here. Please use your password.';
+    return 'Fingerprint could not be verified. Please use your password.';
+  };
+  let bioBusy = false;
+  window.bioLogin = async function () {
+    if (bioBusy) return; const err = $('loginErr'); err.textContent = '';
+    if (!bioSupported() || !platformOk) { err.textContent = 'Fingerprint login is not available on this device. Please use your password.'; return; }
+    const credId = LS.get(K.cred);
+    if (!credId) { err.textContent = 'Fingerprint login is not set up on this device. Log in with your password, then turn it on in Profile › Security & Privacy.'; return; }
+    bioBusy = true; $('uxBioBtn').disabled = true;
+    try {
+      const o = await post('/api/auth/passkey/login-options'); if (o.error) { err.textContent = o.error.message; return; }
+      const c = await navigator.credentials.get({ publicKey: { challenge: unb64u(o.data.challenge), rpId: o.data.rpId, allowCredentials: [{ type: 'public-key', id: unb64u(credId), transports: ['internal'] }], userVerification: 'required', timeout: o.data.timeout || 60000 } });
+      const r = c.response;
+      const v = await post('/api/auth/passkey/login', { id: b64u(c.rawId), clientDataJSON: b64u(r.clientDataJSON), authenticatorData: b64u(r.authenticatorData), signature: b64u(r.signature) });
+      if (v.error) { if (/not registered|switched off/i.test(v.error.message)) LS.del(K.cred); err.textContent = v.error.message; refreshBioButton(); return; }
+      localStorage.setItem('ums_access_token', v.data.session.access_token);
+      await onAuthed(v.data.session);
+    } catch (e) { err.textContent = bioErr(e); }
+    finally { bioBusy = false; $('uxBioBtn').disabled = false; }
+  };
+
+  /* ---------- register ---------- */
+  let regBusy = false;
+  window.register = async function () {
+    if (regBusy) return;
+    const fullName = $('rFullName').value.trim().replace(/\s+/g, ' '), username = $('rUsername').value.trim().toLowerCase(), email = $('rEmail').value.trim().toLowerCase(), phone = normPhone($('rPhone').value);
+    const referral = $('rReferral').value.trim(), pin = $('rPin').value.trim(), pass = $('rPass').value, pass2 = $('rPass2').value, err = $('registerErr'); err.textContent = '';
+    if (fullName.length < 2) { err.textContent = 'Enter your full name.'; return; }
+    if (!/^[a-z0-9_]{3,20}$/.test(username)) { err.textContent = 'Username: 3–20 letters, numbers or underscore.'; return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { err.textContent = 'Enter a valid email address.'; return; }
+    if (!phoneOk(phone)) { err.textContent = 'Enter a valid phone number, e.g. 08012345678.'; return; }
+    if (!/^\d{4}$/.test(pin)) { err.textContent = 'Transaction PIN must be exactly 4 digits.'; return; }
+    if (pass.length < 8) { err.textContent = 'Password must be at least 8 characters.'; return; }
+    if (pass !== pass2) { err.textContent = 'Passwords do not match.'; return; }
+    if (!$('agreeTerms').checked) { err.textContent = 'Please agree to the Terms & Conditions and Privacy Policy.'; return; }
+    regBusy = true; setLoading('registerBtn', true);
+    const { data, error } = await backend.auth.signUp({ email, password: pass, options: { data: { full_name: fullName, username, phone, referral_code_used: referral, raw_pin: pin } } });
+    regBusy = false; setLoading('registerBtn', false, REG_LABEL);
+    if (error) { err.textContent = error.message; return; }
+    if (!data.session) { showToast('Account created. Please log in.', 'success'); showAuth('welcome'); return; }
+    LS.set(K.on, '1'); LS.set(K.id, username);
+    ['rPass', 'rPass2', 'rPin'].forEach((i) => { $(i).value = ''; });
+    showToast('Account created. Welcome to UMARSHOYI-SUB!', 'success');
+    await onAuthed(data.session);
+    offerBio(pass);
+  };
+
+  /* ---------- forgot password ---------- */
+  let fgBusy = false;
+  window.forgotSubmit = async function () {
+    if (fgBusy) return; const err = $('fgErr'); err.textContent = '';
+    const id = $('fgId').value.trim(), phone = $('fgPhone').value.trim(), pin = $('fgPin').value.trim(), p1 = $('fgPass').value, p2 = $('fgPass2').value;
+    if (!id) { err.textContent = 'Enter your email or username.'; return; }
+    if (!phoneOk(phone)) { err.textContent = 'Enter the phone number you registered with.'; return; }
+    if (!/^\d{4}$/.test(pin)) { err.textContent = 'Enter your 4-digit transaction PIN.'; return; }
+    if (p1.length < 8) { err.textContent = 'New password must be at least 8 characters.'; return; }
+    if (p1 !== p2) { err.textContent = 'Passwords do not match.'; return; }
+    fgBusy = true; setLoading('fgBtn', true);
+    const r = await post('/api/auth/forgot', { identifier: id, phone, pin, password: p1 });
+    fgBusy = false; setLoading('fgBtn', false, FG_LABEL);
+    if (r.error) { err.textContent = r.error.message; return; }
+    ['fgPin', 'fgPass', 'fgPass2', 'fgPhone'].forEach((i) => { $(i).value = ''; });
+    $('loginEmail').value = id; showAuth('welcome'); showToast('Password changed. You can log in now.', 'success');
+  };
+
+  /* ---------- enable fingerprint on this device ---------- */
+  function deviceName() {
+    const u = navigator.userAgent, os = /iPhone/.test(u) ? 'iPhone' : /iPad/.test(u) ? 'iPad' : /Android/.test(u) ? 'Android phone' : /Windows/.test(u) ? 'Windows PC' : /Mac/.test(u) ? 'Mac' : /Linux/.test(u) ? 'Linux PC' : 'Device';
+    const br = /Edg\//.test(u) ? 'Edge' : /OPR\//.test(u) ? 'Opera' : /Firefox\//.test(u) ? 'Firefox' : /Chrome\//.test(u) ? 'Chrome' : /Safari\//.test(u) ? 'Safari' : 'Browser';
+    return os + ' · ' + br;
+  }
+  async function registerDevice(password) {   // returns { ok } or { error }
+    if (!bioSupported() || !platformOk) return { error: 'This device has no fingerprint or screen lock that can be used here.' };
+    const o = await post('/api/auth/passkey/register-options', { password }); if (o.error) return { error: o.error.message };
+    const d = o.data;
+    try {
+      const c = await navigator.credentials.create({ publicKey: { rp: { id: d.rpId, name: d.rpName }, user: { id: unb64u(d.user.id), name: d.user.name, displayName: d.user.displayName }, challenge: unb64u(d.challenge),
+        pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }], excludeCredentials: (d.exclude || []).map((i) => ({ type: 'public-key', id: unb64u(i) })),
+        authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required', residentKey: 'preferred' }, attestation: 'none', timeout: d.timeout || 60000 } });
+      const r = c.response;
+      if (!r.getPublicKey || !r.getAuthenticatorData || !r.getPublicKey()) return { error: 'This browser is too old for fingerprint login. Please update it or use your password.' };
+      const v = await post('/api/auth/passkey/register', { id: b64u(c.rawId), clientDataJSON: b64u(r.clientDataJSON), authenticatorData: b64u(r.getAuthenticatorData()), publicKey: b64u(r.getPublicKey()), alg: r.getPublicKeyAlgorithm(), name: deviceName() });
+      if (v.error) return { error: v.error.message };
+      LS.set(K.cred, b64u(c.rawId)); return { ok: true };
+    } catch (e) {
+      if (e && e.name === 'InvalidStateError') return { error: 'This device is already registered. Open Profile › Security & Privacy to manage it.' };
+      return { error: bioErr(e) };
+    }
+  }
+  async function enableHere(password, flags) {
+    const r = await registerDevice(password); if (r.error) return r;
+    const s = await post('/api/auth/security', { bio_login: true, bio_tx: flags && flags.tx ? true : undefined });
+    if (s.error) return { error: s.error.message };
+    SEC = s.data; paintSecurity(); hintPins(); return { ok: true };
+  }
+  function offerBio(pass) {   // asked once after login/sign-up; never automatic
+    if (!pass || !bioSupported() || !platformOk || LS.get(K.cred) || LS.get(K.nudge) === '1') return;
+    pendingPw = pass; setTimeout(() => { pendingPw = ''; }, 300000);
+    openSheet(`<div class="ux-sheet-ico"><svg><use href="#ux-finger"/></svg></div><div style="font-weight:800; font-size:18px; text-align:center; margin-bottom:6px;">Enable fingerprint login?</div>
+      <div style="color:var(--sub); font-size:13.5px; line-height:1.55; text-align:center; margin-bottom:14px;">Log in faster with the fingerprint, face or screen lock of this phone. Your fingerprint never leaves your phone.</div>
+      <label style="display:flex; gap:9px; align-items:center; font-size:13.5px; margin-bottom:14px;"><input type="checkbox" id="uxOfferTx" style="width:18px;height:18px;"> Also use it to confirm purchases (your PIN still works)</label>
+      <div class="err-text" id="uxOfferErr" style="margin:0 0 8px;"></div>
+      <button class="btn-primary" id="uxOfferBtn" onclick="uxOfferYes()">Enable fingerprint</button><button class="btn-outline" onclick="uxOfferNo(false)">Not now</button>
+      <div style="text-align:center; margin-top:10px;"><a style="font-size:12px; color:var(--sub); cursor:pointer;" onclick="uxOfferNo(true)">Don't ask again on this device</a></div>`);
+  }
+  window.uxOfferYes = async function () {
+    const b = $('uxOfferBtn'); b.disabled = true; b.innerHTML = '<span class="spinner"></span>Please wait…';
+    const r = await enableHere(pendingPw, { tx: $('uxOfferTx').checked });
+    if (r.error) { $('uxOfferErr').textContent = r.error; b.disabled = false; b.textContent = 'Try again'; return; }
+    pendingPw = ''; closeSheet(); showToast('Fingerprint login is on', 'success');
+  };
+  window.uxOfferNo = function (forever) { pendingPw = ''; if (forever) LS.set(K.nudge, '1'); closeSheet(); };
+
+  /* ---------- Profile > Security & Privacy ---------- */
+  const localOk = () => !!(SEC && LS.get(K.cred) && SEC.devices.some((d) => d.id === LS.get(K.cred)));
+  async function loadSecurity() {
+    const r = await api('/api/auth/security'); if (r.error) return; SEC = r.data;
+    if (LS.get(K.cred) && !localOk()) LS.del(K.cred);   // revoked elsewhere
+    paintSecurity(); hintPins();
+  }
+  function paintSecurity() {
+    if (!SEC || !$('bioLoginToggle')) return;
+    $('bioLoginToggle').checked = !!SEC.bio_login; $('bioTxToggle').checked = !!SEC.bio_tx;
+    const here = localOk(), sup = bioSupported() && platformOk;
+    $('bioDevices').innerHTML = (SEC.devices.length ? SEC.devices.map((d) => `<div class="ux-dev"><div><b>${esc(d.name || 'Device')}${d.id === LS.get(K.cred) ? '<span class="ux-tag-this">This device</span>' : ''}</b><small>Added ${esc(fmtDate(d.created_at))}${d.last_used_at ? ' · Last used ' + esc(fmtDate(d.last_used_at)) : ''}</small></div><button onclick="uxRevoke('${esc(d.id)}')">Remove</button></div>`).join('')
+      : '<div style="color:var(--sub); font-size:13px; padding:10px 0;">No device registered yet.</div>')
+      + (sup && !here ? '<button class="btn-primary" style="margin-top:10px;" onclick="uxAddDevice()">Add this device</button>' : '')
+      + (!sup ? '<div style="color:var(--sub); font-size:12px; margin-top:8px;">This browser or phone cannot use fingerprint login.</div>' : '');
+    const info = [['Last login', SEC.last_login_at ? fmtDate(SEC.last_login_at) : '—'], ['Last login method', SEC.last_login_method === 'fingerprint' ? 'Fingerprint' : SEC.last_login_method ? 'Password' : '—'], ['Registered devices', String(SEC.devices.length)], ['Transaction PIN', SEC.pin_set ? 'Set' : 'Not set'], ['Protection', 'Login pauses for 15 minutes after repeated wrong passwords']];
+    $('secInfo').innerHTML = info.map((r) => `<div class="st-kv"><span>${r[0]}</span><b style="text-align:right;">${esc(r[1])}</b></div>`).join('');
+  }
+  window.loadBiometricPref = loadSecurity;
+  function askPassword(then) {
+    openSheet(`<div class="ux-sheet-ico"><svg><use href="#ux-finger"/></svg></div><div style="font-weight:800; font-size:17px; text-align:center; margin-bottom:6px;">Add this device</div>
+      <div style="color:var(--sub); font-size:13px; text-align:center; margin-bottom:12px;">Enter your account password to confirm it is you.</div>
+      <div class="field"><input id="uxPw" type="password" autocomplete="current-password" placeholder="Account password"></div><div class="err-text" id="uxPwErr"></div>
+      <button class="btn-primary" id="uxPwBtn">Continue</button><button class="btn-outline" onclick="closeSheet(); loadBiometricPref()">Cancel</button>`);
+    $('uxPwBtn').onclick = async () => {
+      const pw = $('uxPw').value; if (!pw) { $('uxPwErr').textContent = 'Enter your password.'; return; }
+      const b = $('uxPwBtn'); b.disabled = true; b.innerHTML = '<span class="spinner"></span>Please wait…';
+      const r = await then(pw); if (r && r.error) { $('uxPwErr').textContent = r.error; b.disabled = false; b.textContent = 'Continue'; return; }
+      closeSheet(); showToast('Done', 'success'); loadSecurity();
+    };
+  }
+  window.uxAddDevice = function () { askPassword((pw) => enableHere(pw, {})); };
+  window.uxToggle = async function (which, on) {
+    const key = which === 'tx' ? 'bio_tx' : 'bio_login';
+    if (on && !localOk()) {   // this phone must be registered first
+      askPassword(async (pw) => { const r = await registerDevice(pw); if (r.error) return r; const s = await post('/api/auth/security', { [key]: true }); if (s.error) return { error: s.error.message }; SEC = s.data; paintSecurity(); hintPins(); });
+      $('bioLoginToggle').checked = !!(SEC && SEC.bio_login); $('bioTxToggle').checked = !!(SEC && SEC.bio_tx); return;
+    }
+    const s = await post('/api/auth/security', { [key]: !!on });
+    if (s.error) { showToast(s.error.message, 'error'); loadSecurity(); return; }
+    SEC = s.data; paintSecurity(); hintPins(); showToast(on ? 'Turned on' : 'Turned off', 'success');
+  };
+  window.uxRevoke = async function (id) {
+    if (!confirm('Remove this device? It will no longer be able to log in with fingerprint.')) return;
+    const r = await post('/api/auth/passkey/revoke', { id }); if (r.error) { showToast(r.error.message, 'error'); return; }
+    if (id === LS.get(K.cred)) LS.del(K.cred);
+    SEC = { ...SEC, ...r.data }; paintSecurity(); hintPins(); showToast('Device removed', 'success');
+  };
+
+  /* ---------- fingerprint instead of PIN for purchases ---------- */
+  const PIN_IDS = ['purchasePin', 'cablePin', 'electricityPin', 'cardPin', 'examPin', 'smsPin', 'xPin', 'wdPin', 'a2cPin'];
+  function hintPins() { const on = !!(SEC && SEC.bio_tx && localOk()); PIN_IDS.forEach((i) => { const e = $(i); if (e) e.placeholder = on ? 'PIN, or leave empty to use fingerprint' : '••••'; }); }
+  async function getBioToken() {
+    try {
+      const o = await post('/api/auth/passkey/tx-options'); if (o.error) { showToast(o.error.message, 'error'); return false; }
+      const c = await navigator.credentials.get({ publicKey: { challenge: unb64u(o.data.challenge), rpId: o.data.rpId, allowCredentials: [{ type: 'public-key', id: unb64u(LS.get(K.cred)), transports: ['internal'] }], userVerification: 'required', timeout: o.data.timeout || 60000 } });
+      const r = c.response, v = await post('/api/auth/passkey/tx-verify', { id: b64u(c.rawId), clientDataJSON: b64u(r.clientDataJSON), authenticatorData: b64u(r.authenticatorData), signature: b64u(r.signature) });
+      if (v.error) { showToast(v.error.message, 'error'); return false; }
+      BIOTOK = v.data.bio_token; return true;
+    } catch (e) { showToast(bioErr(e).replace('Please use your password.', 'Enter your PIN instead.'), 'error'); return false; }
+  }
+  function wrapPin(name, pinId) {
+    const f = window[name]; if (typeof f !== 'function') return;
+    window[name] = async function (...a) {
+      const el = $(pinId); let dummy = false;
+      if (el && !el.value.trim() && SEC && SEC.bio_tx && localOk() && !txBusy) {
+        txBusy = true; let ok = false; try { ok = await getBioToken(); } finally { txBusy = false; }
+        if (ok) { el.value = '0000'; dummy = true; }   // placeholder so the form check passes; the server ignores it and uses the verified fingerprint
+      }
+      try { return await f.apply(this, a); } finally { if (dummy && el) el.value = ''; BIOTOK = null; }
+    };
+  }
+  ['confirmPurchase:purchasePin', 'confirmCablePurchase:cablePin', 'confirmElectricityPurchase:electricityPin', 'confirmCardPurchase:cardPin', 'confirmExamPurchase:examPin', 'confirmBulkSms:smsPin', 'xConfirm:xPin', 'wdSubmit:wdPin', 'a2cConvert:a2cPin'].forEach((s) => wrapPin(...s.split(':')));
+  const _wdReview = window.wdReview;
+  if (typeof _wdReview === 'function') window.wdReview = function () {
+    const el = $('wdPin'), d = !!(el && !el.value.trim() && SEC && SEC.bio_tx && localOk()); if (d) el.value = '0000';
+    try { return _wdReview.apply(this, arguments); } finally { if (d) el.value = ''; }
+  };
+  const _ifr = window.invokeFnRaw;
+  window.invokeFnRaw = async function (name, options) {
+    if (BIOTOK && /^(buy-|exchange-create|withdraw-create|verify-otp)/.test(name)) { options = { ...(options || {}), body: { ...((options && options.body) || {}), pin: '', bio_token: BIOTOK } }; BIOTOK = null; }
+    return _ifr(name, options);
+  };
+
+  /* ---------- hooks into the existing app ---------- */
+  const _oa = window.onAuthed;
+  window.onAuthed = async function (s) {
+    await _oa(s);
+    try { if (LS.get(K.on) !== '0') { const n = String((profile && profile.full_name) || '').trim().split(/\s+/)[0]; if (n) LS.set(K.name, n); } } catch (e) {}
+    loadSecurity();
+  };
+  const _pa = window.paintAvatar;
+  if (typeof _pa === 'function') window.paintAvatar = function () {
+    _pa();
+    try { if (LS.get(K.on) !== '0' && typeof AVATAR === 'string' && AVATAR && AVATAR.length < 320000) LS.set(K.av, AVATAR); else LS.del(K.av); } catch (e) {}
+  };
+
+  initLogin();
+})();
+</script>
 </body>
 </html>

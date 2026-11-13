@@ -31,6 +31,7 @@ const SCHEMA = [
   `CREATE INDEX IF NOT EXISTS idx_un_user ON user_notifications(user_id, created_at)`,
   `CREATE TABLE IF NOT EXISTS support_tickets (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), tx_id TEXT, message TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'open', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
   `CREATE TABLE IF NOT EXISTS admin_log (id TEXT PRIMARY KEY, admin_id TEXT NOT NULL, action TEXT NOT NULL, target_id TEXT, detail TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+  `CREATE TABLE IF NOT EXISTS user_prefs (user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, theme TEXT NOT NULL DEFAULT 'light', language TEXT NOT NULL DEFAULT 'en', text_size TEXT NOT NULL DEFAULT 'normal', reduce_motion INTEGER NOT NULL DEFAULT 0, notif_prefs TEXT, avatar TEXT, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
 ];
 // For databases created by the older worker: add columns that are missing.
 const MIGRATIONS = [
@@ -219,6 +220,7 @@ async function settleFlutterwave(env, flwId) {
       env.DB.prepare("UPDATE profiles SET balance_ngn=balance_ngn+? WHERE id=? AND EXISTS(SELECT 1 FROM transactions WHERE id=? AND status='pending')").bind(pending.amount, pending.user_id, pending.id),
       env.DB.prepare("UPDATE transactions SET updated_at=CURRENT_TIMESTAMP, status='successful' WHERE id=? AND status='pending'").bind(pending.id),
     ]);
+    if (r[1].meta.changes === 1) await notify(env, pending.user_id, 'Wallet funded', `\u20a6${Number(pending.amount).toLocaleString()} was added to your Main Wallet.`);
     return { ok: true, credited: r[1].meta.changes === 1 };
   }
   // bank transfer into a user's virtual account
@@ -231,6 +233,7 @@ async function settleFlutterwave(env, flwId) {
     env.DB.prepare('UPDATE profiles SET balance_ngn=balance_ngn+? WHERE id=? AND EXISTS(SELECT 1 FROM payment_events WHERE id=?)').bind(paid, userId, evId),
     env.DB.prepare("INSERT INTO transactions(id,user_id,type,label,amount,direction,status,provider_ref,metadata) SELECT ?,?,'fund','Bank transfer funding',?,'in','successful',?,? WHERE EXISTS(SELECT 1 FROM payment_events WHERE id=?)").bind(uid(), userId, paid, 'flw-' + d.id, JSON.stringify({ provider: 'flutterwave', via: 'virtual-account' }), evId),
   ]);
+  if (r[0].meta.changes === 1) await notify(env, userId, 'Wallet funded', `\u20a6${Number(paid).toLocaleString()} was added to your Main Wallet.`);
   return { ok: true, credited: r[0].meta.changes === 1 };
 }
 
@@ -678,8 +681,30 @@ const cfgNum = (env, key, dflt) => { const v = Number(env[key]); return env[key]
 const wdCfg = (env) => ({ fee: money(cfgNum(env, 'WITHDRAW_FEE_FLAT', 0)), min: cfgNum(env, 'WITHDRAW_MIN_AMOUNT', 1000) });
 const appBase = (env, req) => { const u = String(env.APP_URL || '').trim().replace(/\/+$/, ''); return /^https:\/\/[^\s]+$/.test(u) ? u : new URL(req.url).origin; };
 
+const NOTIF_KEYS = ['transaction', 'funding', 'withdrawal', 'service', 'security', 'support', 'promo'];
+function notifCat(title) {
+  const t = String(title);
+  if (/password|\bpin\b|login|security|suspicious/i.test(t)) return 'security';
+  if (/withdraw/i.test(t)) return 'withdrawal';
+  if (/fund|deposit/i.test(t)) return 'funding';
+  if (/referral/i.test(t)) return 'transaction';
+  if (/ticket|support/i.test(t)) return 'support';
+  if (/promo|offer|discount|bonus|cashback/i.test(t)) return 'promo';
+  if (/network|maintenance|outage|plan|update|service/i.test(t)) return 'service';
+  return 'transaction';
+}
+async function getPrefs(env, userId) {
+  const r = await env.DB.prepare('SELECT theme,language,text_size,reduce_motion,notif_prefs,avatar,updated_at FROM user_prefs WHERE user_id=?').bind(userId).first();
+  let n = {}; try { n = JSON.parse(r?.notif_prefs || '{}') || {}; } catch { n = {}; }
+  const notif = {}; for (const k of NOTIF_KEYS) notif[k] = k === 'security' ? true : n[k] !== false;
+  return { theme: r?.theme || 'light', language: r?.language || 'en', text_size: r?.text_size || 'normal', reduce_motion: !!r?.reduce_motion, notif, avatar: r?.avatar || null, updated_at: r?.updated_at || null };
+}
 async function notify(env, userId, title, message) {   // a personal notification (shows under the bell)
-  try { await env.DB.prepare('INSERT INTO user_notifications(id,user_id,title,message) VALUES(?,?,?,?)').bind(uid(), userId, String(title).slice(0, 80), String(message).slice(0, 300)).run(); }
+  try {
+    const cat = notifCat(title);
+    if (cat !== 'security' && (await getPrefs(env, userId)).notif[cat] === false) return;   // the customer switched this type off
+    await env.DB.prepare('INSERT INTO user_notifications(id,user_id,title,message) VALUES(?,?,?,?)').bind(uid(), userId, String(title).slice(0, 80), String(message).slice(0, 300)).run();
+  }
   catch (e) { console.error('notify failed', e); }
 }
 function ledgerIfChanged(env, p) {   // ledger line, only written when the statement before it changed a row
@@ -713,13 +738,15 @@ FUNCTIONS['app-config'] = async (x, env, user, req) => json({
   support_whatsapp: String(env.SUPPORT_WHATSAPP || ''), support_email: String(env.SUPPORT_EMAIL || ''),
   referral: { enabled: env.REFERRAL_ENABLED !== '0', reward: cfgNum(env, 'REFERRAL_REWARD', 500) },
   app_url: appBase(env, req), exchange_enabled: env.EXCHANGE_ENABLED === '1', withdraw: wdCfg(env),
+  app_version: String(env.APP_VERSION || ''), build: String(env.BUILD_NUMBER || ''), website: String(env.WEBSITE_URL || ''),
 });
 
 /* ----- notifications (personal ones + messages from the admin) ----- */
 FUNCTIONS['my-notifications'] = async (x, env, user) => {
   const seen = (await env.DB.prepare('SELECT notif_seen_at s FROM profiles WHERE id=?').bind(user.id).first())?.s || '1970-01-01 00:00:00';
   const mine = (await env.DB.prepare('SELECT title,message,created_at FROM user_notifications WHERE user_id=? ORDER BY created_at DESC, rowid DESC LIMIT 50').bind(user.id).all()).results;
-  const all = (await env.DB.prepare('SELECT title,message,created_at FROM notifications ORDER BY created_at DESC LIMIT 30').all()).results.map((n) => ({ ...n, from_admin: true }));
+  const np = (await getPrefs(env, user.id)).notif;
+  const all = (await env.DB.prepare('SELECT title,message,created_at FROM notifications ORDER BY created_at DESC LIMIT 30').all()).results.filter((n) => np[/promo|offer|discount|bonus|cashback/i.test(n.title + ' ' + n.message) ? 'promo' : 'service'] !== false).map((n) => ({ ...n, from_admin: true }));
   const items = [...mine, ...all].sort((a, b) => String(b.created_at).localeCompare(String(a.created_at))).slice(0, 60).map((n) => ({ ...n, unread: n.created_at > seen }));
   return json({ items, unread: items.filter((i) => i.unread).length });
 };
@@ -925,20 +952,36 @@ FUNCTIONS['bank-account-delete'] = async (x, env, user) => {
 
 /* ----- withdrawals: Exchange Wallet and Airtime-to-Cash Wallet only. The Main Wallet can never be withdrawn. ----- */
 async function wdQuote(env, user, x) {
-  const wallet = String(x.wallet || ''), amount = money(x.amount), c = wdCfg(env);
+  const wallet = String(x.wallet || ''), amount = money(x.amount), c = wdCfg(env), toMain = x.dest === 'main';
   if (wallet === 'main') return { error: 'The Main Wallet cannot be withdrawn. It is for buying services.' };
   if (!['exchange', 'atc'].includes(wallet)) return { error: 'Choose Exchange Wallet or Airtime-to-Cash Wallet.' };
-  if (!(amount >= c.min)) return { error: `The minimum withdrawal is \u20a6${c.min.toLocaleString()}.` };
+  const min = toMain ? 100 : c.min, fee = toMain ? 0 : c.fee;   // moving money into your own Main Wallet is free
+  if (!(amount >= min)) return { error: `The minimum ${toMain ? 'transfer' : 'withdrawal'} is \u20a6${min.toLocaleString()}.` };
   const bal = money((await env.DB.prepare(`SELECT ${WALLET_COL[wallet]} b FROM profiles WHERE id=?`).bind(user.id).first()).b);
   if (amount > bal) return { error: `You only have \u20a6${bal.toLocaleString()} in this wallet.` };
-  const net = money(amount - c.fee);
+  const net = money(amount - fee);
   if (!(net > 0)) return { error: 'The amount is too small after the fee.' };
-  return { q: { wallet, amount, fee: c.fee, net, balance: bal, remaining: money(bal - amount) } };
+  return { q: { wallet, amount, fee, net, balance: bal, remaining: money(bal - amount), dest: toMain ? 'main' : 'bank' } };
 }
 FUNCTIONS['withdraw-quote'] = async (x, env, user) => { const r = await wdQuote(env, user, x); return r.error ? fail(r.error) : json({ quote: r.q }); };
 FUNCTIONS['withdraw-create'] = async (x, env, user) => {
   const r = await wdQuote(env, user, x); if (r.error) return fail(r.error);
   const q = r.q;
+  if (q.dest === 'main') {   // Exchange / Airtime-to-Cash wallet -> own Main Wallet, in one atomic step
+    const pe = await verifyPin(env, user.id, x.pin); if (pe) return fail(pe);
+    const idOut = uid(), idIn = uid(), col = WALLET_COL[q.wallet], from = WALLET_NAME[q.wallet];
+    const b = await env.DB.batch([
+      env.DB.prepare(`UPDATE profiles SET ${col}=${col}-? WHERE id=? AND ${col}>=? AND is_banned=0`).bind(q.amount, user.id, q.amount),
+      env.DB.prepare('UPDATE profiles SET balance_ngn=balance_ngn+? WHERE id=? AND changes() > 0').bind(q.amount, user.id),
+      env.DB.prepare("INSERT INTO transactions(id,user_id,type,label,amount,direction,status,provider_ref,wallet,metadata) SELECT ?,?,'transfer',?,?,'out','successful',?,?,? WHERE changes() > 0").bind(idOut, user.id, `Moved to Main Wallet`, q.amount, 'WTM-' + idOut, q.wallet, JSON.stringify({ from: q.wallet, to: 'main' })),
+      ledgerIfChanged(env, { userId: user.id, wallet: q.wallet, dir: 'out', amount: q.amount, ref: 'wtm-out-' + idOut, type: 'transfer', note: 'To Main Wallet' }),
+      env.DB.prepare("INSERT INTO transactions(id,user_id,type,label,amount,direction,status,provider_ref,wallet,metadata) SELECT ?,?,'transfer',?,?,'in','successful',?,'main',? WHERE changes() > 0").bind(idIn, user.id, `From ${from}`, q.amount, 'WTM-' + idIn, JSON.stringify({ from: q.wallet, to: 'main' })),
+      ledgerIfChanged(env, { userId: user.id, wallet: 'main', dir: 'in', amount: q.amount, ref: 'wtm-in-' + idIn, type: 'transfer', note: 'From ' + from }),
+    ]);
+    if (b[0].meta.changes !== 1) return fail('Your balance changed. Please check it and try again.');
+    await notify(env, user.id, 'Moved to Main Wallet', `\u20a6${q.amount.toLocaleString()} moved from your ${from} to your Main Wallet.`);
+    return json({ data: { id: idOut, status: 'successful', message: `\u20a6${q.amount.toLocaleString()} is now in your Main Wallet.` } });
+  }
   const bank = await env.DB.prepare('SELECT * FROM bank_accounts WHERE id=? AND user_id=?').bind(String(x.bankAccountId || ''), user.id).first();
   if (!bank) return fail('Choose one of your saved bank accounts.');
   if (!env.FLW_SECRET_KEY) return fail('Withdrawals are not available yet.', 503);
@@ -2091,6 +2134,32 @@ function validateSetting(def, raw) {   // returns the cleaned value, or null whe
   }
   return v.length >= def.minLen && v.length <= 200 && !/\s/.test(v) ? v : null;
 }
+
+/* ------------------------------------------------------------------ CUSTOMER SETTINGS (private to each customer) */
+const PREF_THEMES = ['light', 'dark', 'system'], PREF_LANGS = ['en', 'ha', 'yo'], PREF_SIZES = ['small', 'normal', 'large'];
+FUNCTIONS['get-settings'] = async (x, env, user) => {
+  const p = await getPrefs(env, user.id);
+  return json({ settings: { theme: p.theme, language: p.language, text_size: p.text_size, reduce_motion: p.reduce_motion, notif: p.notif }, avatar: p.avatar, updated_at: p.updated_at });
+};
+FUNCTIONS['save-settings'] = async (x, env, user) => {
+  const cur = await getPrefs(env, user.id);
+  const theme = x.theme === undefined ? cur.theme : String(x.theme), language = x.language === undefined ? cur.language : String(x.language), size = x.text_size === undefined ? cur.text_size : String(x.text_size);
+  if (!PREF_THEMES.includes(theme) || !PREF_LANGS.includes(language) || !PREF_SIZES.includes(size)) return fail('Invalid setting.');
+  const motion = x.reduce_motion === undefined ? cur.reduce_motion : !!x.reduce_motion;
+  const notif = { ...cur.notif }; for (const k of NOTIF_KEYS) if (x.notif && typeof x.notif[k] === 'boolean') notif[k] = x.notif[k];
+  notif.security = true;   // security alerts protect the account and cannot be switched off
+  await env.DB.prepare("INSERT INTO user_prefs(user_id,theme,language,text_size,reduce_motion,notif_prefs,updated_at) VALUES(?,?,?,?,?,?,CURRENT_TIMESTAMP) ON CONFLICT(user_id) DO UPDATE SET theme=excluded.theme, language=excluded.language, text_size=excluded.text_size, reduce_motion=excluded.reduce_motion, notif_prefs=excluded.notif_prefs, updated_at=CURRENT_TIMESTAMP")
+    .bind(user.id, theme, language, size, motion ? 1 : 0, JSON.stringify(notif)).run();
+  return json({ ok: true, settings: { theme, language, text_size: size, reduce_motion: motion, notif } });
+};
+FUNCTIONS['set-avatar'] = async (x, env, user) => {   // profile picture: customers can upload a new one or remove it at any time
+  if (x.remove) { await env.DB.prepare('UPDATE user_prefs SET avatar=NULL, updated_at=CURRENT_TIMESTAMP WHERE user_id=?').bind(user.id).run(); return json({ ok: true }); }
+  const img = String(x.image || '');
+  if (!/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/=]+$/.test(img)) return fail('Please choose a JPG, PNG or WEBP picture.');
+  if (img.length > 300000) return fail('This picture is too large. Choose a smaller one.');
+  await env.DB.prepare("INSERT INTO user_prefs(user_id,avatar,updated_at) VALUES(?,?,CURRENT_TIMESTAMP) ON CONFLICT(user_id) DO UPDATE SET avatar=excluded.avatar, updated_at=CURRENT_TIMESTAMP").bind(user.id, img).run();
+  return json({ ok: true });
+};
 
 /* ----------------------------------------------------------------- ROUTER */
 async function route(req, env) {

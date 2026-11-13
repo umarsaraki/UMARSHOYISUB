@@ -417,6 +417,64 @@ textarea.sh-ad-in{min-height:120px; resize:vertical;}
 .sh-small{font-size:12px; color:var(--sub); line-height:1.5;}
 
 </style>
+<style>
+/* ===== SMART TRANSACTIONS CENTER (added) ===== */
+.txc-on > .tab-head, .txc-on > .searchbar, .txc-on > .chips, .txc-on > .txlist, .txc-on > .btn-more{display:none !important;}   /* old list kept in the page, only hidden */
+#page-history.txc-on{padding:0 0 104px; background:var(--bg);}
+.txc-head{display:flex; justify-content:space-between; align-items:flex-start; gap:12px; padding:calc(18px + env(safe-area-inset-top)) 20px 58px; color:#fff; background:linear-gradient(135deg,#2f55ee 0%,#1e35a8 75%); border-radius:0 0 30px 30px;}
+.txc-head h1{margin:0; font-size:27px; font-weight:900; line-height:1.1;} .txc-head p{margin:5px 0 0; font-size:13.5px; opacity:.93;}
+.txc-hbtns{display:flex; gap:8px; flex:none;}
+.txc-hbtns button{position:relative; width:42px; height:42px; border-radius:50%; border:none; background:rgba(255,255,255,.18); color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer;}
+.txc-hbtns .ic{width:22px; height:22px;} #txcFiltDot{display:none; position:absolute; top:8px; right:9px; width:9px; height:9px; border-radius:50%; background:#ffb020; border:2px solid #2447d0;}
+.txc-sum{display:grid; grid-template-columns:repeat(4,1fr); margin:-38px 14px 14px; background:#fff; border-radius:22px; padding:12px 4px; box-shadow:0 10px 26px rgba(24,48,140,.12);}
+.txc-sum .c{text-align:center; padding:2px 2px; border-left:1px solid #e3e9fb;} .txc-sum .c:first-child{border-left:none;}
+.txc-sum .ci{width:34px; height:34px; border-radius:50%; margin:0 auto 4px; display:flex; align-items:center; justify-content:center; color:#fff; font-size:16px; font-weight:900;}
+.ci.b{background:#2f5bea;} .ci.g{background:#1fb866;} .ci.o{background:#f5a21b;} .ci.r{background:#e8434b;}
+.txc-sum b{display:block; font-size:20px; font-weight:900; color:#0d1b4c; line-height:1.1;} .txc-sum span{font-size:11.5px; color:#4b5a85;}
+.txc-chips{display:flex; gap:8px; overflow-x:auto; padding:0 14px 12px; scrollbar-width:none;} .txc-chips::-webkit-scrollbar{display:none;}
+.txc-chips button{flex:0 0 auto; display:flex; align-items:center; gap:6px; padding:9px 14px; border-radius:22px; border:1.5px solid transparent; font-weight:800; font-size:13px; cursor:pointer; background:#e8eefc; color:#0d1b4c;}
+.txc-chips button span{font-size:13px;} .txc-chips .s-successful{background:#e1f6e9;} .txc-chips .s-pending{background:#fff1d9;} .txc-chips .s-failed{background:#fde6e7;} .txc-chips .s-refunded{background:#e3ecff;}
+.txc-chips button.on{background:var(--blue-1); color:#fff; border-color:var(--blue-1); box-shadow:0 6px 14px rgba(31,79,224,.28);}
+.txc-svc{display:flex; align-items:center; gap:12px; width:calc(100% - 28px); margin:0 14px 10px; padding:13px 16px; background:#fff; border:1.5px solid #cfd8f6; border-radius:26px; font-size:15px; cursor:pointer; text-align:left;}
+.txc-svc .g{color:var(--blue-1); font-size:20px;} .txc-svc b{flex:1; font-weight:700; color:var(--text);} .txc-svc .cv{color:var(--text);}
+.txc-search{display:flex; align-items:center; gap:10px; margin:0 14px 12px; padding:0 14px; background:#fff; border:1.5px solid #cfd8f6; border-radius:26px;}
+.txc-search .mg{color:var(--blue-1); display:flex;} .txc-search .ic{width:20px; height:20px;}
+.txc-search input{flex:1; min-width:0; border:none; outline:none; background:transparent; padding:14px 0; font-size:14.5px;}
+.txc-search button{border:none; background:transparent; font-size:17px; color:var(--sub); cursor:pointer; padding:6px;}
+.txc-tags{display:flex; flex-wrap:wrap; gap:6px; align-items:center; padding:0 16px 10px; font-size:12px;}
+.txc-tags span{background:#e8eefc; color:var(--blue-2); padding:4px 10px; border-radius:14px; font-weight:700;} .txc-tags a{color:var(--blue-1); font-weight:800; cursor:pointer; margin-left:4px;}
+#txcList{padding:0 14px;}
+.txc-item{display:flex; align-items:center; gap:12px; background:#fff; border-radius:20px; padding:14px 12px; margin-bottom:12px; box-shadow:0 6px 18px rgba(24,48,140,.08); cursor:pointer; border:1px solid #edf1fd;}
+.txc-item:active{transform:scale(.99);}
+.txc-ic{width:54px; height:54px; border-radius:18px; display:flex; align-items:center; justify-content:center; font-size:26px; flex:none;}
+.txc-ic.big{width:70px; height:70px; font-size:34px; margin:0 auto 8px; border-radius:24px;}
+.txc-ic.b{background:#e5eeff;} .txc-ic.g{background:#dff6e8;} .txc-ic.o{background:#fff0d6;} .txc-ic.p{background:#ece6ff;} .txc-ic.t{background:#dcf5f5;} .txc-ic.r{background:#ffe6f0;} .txc-ic.n{background:#eceff5;}
+.txc-item .mid{flex:1; min-width:0;} .txc-item .mid b{display:block; font-size:16px; font-weight:800; color:#0d1b4c;}
+.txc-item .d{font-size:13px; color:#27365f; margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;} .txc-item .t{font-size:12px; color:#5f6f9a; margin-top:3px;} .txc-item .r{font-size:12px; color:#5f6f9a; margin-top:1px; font-weight:700;}
+.txc-item .rt{text-align:right; flex:none; display:flex; flex-direction:column; align-items:flex-end; gap:7px;} .txc-item .rt b{font-size:17px; font-weight:900;}
+.cr{color:#119a55;} .dr{color:#0d1b4c;} .txc-item .chv{color:var(--blue-1); font-size:26px; font-weight:700; line-height:1; flex:none;}
+.txc-pill{display:inline-flex; align-items:center; gap:5px; padding:5px 11px; border-radius:14px; font-size:12px; font-weight:800; white-space:nowrap;}
+.txc-pill.ok{background:#dff6e8; color:#119a55;} .txc-pill.wait{background:#fff0d6; color:#c27800;} .txc-pill.bad{background:#fde4e5; color:#d6303a;} .txc-pill.ref{background:#e3ecff; color:#1f4fe0;}
+.txc-more{display:flex; align-items:center; justify-content:center; gap:10px; width:calc(100% - 28px); margin:4px 14px 14px; padding:15px; border:none; border-radius:26px; background:linear-gradient(90deg,#dfe8ff,#e9efff); color:var(--blue-2); font-weight:800; font-size:15.5px; cursor:pointer;} .txc-more:disabled{opacity:.7;}
+.txc-state{text-align:center; padding:34px 22px; background:#fff; border-radius:22px; margin-bottom:12px;} .txc-state .big{font-size:46px;} .txc-state b{display:block; font-size:18px; color:var(--blue-2); margin:8px 0 4px;} .txc-state p{color:var(--sub); font-size:13.5px; margin:0 0 16px; line-height:1.5;}
+.txc-pick{display:grid; grid-template-columns:1fr 1fr; gap:8px; max-height:60vh; overflow-y:auto;} .txc-pick button{display:flex; align-items:center; gap:10px; padding:12px; border-radius:14px; border:1.5px solid var(--line); background:#fff; font-weight:700; font-size:13px; text-align:left; cursor:pointer;} .txc-pick button.on{border-color:var(--blue-1); background:#eef3ff; color:var(--blue-2);} .txc-pick span{font-size:18px;}
+.txc-fgrid{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;} .txc-fgrid label{display:flex; flex-direction:column; gap:5px; font-size:12px; font-weight:700; color:var(--sub);}
+.txc-fgrid select, .txc-fgrid input{padding:11px 10px; border:1.5px solid var(--line); border-radius:11px; font-size:14px; background:#fff; color:var(--text); min-width:0;} .txc-ferr{color:var(--danger); font-size:12.5px; min-height:16px; margin-bottom:8px;}
+/* details */
+.page.txc-dpage{z-index:215;} .txc-dpage .page-body{padding:14px 14px 40px;}
+.txc-hero{text-align:center; background:#fff; border-radius:24px; padding:20px 14px 16px; margin-bottom:12px; box-shadow:0 8px 22px rgba(24,48,140,.09);} .txc-hero .sv{font-size:15px; font-weight:800; color:var(--blue-2);} .txc-hero .am{font-size:32px; font-weight:900; margin:4px 0 8px;} .txc-hero .dd{font-size:12.5px; color:var(--sub); margin-top:8px;}
+.txc-card{background:#fff; border-radius:20px; padding:14px 16px; margin-bottom:12px; box-shadow:0 5px 16px rgba(24,48,140,.07);} .txc-card h3{margin:0 0 6px; font-size:14px; font-weight:900; color:var(--blue-2);} .txc-card .sm{font-size:11.5px; color:var(--sub); margin:6px 0 0; line-height:1.5;}
+.kv{display:flex; justify-content:space-between; align-items:center; gap:14px; padding:10px 0; border-top:1px solid #eef2fd; font-size:13.5px;} .kv:first-of-type{border-top:none;} .kv span{color:var(--sub); flex:none;} .kv b{text-align:right; word-break:break-all; display:flex; align-items:center; gap:8px; justify-content:flex-end; font-weight:700;}
+.kv.tot{border-top:2px solid #dfe7fb;} .kv.tot b{font-size:16px; color:var(--blue-2);} .cp{border:none; background:#eef3ff; color:var(--blue-1); border-radius:9px; width:30px; height:30px; display:inline-flex; align-items:center; justify-content:center; cursor:pointer; flex:none;} .cp .ic{width:15px; height:15px;}
+.pins{padding-top:8px;} .pins>span{font-size:12px; color:var(--sub);} .pin{background:#f4f7ff; border-radius:12px; padding:8px 10px; margin-top:6px; font-size:13px;} .pin small{color:var(--sub);}
+.tlw{padding:4px 0 0;} .tl{display:flex; gap:12px; position:relative; padding-bottom:16px;} .tl:last-child{padding-bottom:0;} .tl::before{content:""; position:absolute; left:6px; top:16px; bottom:0; width:2px; background:#e1e8fb;} .tl:last-child::before{display:none;}
+.tl i{width:14px; height:14px; border-radius:50%; margin-top:3px; flex:none; background:#1fb866; box-shadow:0 0 0 4px #e1f6e9;} .tl.wait i{background:#f5a21b; box-shadow:0 0 0 4px #fff0d6;} .tl.bad i{background:#e8434b; box-shadow:0 0 0 4px #fde4e5;} .tl.ref i{background:#2f5bea; box-shadow:0 0 0 4px #e3ecff;}
+.tl b{display:block; font-size:13.5px;} .tl span{font-size:12px; color:var(--sub);} .tl em{display:block; font-size:11.5px; color:#1d4ea0; font-style:normal; margin-top:2px;}
+.txc-acts{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:6px;} .txc-act{display:flex; align-items:center; gap:9px; padding:13px 12px; border-radius:15px; border:1.5px solid #cfd8f6; background:#fff; font-weight:800; font-size:12.5px; color:var(--blue-2); cursor:pointer; text-align:left;} .txc-act span{font-size:17px;}
+.txc-hist{margin-left:auto; border:none; background:#eef3ff; color:var(--blue-1); font-weight:800; font-size:12.5px; padding:9px 13px; border-radius:18px; cursor:pointer; white-space:nowrap;}
+@media (min-width:720px){ .txc-sum, .txc-chips, .txc-svc, .txc-search, #txcList, .txc-more{max-width:640px; margin-left:auto; margin-right:auto;} .txc-svc,.txc-search,.txc-more{width:640px;} }
+
+</style>
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
@@ -3166,7 +3224,8 @@ async function checkUnreadNotifications() {
   function statusInner() {
     const c = SH.cfg || {};
     if (c.enabled === false) return 'AI Customer Support · switched off';
-    return c.ai_available ? '<i class="sh-dot"></i>Online • AI Customer Support' : 'AI Customer Support · help-article mode';   // green dot ONLY when the AI is really available
+    if (c.ai_available) return '<i class="sh-dot"></i>Online • AI Customer Support';
+    return c.online ? '<i class="sh-dot"></i>Online • Smart Support Assistant' : 'Customer Support · offline';   // green dot ONLY while the assistant is really running
   }
   function paintStatus() { document.querySelectorAll('[data-shst]').forEach((e) => { e.innerHTML = statusInner(); }); }
   async function loadCfg(force) {
@@ -3222,7 +3281,7 @@ async function checkUnreadNotifications() {
       <div class="sh-search">${IC('search')}<input id="shSearch" placeholder="Search for help…"></div>
       <div class="sh-res" id="shSearchOut"></div>
       <div class="sh-grid">
-        <div class="sh-card" data-sh="chat">${IC('headset')}<b>Live Support</b><span>Chat with SHOYI, our AI assistant</span><i>Start Chat ▸</i></div>
+        <div class="sh-card" data-sh="chat">${IC('headset')}<b>Live Support</b><span>Chat with SHOYI, our virtual assistant</span><i>Start Chat ▸</i></div>
         <div class="sh-card" data-sh="ticket">${IC('doc')}<b>Submit a Ticket</b><span>Report an issue</span><i>Open Ticket ▸</i></div>
         <div class="sh-card" data-sh="tickets">${IC('ticket')}<b>My Support Tickets</b><span>Track your requests</span><i>View Tickets ▸</i></div>
         <div class="sh-card" data-sh="faqs">${IC('flag')}<b>FAQs</b><span>Find answers quickly</span><i>View FAQs ▸</i></div></div>
@@ -3281,8 +3340,8 @@ async function checkUnreadNotifications() {
   const typing = (on) => { $('shTyping').style.display = on ? 'flex' : 'none'; if (on) scroll(); };
   function resetLog() {
     log().innerHTML = '';
-    addSys('You are now chatting with SHOYI (AI assistant)');
-    addBot("Hello! 👋 I'm SHOYI, your UMARSHOYI-SUB AI assistant. How can I help you today?\nSannu! Ni SHOYI ne. Za ka iya yi mini tambaya da Hausa ko Turanci.");
+    addSys('You are now chatting with SHOYI (automated assistant, not a human)');
+    addBot("Hello! 👋 I'm SHOYI, your UMARSHOYI-SUB virtual assistant (automated, not a human). How can I help you today?\nSannu! Ni SHOYI ne. Za ka iya yi mini tambaya da Hausa ko Turanci.");
     $('shChips').style.display = 'flex';
   }
   async function openChat(prefill) {
@@ -3332,6 +3391,7 @@ async function checkUnreadNotifications() {
         <div class="sh-small" style="margin-top:6px;">Never write your PIN, password or OTP here.</div></div>
       <div class="err-text" id="shTkErr"></div><button class="btn-primary" id="shTkBtn" data-sh="tkSubmit">Submit Ticket</button>`;
     const r = await call('shoyi-recent-tx');
+    if (opts.tx && $('shTkTx')) { $('shTkTx').insertAdjacentHTML('beforeend', `<option value="${E(opts.tx)}">This transaction (${E(opts.tx.slice(0, 8).toUpperCase())})</option>`); $('shTkTx').value = opts.tx; $('shTkCat').value = 'transaction'; }
     if (!r.errMsg && $('shTkTx')) $('shTkTx').insertAdjacentHTML('beforeend', r.data.items.map((t) => `<option value="${E(t.id)}">${E(t.type)} · ${m2(t.amount)} · ${E(t.status)} · ${E(when(t.created_at))}</option>`).join(''));
   }
   async function submitTicket() {
@@ -3422,7 +3482,7 @@ async function checkUnreadNotifications() {
     const r = await ac({ action: 'overview' }), b = $('shAdStats'); if (r.errMsg) { b.innerHTML = `<div class="err-text">${E(r.errMsg)}</div>`; return; }
     const d = r.data;
     b.innerHTML = `<div class="sh-ad-stats"><div><b>${d.conversations_week}</b><span>chats (7 days)</span></div><div><b>${d.open_tickets}</b><span>open tickets</span></div><div><b>${d.unanswered}</b><span>unanswered</span></div></div>
-      <div class="sh-small">AI: ${d.ai_available ? '<b style="color:#16a05f;">available</b>' : d.ai_configured ? '<b style="color:#e98a0c;">key saved, temporarily unavailable</b>' : '<b style="color:#e14848;">not configured (help-article mode)</b>'} · Pictures stored in: ${d.bucket ? 'R2 bucket' : 'database'} · Human requests waiting: ${d.handoffs_waiting}</div>`;
+      <div class="sh-small">AI: ${d.ai_available ? '<b style="color:#16a05f;">available</b>' : d.ai_configured ? '<b style="color:#e98a0c;">key saved, temporarily unavailable</b>' : '<b style="color:#119a55;">smart mode (free). Add an AI key only if you want AI answers</b>'} · Pictures stored in: ${d.bucket ? 'R2 bucket' : 'database'} · Human requests waiting: ${d.handoffs_waiting}</div>`;
   }
   function adSection(s) {
     AD.sec = s; adChips(); body().innerHTML = SKEL;
@@ -3600,7 +3660,7 @@ async function checkUnreadNotifications() {
       return `<div class="field">${lab}<input id="${id}" value="${E(s.value || '')}" placeholder="${E(s.hint)}"></div>`;
     };
     body().innerHTML = `<div class="sh-ad-card">${items.map(f).join('')}<button class="btn-primary" id="shAiBtn" data-sh="aiSave">Save</button>
-      <div class="sh-small" style="margin-top:12px;">The AI key stays on the server (encrypted in your database) and is never sent to the browser. Without a key SHOYI still answers from your Knowledge and FAQs, but it is not shown as Online.${r.data.keys_can_be_saved ? '' : ' <b style="color:#e14848;">AUTH_SECRET is missing or too short, so keys cannot be saved yet.</b>'}</div></div>`;
+      <div class="sh-small" style="margin-top:12px;">The AI key stays on the server (encrypted in your database) and is never sent to the browser. Without a key SHOYI runs in free smart mode: it answers from your Knowledge and FAQs, looks up the customer's own wallet, transactions and withdrawals, and saves anything it cannot answer in Admin > SHOYI > Questions.${r.data.keys_can_be_saved ? '' : ' <b style="color:#e14848;">AUTH_SECRET is missing or too short, so keys cannot be saved yet.</b>'}</div></div>`;
   }
   async function aiSave() {
     const values = {};
@@ -3630,8 +3690,253 @@ async function checkUnreadNotifications() {
     aiSave: () => aiSave(),
   };
 
+  window.shoyiReportTx = (id, desc) => openTicketForm({ tx: id, desc });   // used by Transaction Details > Report an Issue
+
   /* ================= start ================= */
   function boot() { build(); ensureLanding(); injectAdmin(); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+})();
+
+</script>
+<script>
+/* ===== SMART TRANSACTIONS CENTER (added) =====
+   Replaces the look of the Transactions tab and opens a full details page for every transaction.
+   Data comes from the server (txc-summary, txc-list, txc-detail): filtered, paginated and limited to the signed-in customer. */
+(function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const E = (s) => esc(s);
+  const call = (name, body) => invokeFn(name, { body: body || {} });
+  const N = (n) => '\u20a6' + Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
+  const day = (s) => dt(s).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const hour = (s) => dt(s).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  const IC = (n, c) => `<svg class="ic ${c || ''}"><use href="#i-${n}"/></svg>`;
+
+  const SVC = [['', 'All Services', '\u25a6'], ['data', 'Data Bundle', '\ud83d\udcf6'], ['airtime', 'Airtime', '\ud83d\udcde'], ['a2c', 'Airtime to Cash', '\ud83d\udcb5'], ['electricity', 'Electricity', '\u26a1'], ['cable', 'Cable TV', '\ud83d\udcfa'], ['exam', 'Exam PIN', '\ud83d\udcdd'],
+    ['recharge', 'Recharge Card', '\ud83c\udfab'], ['datacard', 'Data Card', '\ud83d\udcb3'], ['bulksms', 'Bulk SMS', '\ud83d\udcac'], ['exchange', 'Exchange', '\u21c4'], ['w_main', 'Main Wallet', '\ud83d\udc5b'], ['w_exchange', 'Exchange Wallet', '\ud83d\udcb1'], ['w_atc', 'Airtime-to-Cash Wallet', '\ud83d\udcb5'], ['referral', 'Referral Earnings', '\ud83c\udf81']];
+  const svcName = (k) => (SVC.find((s) => s[0] === k) || SVC[0])[1];
+  const TI = { data: ['\ud83d\udcf6', 'b'], airtime: ['\ud83d\udcde', 'g'], electricity: ['\u26a1', 'o'], cable: ['\ud83d\udcfa', 'p'], 'bulk-sms': ['\ud83d\udcac', 't'], exam: ['\ud83d\udcdd', 'p'], 'data-card': ['\ud83d\udcb3', 'b'], 'airtime-card': ['\ud83c\udfab', 'g'], 'airtime-to-cash': ['\ud83d\udcb5', 'g'], exchange: ['\u21c4', 'g'], fund: ['\ud83d\udcb0', 'b'], withdrawal: ['\ud83c\udfe6', 'b'], 'referral-bonus': ['\ud83c\udf81', 'r'], adjustment: ['\u2699\ufe0f', 'n'] };
+  const ST = { successful: ['Successful', '\u2713', 'ok'], pending: ['Pending', '\ud83d\udd52', 'wait'], failed: ['Failed', '\u2715', 'bad'], refunded: ['Refunded', '\u21ba', 'ref'] };
+  const stPill = (s) => { const c = ST[s] || ST.pending; return `<span class="txc-pill ${c[2]}">${c[1]} ${c[0]}</span>`; };
+  const ticon = (t, big) => { const i = TI[t] || ['\ud83e\uddfe', 'n']; return `<div class="txc-ic ${i[1]} ${big ? 'big' : ''}">${i[0]}</div>`; };
+
+  const F0 = { status: '', service: '', q: '', from: '', to: '', min: '', max: '', direction: '', fromLocal: '', toLocal: '' };
+  const S = { f: { ...F0 }, items: [], cursor: null, more: false, loading: false, seq: 0, started: false };
+  const filtersActive = () => !!(S.f.service || S.f.from || S.f.to || S.f.min || S.f.max || S.f.direction);
+
+  /* ================= page ================= */
+  function ensureUI() {
+    const pg = $('page-history'); if (!pg || $('txcRoot')) return;
+    pg.classList.add('txc-on');
+    const root = document.createElement('div'); root.id = 'txcRoot';
+    root.innerHTML = `<div class="txc-head"><div style="min-width:0;"><h1>Transactions</h1><p>Track and manage all your transactions.</p></div>
+        <div class="txc-hbtns"><button data-txc="focusSearch" aria-label="Search">${IC('search')}</button><button data-txc="openFilters" aria-label="Filters" id="txcFiltBtn"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h18l-7 8v6l-4-2v-4z"/></svg><i id="txcFiltDot"></i></button></div></div>
+      <div class="txc-sum" id="txcSum"></div>
+      <div class="txc-chips" id="txcChips">${[['', 'All', '\u25a6'], ['successful', 'Successful', '\u2713'], ['pending', 'Pending', '\ud83d\udd52'], ['failed', 'Failed', '\u2715'], ['refunded', 'Refunded', '\u21ba']].map((c) => `<button data-txc="status" data-v="${c[0]}" class="${c[0] === '' ? 'on' : ''} s-${c[0] || 'all'}"><span>${c[2]}</span>${c[1]}</button>`).join('')}</div>
+      <button class="txc-svc" data-txc="pickService"><span class="g">\u25a6</span><b id="txcSvcName">All Services</b><span class="cv">\u2335</span></button>
+      <div class="txc-search"><span class="mg">${IC('search')}</span><input id="txcQ" type="search" inputmode="search" autocomplete="off" placeholder="Search by Transaction ID, Phone or Service..."><button id="txcQx" data-txc="clearQ" aria-label="Clear search" style="display:none;">\u2715</button></div>
+      <div id="txcActive"></div><div id="txcList"></div>
+      <button class="txc-more" id="txcMore" data-txc="more" style="display:none;"><span>\u21bb</span> Load More Transactions</button>`;
+    pg.querySelector('.tab-head').insertAdjacentElement('afterend', root);
+    let t; $('txcQ').addEventListener('input', () => { $('txcQx').style.display = $('txcQ').value ? 'block' : 'none'; clearTimeout(t); t = setTimeout(() => { S.f.q = $('txcQ').value.trim(); load(true); }, 400); });
+  }
+  function open() { ensureUI(); paintControls(); loadSummary(); load(true); }
+  async function loadSummary() {
+    const box = $('txcSum'); if (!box.innerHTML) box.innerHTML = [1, 2, 3, 4].map(() => '<div class="c"><div class="skel" style="height:34px;width:34px;border-radius:50%;margin:0 auto 6px;"></div><div class="skel" style="height:14px;width:50%;margin:0 auto;"></div></div>').join('');
+    const r = await call('txc-summary'); if (r.errMsg) { box.innerHTML = ''; return; }
+    const d = r.data, cell = (cls, ic, n, l) => `<div class="c"><div class="ci ${cls}">${ic}</div><b>${n}</b><span>${l}</span></div>`;
+    box.innerHTML = cell('b', '\u21c5', d.total, 'Total') + cell('g', '\u2713', d.successful, 'Successful') + cell('o', '\ud83d\udd52', d.pending, 'Pending') + cell('r', '\u2715', d.failed, 'Failed');
+  }
+  function paintControls() {
+    document.querySelectorAll('#txcChips button').forEach((b) => b.classList.toggle('on', b.dataset.v === S.f.status));
+    $('txcSvcName').textContent = svcName(S.f.service);
+    $('txcFiltDot').style.display = filtersActive() ? 'block' : 'none';
+    if ($('txcQ').value !== S.f.q) { $('txcQ').value = S.f.q; $('txcQx').style.display = S.f.q ? 'block' : 'none'; }
+    const tags = [];
+    if (S.f.service) tags.push(['service', svcName(S.f.service)]);
+    if (S.f.direction) tags.push(['direction', S.f.direction === 'credit' ? 'Credits' : 'Debits']);
+    if (S.f.fromLocal || S.f.toLocal) tags.push(['date', (S.f.fromLocal || '...') + ' to ' + (S.f.toLocal || '...')]);
+    if (S.f.min || S.f.max) tags.push(['amount', (S.f.min ? N(S.f.min) : '...') + ' - ' + (S.f.max ? N(S.f.max) : '...')]);
+    $('txcActive').innerHTML = tags.length ? `<div class="txc-tags">${tags.map((t) => `<span>${E(t[1])}</span>`).join('')}<a data-txc="clearAll">Clear filters</a></div>` : '';
+  }
+  const body = () => { const f = S.f; return { status: f.status, service: f.service, q: f.q, from: f.from, to: f.to, min: f.min, max: f.max, direction: f.direction }; };
+  async function load(reset) {
+    ensureUI(); const box = $('txcList'), more = $('txcMore'), my = ++S.seq;
+    if (reset) { S.items = []; S.cursor = null; box.innerHTML = '<div class="txc-skel">' + [1, 2, 3, 4].map(() => '<div class="skel" style="height:84px;border-radius:18px;margin-bottom:12px;"></div>').join('') + '</div>'; more.style.display = 'none'; paintControls(); }
+    else { more.disabled = true; more.innerHTML = '<span>\u21bb</span> Loading...'; }
+    const r = await call('txc-list', { ...body(), cursor: reset ? null : S.cursor });
+    if (my !== S.seq) return;    // an older request finished late: ignore it
+    more.disabled = false; more.innerHTML = '<span>\u21bb</span> Load More Transactions';
+    if (r.errMsg) { if (reset) box.innerHTML = `<div class="txc-state"><div class="big">\ud83d\udce1</div><b>Could not load transactions</b><p>${E(r.errMsg)}</p><button class="btn-primary" data-txc="retry">Try again</button></div>`; else showToast(r.errMsg, 'error'); return; }
+    const d = r.data; S.items = reset ? d.items : S.items.concat(d.items); S.cursor = d.next_cursor; S.more = d.has_more;
+    if (!S.items.length) {
+      const anyFilter = S.f.status || S.f.q || filtersActive();
+      box.innerHTML = anyFilter ? `<div class="txc-state"><div class="big">\ud83d\udd0d</div><b>No matching transactions</b><p>Try a different search or clear the filters.</p><button class="btn-primary" data-txc="clearAll">Clear all filters</button></div>`
+        : `<div class="txc-state"><div class="big">\ud83e\uddfe</div><b>No transactions yet.</b><p>When you buy data, airtime or fund your wallet, your transactions will appear here.</p><button class="btn-primary" data-txc="home">Back to Home</button></div>`;
+      more.style.display = 'none'; return;
+    }
+    const html = d.items.map(row).join('');
+    if (reset) box.innerHTML = html; else box.insertAdjacentHTML('beforeend', html);
+    more.style.display = S.more ? 'flex' : 'none';
+  }
+  function row(t) {
+    const sign = t.direction === 'in' ? '+' : '-';
+    return `<div class="txc-item" data-txc="open" data-id="${E(t.id)}" role="button" tabindex="0">${ticon(t.type)}
+      <div class="mid"><b>${E(t.service)}</b><div class="d">${E(t.desc)}${t.beneficiary ? ' \u00b7 ' + E(t.beneficiary) : ''}</div><div class="t">\ud83d\udcc5 ${E(day(t.created_at))} \u2022 ${E(hour(t.created_at))}</div><div class="r">Ref: ${E(t.ref)}</div></div>
+      <div class="rt"><b class="${t.direction === 'in' ? 'cr' : 'dr'}">${sign}${N(t.amount)}</b>${stPill(t.status)}</div><span class="chv">\u203a</span></div>`;
+  }
+
+  /* ---- filter sheets ---- */
+  const toUtc = (d) => d.toISOString().slice(0, 19).replace('T', ' ');
+  function pickService() {
+    openSheet(`<div style="font-weight:900;font-size:18px;color:var(--blue-2);margin-bottom:10px;">Choose a service</div><div class="txc-pick">${SVC.map((s) => `<button class="${S.f.service === s[0] ? 'on' : ''}" data-txc="setService" data-v="${s[0]}"><span>${s[2]}</span>${E(s[1])}</button>`).join('')}</div>`);
+  }
+  function openFilters() {
+    const f = S.f, opt = (arr, v) => arr.map((a) => `<option value="${a[0]}" ${a[0] === v ? 'selected' : ''}>${a[1]}</option>`).join('');
+    openSheet(`<div style="font-weight:900;font-size:18px;color:var(--blue-2);margin-bottom:12px;">Advanced filters</div><div class="txc-fgrid">
+      <label>Service<select id="tfSvc">${opt(SVC, f.service)}</select></label>
+      <label>Status<select id="tfSt">${opt([['', 'All'], ['successful', 'Successful'], ['pending', 'Pending'], ['failed', 'Failed'], ['refunded', 'Refunded']], f.status)}</select></label>
+      <label>Start date<input type="date" id="tfFrom" value="${E(f.fromLocal)}"></label><label>End date<input type="date" id="tfTo" value="${E(f.toLocal)}"></label>
+      <label>Minimum amount<input type="number" inputmode="decimal" id="tfMin" min="0" placeholder="0" value="${E(f.min)}"></label><label>Maximum amount<input type="number" inputmode="decimal" id="tfMax" min="0" placeholder="Any" value="${E(f.max)}"></label>
+      <label style="grid-column:1/3;">Transaction type<select id="tfDir">${opt([['', 'Credit and Debit'], ['credit', 'Credit (money in)'], ['debit', 'Debit (money out)']], f.direction)}</select></label></div>
+      <div class="txc-ferr" id="tfErr"></div><button class="btn-primary" data-txc="applyFilters">Apply Filters</button><button class="btn-outline" style="margin-top:10px;" data-txc="clearAll">Clear Filters</button>`);
+  }
+  function applyFilters() {
+    const v = (i) => $(i).value, from = v('tfFrom'), to = v('tfTo'), mn = v('tfMin'), mx = v('tfMax');
+    if (from && to && from > to) { $('tfErr').textContent = 'The start date must be before the end date.'; return; }
+    if (mn !== '' && mx !== '' && Number(mn) > Number(mx)) { $('tfErr').textContent = 'The minimum amount is higher than the maximum.'; return; }
+    Object.assign(S.f, { service: v('tfSvc'), status: v('tfSt'), direction: v('tfDir'), min: mn, max: mx, fromLocal: from, toLocal: to,
+      from: from ? toUtc(new Date(from + 'T00:00:00')) : '', to: to ? toUtc(new Date(new Date(to + 'T00:00:00').getTime() + 86400000)) : '' });
+    closeSheet(); load(true);
+  }
+  function clearAll() { S.f = { ...F0 }; closeSheet(); load(true); }
+
+  /* ================= details ================= */
+  let cur = null;
+  function ensureDetailPage() {
+    if ($('page-txc-detail')) return;
+    document.body.insertAdjacentHTML('beforeend', '<div class="page txc-dpage" id="page-txc-detail"><div class="page-head"><button class="back-btn" data-txc="closeDetail" aria-label="Back">\u2190</button><div class="page-title">Transaction Details</div></div><div class="page-body" id="txcDBody"></div></div>');
+  }
+  const kv = (a, b, cp) => `<div class="kv"><span>${E(a)}</span><b>${b}${cp ? `<button class="cp" data-txc="copy" data-t="${E(cp)}" aria-label="Copy">${IC('copy', 'sm')}</button>` : ''}</b></div>`;
+  async function openDetail(id) {
+    ensureDetailPage(); const pg = $('page-txc-detail'), box = $('txcDBody'); pg.classList.add('active'); pg.scrollTop = 0; box.innerHTML = '<div class="skel" style="height:150px;border-radius:20px;margin-bottom:12px;"></div><div class="skel" style="height:220px;border-radius:20px;"></div>';
+    const r = await call('txc-detail', { id });
+    if (r.errMsg) { box.innerHTML = `<div class="txc-state"><div class="big">\ud83d\udce1</div><b>Could not open this transaction</b><p>${E(r.errMsg)}</p><button class="btn-primary" data-txc="retryDetail" data-id="${E(id)}">Try again</button></div>`; return; }
+    cur = r.data; const d = cur, sign = d.direction === 'in' ? '+' : '-';
+    const dot = { done: 'ok', pending: 'wait', failed: 'bad', refunded: 'ref' };
+    const tl = d.timeline.map((e) => `<div class="tl ${dot[e.state] || 'ok'}"><i></i><div><b>${E(e.label)}</b><span>${e.at ? E(day(e.at) + ' \u2022 ' + hour(e.at)) : (e.note === 'Current status' ? 'Current status' : 'Time not recorded')}</span>${e.note && e.note !== 'Current status' ? `<em>${E(e.note)}</em>` : ''}</div></div>`).join('');
+    const prov = (d.provider.name || d.provider.reference || d.token || d.pins) ? `<div class="txc-card"><h3>Provider information</h3>${d.provider.name ? kv('Provider', E(d.provider.name)) : ''}${d.provider.reference ? kv('Provider reference', E(d.provider.reference), d.provider.reference) : ''}${d.token ? kv('Electricity token', E(d.token), d.token) : ''}${d.pins ? `<div class="pins"><span>PIN details</span>${pinHtml(d.pins)}</div>` : ''}</div>` : '';
+    const ben = d.beneficiary ? `<div class="txc-card"><h3>Beneficiary</h3>${d.beneficiary.rows.map((x) => kv(x[0], E(x[1]))).join('')}</div>` : '';
+    const brk = `<div class="txc-card"><h3>Financial breakdown</h3>${d.breakdown.map((x) => `<div class="kv ${x[2] === 'total' ? 'tot' : ''}"><span>${E(x[0])}</span><b>${x[2] === 'raw' ? E(Number(x[1]).toLocaleString('en-US', { maximumFractionDigits: 4 })) : N(x[1])}</b></div>`).join('')}</div>`;
+    const A = d.actions, btn = (k, ic, l, extra) => `<button class="txc-act" data-txc="${k}" ${extra || ''}><span>${ic}</span>${l}</button>`;
+    box.innerHTML = `<div class="txc-hero">${ticon(d.type, true)}<div class="sv">${E(d.service)}</div><div class="am ${d.direction === 'in' ? 'cr' : 'dr'}">${sign}${N(d.amount)}</div>${stPill(d.status)}<div class="dd">${E(day(d.created_at))} \u2022 ${E(hour(d.created_at))}</div></div>
+      <div class="txc-card"><h3>Transaction information</h3>${kv('Service', E(d.service))}${kv('Transaction ID', E(d.id.slice(0, 8).toUpperCase() + '\u2026'), d.id)}${kv('Date', E(day(d.created_at)))}${kv('Time', E(hour(d.created_at)))}${kv('Amount', N(d.amount))}${kv('Status', stPill(d.status))}${kv('Type', d.direction === 'in' ? 'Credit (money in)' : 'Debit (money out)')}${kv('Wallet', E(({ main: 'Main Wallet', exchange: 'Exchange Wallet', atc: 'Airtime-to-Cash Wallet' })[d.wallet] || d.wallet))}</div>
+      ${prov}${ben}${brk}
+      <div class="txc-card"><h3>Receipt verification</h3>${kv('Receipt hash', E(d.short_hash + '\u2026'), d.hash)}<p class="sm">Support can verify this receipt with the Transaction ID and the hash.</p></div>
+      <div class="txc-card"><h3>Transaction timeline</h3><div class="tlw">${tl}</div></div>
+      <div class="txc-acts">${btn('copyId', '\u2398', 'Copy Transaction ID')}${A.copy_provider_ref ? btn('copyRef', '\u2398', 'Copy Provider Reference') : ''}${btn('copyHash', '\u2398', 'Copy Receipt Hash')}${A.copy_token ? btn('copyToken', '\u2398', 'Copy Token') : ''}${btn('pdf', '\u2b07', 'Download Receipt')}${btn('share', '\u2934', 'Share Receipt')}${btn('report', '\ud83d\udea9', 'Report an Issue')}${A.similar_service ? btn('similar', '\u21c5', 'View Similar Transactions') : ''}</div>`;
+  }
+  function pinHtml(p) {
+    const items = Array.isArray(p) ? p : [p];
+    return items.map((x) => `<div class="pin">${typeof x === 'object' && x ? Object.entries(x).map(([k, v]) => `<div><small>${E(k)}</small> <b>${E(v)}</b> <button class="cp" data-txc="copy" data-t="${E(v)}" aria-label="Copy">${IC('copy', 'sm')}</button></div>`).join('') : `<div><b>${E(x)}</b> <button class="cp" data-txc="copy" data-t="${E(x)}" aria-label="Copy">${IC('copy', 'sm')}</button></div>`}</div>`).join('');
+  }
+
+  /* ================= PDF receipt (built here, no outside library, works offline) ================= */
+  const pdfText = (s) => String(s == null ? '' : s).replace(/\u2192/g, 'to').replace(/[\u2022\u00b7]/g, '*').replace(/\u20a6/g, 'NGN ').replace(/[\u2018\u2019]/g, "'").replace(/[\u201c\u201d]/g, '"').replace(/[^\x20-\x7e]/g, '?');
+  const pdfEsc = (s) => pdfText(s).replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
+  const rgb = (h) => [1, 3, 5].map((i) => (parseInt(h.slice(i, i + 2), 16) / 255).toFixed(3)).join(' ');
+  const mid = (s, k) => { s = String(s || ''); return s.length <= k * 2 ? s : s.slice(0, k) + '*'.repeat(Math.max(3, s.length - k * 2)) + s.slice(-k); };
+  const NGN = (n) => 'NGN ' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  function wrap(s, n) { const out = []; s = pdfText(s); while (s.length > n) { let i = s.lastIndexOf(' ', n); if (i < n * 0.5) i = n; out.push(s.slice(0, i)); s = s.slice(i).trim(); } out.push(s); return out; }
+  function receiptRows(d) {
+    const R = [['Transaction ID', d.id]]; if (d.provider.reference) R.push(['Provider reference', d.provider.reference]); if (d.provider.name) R.push(['Provider', d.provider.name]);
+    R.push(['Service', d.service]); if (d.description && d.description !== d.service) R.push(['Description', d.description]);
+    if (d.beneficiary) d.beneficiary.rows.forEach((x, i) => R.push([x[0], i === 0 && ['phone', 'meter', 'card'].includes(d.beneficiary.kind) ? mid(x[1], x[1].length > 11 ? 3 : 4) : x[1]]));   // only the number itself is masked
+    d.breakdown.forEach((x) => R.push([x[0], x[2] === 'raw' ? Number(x[1]).toLocaleString('en-US', { maximumFractionDigits: 4 }) : NGN(x[1])]));
+    if (d.token) R.push(['Electricity token', d.token]); if (d.pins) R.push(['PIN details', 'Shown in the app only']);
+    R.push(['Type', d.direction === 'in' ? 'Credit' : 'Debit'], ['Date and time', day(d.created_at) + ', ' + hour(d.created_at)], ['Status', (ST[d.status] || ST.pending)[0]]);
+    if (d.customer && (d.customer.username || d.customer.name)) R.push(['Customer', (d.customer.name || '') + (d.customer.username ? ' (@' + d.customer.username + ')' : '')]);
+    R.push(['Receipt hash', d.hash]); return R;
+  }
+  function buildReceiptPdf(d) {
+    const W = 595, H = 842, c = [], Y = (y) => (H - y).toFixed(1);
+    const rect = (x, y, w, h, hex) => c.push(`${rgb(hex)} rg ${x} ${(H - y - h).toFixed(1)} ${w} ${h} re f`);
+    const text = (x, y, size, s, bold, hex) => c.push(`BT /${bold ? 'F2' : 'F1'} ${size} Tf ${rgb(hex || '#141a2b')} rg ${x} ${Y(y)} Td (${pdfEsc(s)}) Tj ET`);
+    const col = { successful: '#119a55', pending: '#c27800', failed: '#d6303a', refunded: '#1f4fe0' }[d.status] || '#5b6b8c', label = (ST[d.status] || ST.pending)[0].toUpperCase();
+    rect(0, 0, W, 124, '#1e35a8'); rect(0, 124, W, 6, '#3b82ff');
+    rect(40, 34, 58, 58, '#ffffff'); text(57, 77, 40, 'U', true, '#1e35a8');
+    text(114, 62, 26, 'UMARSHOYI-SUB', true, '#ffffff'); text(114, 86, 12, 'Transaction Receipt', false, '#dbe6ff');
+    rect(W - 40 - 128, 44, 128, 34, col); text(W - 40 - 128 + 64 - label.length * 4.1, 66, 13, label, true, '#ffffff');
+    text(40, 176, 30, (d.direction === 'in' ? '+ ' : '- ') + NGN(d.amount), true, '#1e35a8');
+    text(40, 198, 11, d.service + ' | ' + (d.direction === 'in' ? 'Credit' : 'Debit'), false, '#5f6f9a');
+    let y = 214;
+    if (d.status !== 'successful') { const m = d.status === 'pending' ? 'This transaction is still pending. This receipt is not proof of a successful payment.' : d.status === 'refunded' ? 'This transaction failed and the money was returned to the wallet.' : 'This transaction failed.'; wrap(m, 92).forEach((l) => { text(40, y + 10, 9.5, l, true, col); y += 13; }); y += 6; }
+    y += 6;
+    for (const [k, v] of receiptRows(d)) {
+      const lines = wrap(v, k === 'Receipt hash' ? 40 : 46); if (y + lines.length * 14 + 14 > 780) break;
+      text(40, y + 12, 9.5, k, false, '#7b8494'); lines.forEach((l, i) => text(200, y + 12 + i * 14, 10.5, l, i === 0 && k === 'Status', k === 'Status' ? col : '#141a2b'));
+      y += lines.length * 14 + 12; rect(40, y, W - 80, 0.6, '#e1e9fb'); y += 6;
+    }
+    rect(0, 800, W, 42, '#f1f5ff');
+    text(40, 817, 8.5, 'Generated by UMARSHOYI-SUB on ' + new Date().toLocaleString('en-GB') + '. Support can verify this receipt using the Transaction ID and receipt hash.', false, '#5f6f9a');
+    text(40, 830, 8.5, 'A receipt is only proof of payment when the status above is SUCCESSFUL.', false, '#5f6f9a');
+    const content = c.join('\n'), o = [];
+    o[1] = '<< /Type /Catalog /Pages 2 0 R >>'; o[2] = '<< /Type /Pages /Kids [3 0 R] /Count 1 >>';
+    o[3] = `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${W} ${H}] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >>`;
+    o[4] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>'; o[5] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>';
+    o[6] = `<< /Length ${content.length} >>\nstream\n${content}\nendstream`;
+    let pdf = '%PDF-1.4\n'; const off = [];
+    for (let i = 1; i <= 6; i++) { off[i] = pdf.length; pdf += `${i} 0 obj\n${o[i]}\nendobj\n`; }
+    const x = pdf.length; pdf += 'xref\n0 7\n0000000000 65535 f \n' + off.slice(1).map((n) => String(n).padStart(10, '0') + ' 00000 n \n').join('') + `trailer\n<< /Size 7 /Root 1 0 R >>\nstartxref\n${x}\n%%EOF`;
+    return pdf;
+  }
+  const pdfName = (d) => 'UMARSHOYI-Receipt-' + d.id.slice(0, 8).toUpperCase() + '.pdf';
+  function downloadPdf() {
+    if (!cur) return; const blob = new Blob([buildReceiptPdf(cur)], { type: 'application/pdf' }), u = URL.createObjectURL(blob), a = document.createElement('a');
+    a.href = u; a.download = pdfName(cur); document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(u); a.remove(); }, 1500); showToast('Receipt downloaded', 'success');
+  }
+  async function sharePdf() {
+    if (!cur) return; const d = cur, text = `UMARSHOYI-SUB receipt\n${d.service}\n${N(d.amount)} | ${(ST[d.status] || ST.pending)[0]}\nID: ${d.id}`;
+    try {
+      const file = new File([buildReceiptPdf(d)], pdfName(d), { type: 'application/pdf' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: 'UMARSHOYI-SUB Receipt', text }); return; }
+      if (navigator.share) { await navigator.share({ title: 'UMARSHOYI-SUB Receipt', text }); return; }
+    } catch (e) { if (e && e.name === 'AbortError') return; }
+    downloadPdf();    // this device cannot share: download instead
+  }
+
+  /* ================= actions ================= */
+  const ACT = {
+    open: (t) => openDetail(t.dataset.id), closeDetail: () => { const p = $('page-txc-detail'); if (p) p.classList.remove('active'); }, retryDetail: (t) => openDetail(t.dataset.id),
+    status: (t) => { S.f.status = t.dataset.v; load(true); }, pickService: () => pickService(), setService: (t) => { S.f.service = t.dataset.v; closeSheet(); load(true); },
+    openFilters: () => openFilters(), applyFilters: () => applyFilters(), clearAll: () => clearAll(), clearQ: () => { $('txcQ').value = ''; $('txcQx').style.display = 'none'; S.f.q = ''; load(true); },
+    focusSearch: () => { const i = $('txcQ'); i.scrollIntoView({ behavior: 'smooth', block: 'center' }); setTimeout(() => i.focus(), 250); },
+    more: () => load(false), retry: () => load(true), home: () => showTab('home'),
+    copy: (t) => copyText(t.dataset.t), copyId: () => copyText(cur.id), copyRef: () => copyText(cur.provider.reference), copyHash: () => copyText(cur.hash), copyToken: () => copyText(cur.token),
+    pdf: () => downloadPdf(), share: () => sharePdf(),
+    report: () => { const d = cur; if (window.shoyiReportTx) window.shoyiReportTx(d.id, `Issue with ${d.service} transaction ${d.id.slice(0, 8).toUpperCase()}: `); },
+    similar: () => { const k = cur.actions.similar_service; ACT.closeDetail(); showService(k); },
+    svcHist: (t) => { try { closePage(t.dataset.page); } catch {} showService(t.dataset.s); },
+  };
+  document.addEventListener('click', (e) => { const t = e.target.closest('[data-txc]'); if (!t) return; const f = ACT[t.dataset.txc]; if (f) { e.preventDefault(); f(t, e); } });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.matches && e.target.matches('.txc-item')) ACT.open(e.target); });
+  function showService(k) { S.f = { ...F0, service: k || '' }; showTab('transactions'); }
+
+  /* ================= hooks into the existing app ================= */
+  loadTxList = function () { open(); };                         // the Transactions tab now opens the Smart Transactions Center
+  showTxReceipt = function (id) { openDetail(id); };            // every transaction row in the app opens the new details page
+  const HIST = { cable: 'cable', electricity: 'electricity', bulksms: 'bulksms', a2c: 'a2c', exchange: 'exchange', exam: 'exam', referral: 'referral' };
+  const histKey = (n) => (n === 'purchase' ? (purchaseMode === 'airtime' ? 'airtime' : 'data') : n === 'card-purchase' ? (cardMode === 'data-card' ? 'datacard' : 'recharge') : HIST[n]);
+  function addHist(n) {     // each service page keeps its own history link, which opens the same central records filtered by that service
+    const k = histKey(n), pg = $('page-' + n), head = pg && pg.querySelector('.page-head'); if (!k || !head) return;
+    let b = head.querySelector('.txc-hist'); if (!b) { b = document.createElement('button'); b.className = 'txc-hist'; b.dataset.txc = 'svcHist'; head.appendChild(b); }
+    b.dataset.s = k; b.dataset.page = n; b.textContent = '\ud83d\udd52 History'; b.setAttribute('aria-label', svcName(k) + ' history');
+  }
+  const _showPage2 = showPage; showPage = function (n) { _showPage2(n); addHist(n); };
+  const _openPurchase2 = openPurchase; openPurchase = function (m) { _openPurchase2(m); addHist('purchase'); };
+  const _openCard2 = openCardPurchase; openCardPurchase = function (m) { _openCard2(m); addHist('card-purchase'); };
+  window.txcBuildReceipt = buildReceiptPdf;
+  const boot = () => ensureUI();
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
 })();
 

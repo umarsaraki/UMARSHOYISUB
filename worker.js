@@ -40,6 +40,7 @@ const MIGRATIONS = [
   `ALTER TABLE profiles ADD COLUMN exchange_balance REAL NOT NULL DEFAULT 0`,
   `ALTER TABLE profiles ADD COLUMN notif_seen_at TEXT NOT NULL DEFAULT '1970-01-01 00:00:00'`,
   `ALTER TABLE transactions ADD COLUMN wallet TEXT NOT NULL DEFAULT 'main'`,
+  `ALTER TABLE transactions ADD COLUMN updated_at TEXT`,
 ];
 const SAFE_PROFILE = 'id,full_name,username,phone,referral_code,referral_code_used,balance_ngn,atc_balance,exchange_balance,is_admin,is_banned,created_at';
 const WALLET_COL = { main: 'balance_ngn', exchange: 'exchange_balance', atc: 'atc_balance' };
@@ -216,7 +217,7 @@ async function settleFlutterwave(env, flwId) {
     if (paid < pending.amount) return { ok: false, reason: 'amount mismatch' };
     const r = await env.DB.batch([
       env.DB.prepare("UPDATE profiles SET balance_ngn=balance_ngn+? WHERE id=? AND EXISTS(SELECT 1 FROM transactions WHERE id=? AND status='pending')").bind(pending.amount, pending.user_id, pending.id),
-      env.DB.prepare("UPDATE transactions SET status='successful' WHERE id=? AND status='pending'").bind(pending.id),
+      env.DB.prepare("UPDATE transactions SET updated_at=CURRENT_TIMESTAMP, status='successful' WHERE id=? AND status='pending'").bind(pending.id),
     ]);
     return { ok: true, credited: r[1].meta.changes === 1 };
   }
@@ -243,11 +244,11 @@ async function paymentReturn(req, env) {
     outcome = r.ok ? 'success' : 'pending';
   } else if (txRef && isExchange) {
     await env.DB.batch([
-      env.DB.prepare("UPDATE transactions SET status='failed' WHERE id=(SELECT id FROM remittances WHERE tx_ref=? AND status='awaiting_payment') AND status='pending'").bind(txRef),
+      env.DB.prepare("UPDATE transactions SET updated_at=CURRENT_TIMESTAMP, status='failed' WHERE id=(SELECT id FROM remittances WHERE tx_ref=? AND status='awaiting_payment') AND status='pending'").bind(txRef),
       env.DB.prepare("UPDATE remittances SET status='cancelled', updated_at=CURRENT_TIMESTAMP WHERE tx_ref=? AND status='awaiting_payment'").bind(txRef),
     ]);
   } else if (txRef) {
-    await env.DB.prepare("UPDATE transactions SET status='failed' WHERE provider_ref=? AND type='fund' AND status='pending'").bind(txRef).run();
+    await env.DB.prepare("UPDATE transactions SET updated_at=CURRENT_TIMESTAMP, status='failed' WHERE provider_ref=? AND type='fund' AND status='pending'").bind(txRef).run();
   }
   return new Response(null, { status: 302, headers: { location: isExchange ? `/?exchange=${outcome}` : `/?funded=${outcome}` } });
 }
@@ -323,13 +324,13 @@ async function settlePurchase(env, txId, outcome, extra = {}) {
   const t = await env.DB.prepare("SELECT id,user_id,amount FROM transactions WHERE id=? AND status='pending'").bind(txId).first();
   if (!t) return false;                                   // already settled: nothing to do (safe to call twice)
   if (outcome === 'success') {
-    const r = await env.DB.prepare("UPDATE transactions SET status='successful', provider_ref=COALESCE(?,provider_ref) WHERE id=? AND status='pending'").bind(extra.ref ?? null, txId).run();
+    const r = await env.DB.prepare("UPDATE transactions SET updated_at=CURRENT_TIMESTAMP, status='successful', provider_ref=COALESCE(?,provider_ref) WHERE id=? AND status='pending'").bind(extra.ref ?? null, txId).run();
     if (r.meta.changes === 1) { await maybeEarnReferral(env, t.user_id, t.amount); return true; }
     return false;
   }
   const r = await env.DB.batch([
     env.DB.prepare("UPDATE profiles SET balance_ngn=balance_ngn+? WHERE id=? AND EXISTS(SELECT 1 FROM transactions WHERE id=? AND status='pending')").bind(t.amount, t.user_id, txId),
-    env.DB.prepare("UPDATE transactions SET status='failed' WHERE id=? AND status='pending'").bind(txId),
+    env.DB.prepare("UPDATE transactions SET updated_at=CURRENT_TIMESTAMP, status='failed' WHERE id=? AND status='pending'").bind(txId),
   ]);
   return r[1].meta.changes === 1;
 }
@@ -534,7 +535,7 @@ async function settleTransfer(env, reference, status) {
   if (status === 'SUCCESSFUL') {
     const c = await env.DB.prepare("UPDATE withdrawals SET status='successful', updated_at=CURRENT_TIMESTAMP WHERE id=? AND status IN ('pending','processing')").bind(wd.id).run();
     if (c.meta.changes === 1) {
-      await env.DB.prepare("UPDATE transactions SET status='successful' WHERE id=?").bind(wd.id).run();
+      await env.DB.prepare("UPDATE transactions SET updated_at=CURRENT_TIMESTAMP, status='successful' WHERE id=?").bind(wd.id).run();
       await notify(env, wd.user_id, 'Withdrawal successful', `\u20a6${Number(wd.net).toLocaleString()} has been sent to your bank account.`);
     }
   } else if (status === 'FAILED') await reverseWithdrawal(env, wd.id, 'The bank transfer failed');
@@ -627,7 +628,7 @@ async function settleRemittance(env, d) {
     env.DB.prepare("UPDATE remittances SET status='credited', flw_tx_id=?, updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='awaiting_payment'").bind(String(d.id), r.id),
     env.DB.prepare('UPDATE profiles SET exchange_balance=exchange_balance+? WHERE id=? AND changes() > 0').bind(r.receive_ngn, r.user_id),
     env.DB.prepare("INSERT INTO wallet_ledger(id,user_id,wallet,direction,amount,ref,type,note) SELECT ?,?,'exchange','in',?,?,'exchange',? WHERE changes() > 0").bind(uid(), r.user_id, r.receive_ngn, 'exchange-' + r.id, `${r.source_amount} ${r.currency} exchange`),
-    env.DB.prepare("UPDATE transactions SET status='successful' WHERE id=? AND status='pending'").bind(r.id),
+    env.DB.prepare("UPDATE transactions SET updated_at=CURRENT_TIMESTAMP, status='successful' WHERE id=? AND status='pending'").bind(r.id),
   ]);
   const credited = res[0].meta.changes === 1;
   if (credited) await notify(env, r.user_id, 'Exchange successful', `\u20a6${Number(r.receive_ngn).toLocaleString()} has been added to your Exchange Wallet.`);
@@ -746,6 +747,146 @@ FUNCTIONS['tx-detail'] = async (x, env, user) => {
   return json({ transaction: { id: t.id, type: t.type, label: t.label, amount: t.amount, direction: t.direction, status: t.status, wallet: t.wallet, created_at: t.created_at, reference: t.provider_ref, hash, short_hash: hash.slice(0, 16) }, extra, timeline: timelineFor(t) });
 };
 
+/* ===================== SMART TRANSACTIONS CENTER (txc-*) =====================
+   Added for the Transactions tab. Everything is filtered on the server and limited to the signed-in customer
+   (user.id always comes from the session, never from the request). Nothing here is invented: fees, references,
+   hashes and timeline events are shown only when they exist in the real records. The private business cost
+   (metadata.cost) is never sent to customers. */
+const TXC_SERVICES = {
+  data: ['Data Bundle', "t.type='data'"], airtime: ['Airtime', "t.type='airtime'"], a2c: ['Airtime to Cash', "t.type='airtime-to-cash'"],
+  electricity: ['Electricity', "t.type='electricity'"], cable: ['Cable TV', "t.type='cable'"], exam: ['Exam PIN', "t.type='exam'"],
+  recharge: ['Recharge Card', "t.type='airtime-card'"], datacard: ['Data Card', "t.type='data-card'"], bulksms: ['Bulk SMS', "t.type='bulk-sms'"],
+  exchange: ['Exchange', "t.type='exchange'"], w_main: ['Main Wallet', "t.wallet='main'"], w_exchange: ['Exchange Wallet', "t.wallet='exchange'"],
+  w_atc: ['Airtime-to-Cash Wallet', "t.wallet='atc'"], referral: ['Referral Earnings', "t.type='referral-bonus'"],
+};
+// refunded = the money went back to the customer: a failed outgoing payment (the app returns it in the same step that marks it failed),
+// or an Exchange payment that the admin marked as refunded.
+const TXC_REFUNDED = "((t.status='failed' AND t.direction='out') OR (t.type='exchange' AND t.status='failed' AND EXISTS(SELECT 1 FROM remittances rr WHERE rr.id=t.id AND rr.status='refunded')))";
+const TXC_NAME = { data: 'Data Bundle', airtime: 'Airtime', cable: 'Cable TV', electricity: 'Electricity', 'bulk-sms': 'Bulk SMS', exam: 'Exam PIN', 'data-card': 'Data Card', 'airtime-card': 'Recharge Card', 'airtime-to-cash': 'Airtime to Cash', exchange: 'Exchange', fund: 'Wallet Funding', 'referral-bonus': 'Referral Earnings', adjustment: 'Wallet Adjustment' };
+const txcService = (t) => t.type === 'withdrawal' ? (t.wallet === 'atc' ? 'Airtime-to-Cash Wallet Withdrawal' : 'Exchange Wallet Withdrawal') : (TXC_NAME[t.type] || 'Transaction');
+const txcMid = (s, k) => (s.length <= k * 2 ? s : s.slice(0, k) + '\u2022'.repeat(Math.max(3, s.length - k * 2)) + s.slice(-k));
+function txcSplit(t) {   // the app stores "<what was bought> → <phone / meter / smartcard>" in the label
+  const label = String(t.label || '');
+  if (['data', 'airtime', 'cable', 'electricity'].includes(t.type)) { const i = label.lastIndexOf(' \u2192 '); if (i > 0) return { desc: label.slice(0, i), ben: label.slice(i + 3).trim() }; }
+  return { desc: label, ben: null };
+}
+function txcRef(t) {      // a plain reference only: never a token or PIN list
+  const r = String(t.provider_ref || '');
+  if (!r || r.startsWith('Token:') || r.startsWith('[') || r.startsWith('{')) return null;
+  return r.length <= 80 ? r : null;
+}
+const txcProvider = (t, meta) => ({ data: 'VTUAgent', airtime: 'VTUAgent', cable: 'VTUAgent', electricity: 'VTUAgent', exchange: 'Flutterwave', withdrawal: 'Flutterwave' }[t.type] || (t.type === 'fund' && meta.provider === 'flutterwave' ? 'Flutterwave' : null));
+const txcDate = (s) => (/^\d{4}-\d{2}-\d{2}( \d{2}:\d{2}:\d{2})?$/.test(String(s || '')) ? String(s) : null);
+
+function txcWhere(x, userId) {
+  const w = ['t.user_id=?'], a = [userId];
+  const st = String(x.status || '');
+  if (['successful', 'pending', 'failed'].includes(st)) { w.push('t.status=?'); a.push(st); } else if (st === 'refunded') w.push(TXC_REFUNDED);
+  if (TXC_SERVICES[x.service]) w.push(TXC_SERVICES[x.service][1]);
+  if (x.direction === 'credit') w.push("t.direction='in'"); else if (x.direction === 'debit') w.push("t.direction='out'");
+  const from = txcDate(x.from), to = txcDate(x.to);
+  if (from) { w.push('t.created_at >= ?'); a.push(from); }
+  if (to) { w.push('t.created_at < ?'); a.push(to); }
+  const mn = Number(x.min), mx = Number(x.max);
+  if (x.min !== '' && x.min != null && Number.isFinite(mn)) { w.push('t.amount >= ?'); a.push(mn); }
+  if (x.max !== '' && x.max != null && Number.isFinite(mx)) { w.push('t.amount <= ?'); a.push(mx); }
+  const q = String(x.q || '').trim().slice(0, 60);
+  if (q) {
+    const lk = (s) => '%' + s.replace(/[\\%_]/g, '\\$&') + '%', ors = [], safe = "(t.provider_ref IS NULL OR (t.provider_ref NOT LIKE 'Token:%' AND t.provider_ref NOT LIKE '[%' AND t.provider_ref NOT LIKE '{%'))";
+    ors.push("t.id LIKE ? ESCAPE '\\'"); a.push(lk(q));
+    ors.push(`(t.provider_ref LIKE ? ESCAPE '\\' AND ${safe})`); a.push(lk(q));
+    ors.push("t.label LIKE ? ESCAPE '\\'"); a.push(lk(q));
+    const digits = q.replace(/\D/g, '');
+    if (digits.length >= 7 && /^[\d\s+-]+$/.test(q)) {    // phone numbers: 0803... and 234803... are the same person
+      const local = digits.startsWith('234') ? '0' + digits.slice(3) : digits, intl = digits.startsWith('0') ? '234' + digits.slice(1) : digits;
+      for (const v of new Set([local, intl])) { ors.push("t.label LIKE ? ESCAPE '\\'"); a.push(lk(v)); }
+    }
+    if (/^\d+(\.\d+)?$/.test(q)) { ors.push('t.amount = ?'); a.push(Number(q)); }
+    const ql = q.toLowerCase();
+    if (ql.length >= 3) {
+      for (const [k, v] of Object.entries(TXC_SERVICES)) if (v[0].toLowerCase().includes(ql)) ors.push(v[1]);
+      if ('withdrawal'.includes(ql) || 'withdraw'.includes(ql)) ors.push("t.type='withdrawal'");
+      if ('funding'.includes(ql) || 'fund'.includes(ql)) ors.push("t.type='fund'");
+    }
+    w.push('(' + ors.join(' OR ') + ')');
+  }
+  return { sql: w.join(' AND '), args: a };
+}
+
+FUNCTIONS['txc-summary'] = async (x, env, user) => {
+  const r = await env.DB.prepare(`SELECT COUNT(*) total, COALESCE(SUM(t.status='successful'),0) ok, COALESCE(SUM(t.status='pending'),0) pending, COALESCE(SUM(t.status='failed'),0) failed, COALESCE(SUM(${TXC_REFUNDED}),0) refunded FROM transactions t WHERE t.user_id=?`).bind(user.id).first();
+  return json({ total: r.total, successful: r.ok, pending: r.pending, failed: r.failed, refunded: r.refunded });
+};
+FUNCTIONS['txc-list'] = async (x, env, user) => {
+  const { sql, args } = txcWhere(x, user.id), size = Math.min(30, Math.max(5, Math.floor(Number(x.limit)) || 20));
+  let cur = '', cargs = [];
+  const m = /^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\|(\d+)$/.exec(String(x.cursor || ''));
+  if (m) { cur = ' AND (t.created_at < ? OR (t.created_at = ? AND t.rowid < ?))'; cargs = [m[1], m[1], Number(m[2])]; }
+  const rows = (await env.DB.prepare(`SELECT t.rowid rid, t.id, t.type, t.label, t.amount, t.direction, t.status, t.wallet, t.provider_ref, t.created_at, ${TXC_REFUNDED} refunded FROM transactions t WHERE ${sql}${cur} ORDER BY t.created_at DESC, t.rowid DESC LIMIT ${size + 1}`).bind(...args, ...cargs).all()).results;
+  const more = rows.length > size, page = rows.slice(0, size);
+  return json({
+    items: page.map((t) => {
+      const s = txcSplit(t), ref = txcRef(t);
+      return { id: t.id, type: t.type, service: txcService(t), desc: s.desc, beneficiary: s.ben ? txcMid(s.ben, s.ben.length > 11 ? 3 : 4) : null, amount: t.amount, direction: t.direction, status: t.refunded ? 'refunded' : t.status, wallet: t.wallet, ref: ref || t.id.slice(0, 8).toUpperCase(), created_at: t.created_at };
+    }),
+    has_more: more, next_cursor: more ? `${page[page.length - 1].created_at}|${page[page.length - 1].rid}` : null,
+  });
+};
+FUNCTIONS['txc-detail'] = async (x, env, user) => {
+  const t = await env.DB.prepare('SELECT * FROM transactions WHERE id=? AND user_id=?').bind(String(x.id || ''), user.id).first();
+  if (!t) return fail('Transaction not found.', 404);
+  let meta = {}; try { meta = JSON.parse(t.metadata || '{}') || {}; } catch {}
+  const refunded = !!(await env.DB.prepare(`SELECT ${TXC_REFUNDED} r FROM transactions t WHERE t.id=?`).bind(t.id).first()).r;
+  const status = refunded ? 'refunded' : t.status, svc = txcService(t), sp = txcSplit(t), hash = await txHash(env, t);
+  const prof = await env.DB.prepare('SELECT full_name, username FROM profiles WHERE id=?').bind(user.id).first();
+  const out = { id: t.id, service: svc, type: t.type, wallet: t.wallet, status, raw_status: t.status, direction: t.direction, amount: t.amount, created_at: t.created_at, updated_at: t.updated_at || null, description: sp.desc,
+    customer: { name: prof?.full_name || '', username: prof?.username || '' }, hash, short_hash: hash.slice(0, 16), provider: { name: txcProvider(t, meta), reference: txcRef(t), transaction_id: null }, beneficiary: null, breakdown: [], token: null, pins: null, timeline: [] };
+  const pr = String(t.provider_ref || '');
+  if (pr.startsWith('Token:')) out.token = pr.slice(6).trim();
+  if (pr.startsWith('[') || pr.startsWith('{')) { try { out.pins = JSON.parse(pr); } catch {} }
+  let wd = null, rem = null, ledgerRev = null, ledgerEx = null;
+  if (t.type === 'withdrawal') {
+    wd = await env.DB.prepare('SELECT wallet,amount,fee,net,bank_name,account_number,account_name,status,reference,created_at,updated_at FROM withdrawals WHERE id=? AND user_id=?').bind(t.id, user.id).first();
+    ledgerRev = await env.DB.prepare('SELECT created_at FROM wallet_ledger WHERE user_id=? AND ref=?').bind(user.id, 'withdraw-reversal-' + t.id).first();
+    if (wd) { out.beneficiary = { kind: 'bank', rows: [['Bank', wd.bank_name || ''], ['Account number', maskAcct(wd.account_number)], ['Account name', wd.account_name]] }; out.provider.reference = out.provider.reference || wd.reference; out.breakdown = [['Withdrawal amount', wd.amount], ['Fee', wd.fee], ['You receive', wd.net, 'total']]; }
+  } else if (t.type === 'exchange') {
+    rem = await env.DB.prepare('SELECT currency,source_amount,rate,fee_percent,fee_amount,receive_ngn,status,created_at,updated_at FROM remittances WHERE id=? AND user_id=?').bind(t.id, user.id).first();
+    ledgerEx = await env.DB.prepare('SELECT created_at FROM wallet_ledger WHERE user_id=? AND ref=?').bind(user.id, 'exchange-' + t.id).first();
+    if (rem) out.breakdown = [[`Amount paid (${rem.currency})`, rem.source_amount, 'raw'], [`Service fee (${rem.fee_percent}%)`, rem.fee_amount, 'raw'], ['Exchange rate (NGN per 1 ' + rem.currency + ')', rem.rate, 'raw'], ['Credited to Exchange Wallet', rem.receive_ngn, 'total']];
+  } else if (t.direction === 'out' && ['data', 'airtime', 'cable', 'electricity', 'bulk-sms', 'exam', 'data-card', 'airtime-card'].includes(t.type)) {
+    out.breakdown = [['Total amount', t.amount, 'total']];   // the app does not store a separate fee or discount for purchases, so none is shown
+  } else out.breakdown = [[t.direction === 'in' ? 'Amount credited' : 'Amount', t.amount, 'total']];
+  const b = sp.ben;
+  if (b && t.type === 'data') out.beneficiary = { kind: 'phone', rows: [['Phone number', b]] };
+  else if (b && t.type === 'airtime') out.beneficiary = { kind: 'phone', rows: [['Phone number', b]] };
+  else if (b && t.type === 'electricity') out.beneficiary = { kind: 'meter', rows: [['Meter number', b], ['Meter / disco', sp.desc]] };
+  else if (b && t.type === 'cable') out.beneficiary = { kind: 'card', rows: [['Smartcard / IUC number', b], ['Package', sp.desc]] };
+  else if (t.type === 'bulk-sms') out.beneficiary = { kind: 'sms', rows: [['Recipients', sp.desc]] };
+  // Timeline: only moments that are really recorded (row created, row last changed, withdrawal/exchange records, ledger entries)
+  const T = out.timeline, ev = (key, label, state, at, note) => T.push({ key, label, state, at: at || null, note: note || null });
+  const createdFinal = t.status === 'successful' && (['referral-bonus', 'airtime-to-cash', 'adjustment'].includes(t.type) || (t.type === 'fund' && meta.via));   // these rows are only ever created as successful
+  if (createdFinal) ev('final', t.direction === 'in' ? 'Money received' : 'Completed', 'done', t.created_at);
+  else if (t.type === 'exchange') ev('created', 'Exchange request created', 'done', t.created_at);
+  else if (t.type === 'withdrawal') ev('created', 'Withdrawal requested, amount taken from wallet', 'done', t.created_at);
+  else if (t.direction === 'out') { ev('created', 'Transaction created', 'done', t.created_at); ev('paid', 'Paid from your wallet', 'done', t.created_at); }
+  else if (!createdFinal) ev('created', 'Transaction recorded', 'done', t.created_at);
+  const doneAt = t.updated_at || (wd && wd.status !== 'pending' && wd.status !== 'processing' ? wd.updated_at : null) || (rem && rem.status !== 'awaiting_payment' ? rem.updated_at : null);
+  if (t.status === 'pending') ev('now', t.type === 'exchange' ? 'Waiting for payment confirmation' : t.type === 'withdrawal' ? 'Processing with the bank' : 'Waiting for confirmation', 'pending', null, 'Current status');
+  else if (t.status === 'successful' && !createdFinal) {
+    if (t.type === 'exchange') { ev('paid', 'Payment confirmed', 'done', rem ? rem.updated_at : doneAt); ev('credited', 'Credited to Exchange Wallet', 'done', ledgerEx ? ledgerEx.created_at : null); }
+    else if (t.type === 'withdrawal') ev('sent', 'Sent to your bank', 'done', doneAt);
+    else ev('final', t.direction === 'in' ? 'Successful, money received' : 'Successful', 'done', doneAt);
+  } else if (t.status === 'failed') {
+    ev('failed', t.type === 'exchange' ? 'Payment not completed' : 'Failed', 'failed', doneAt);
+    if (refunded) ev('refund', t.type === 'withdrawal' ? 'Money returned to your ' + (t.wallet === 'atc' ? 'Airtime-to-Cash Wallet' : 'Exchange Wallet') : t.type === 'exchange' ? 'Payment refunded' : 'Refunded to your Main Wallet', 'refunded', ledgerRev ? ledgerRev.created_at : doneAt, t.type === 'withdrawal' && ledgerRev ? 'Confirmed by the wallet ledger' : null);
+  }
+  const hasRef = !!out.provider.reference;
+  const typeKey = Object.keys(TXC_SERVICES).find((k) => TXC_SERVICES[k][1] === `t.type='${t.type}'`);
+  const walletKey = { main: 'w_main', exchange: 'w_exchange', atc: 'w_atc' }[t.wallet] || null;
+  out.actions = { copy_provider_ref: hasRef, copy_token: !!out.token, similar_service: typeKey || walletKey };
+  return json(out);
+};
+
 /* ----- saved bank accounts (verified with Flutterwave before saving) ----- */
 FUNCTIONS['bank-accounts'] = async (x, env, user) => {
   const rows = (await env.DB.prepare('SELECT id,bank_name,account_number,account_name,nickname FROM bank_accounts WHERE user_id=? ORDER BY created_at DESC').bind(user.id).all()).results;
@@ -828,7 +969,7 @@ async function reverseWithdrawal(env, id, reason) {   // gives the money back ex
     env.DB.prepare("UPDATE withdrawals SET status='reversed', error=?, updated_at=CURRENT_TIMESTAMP WHERE id=? AND status IN ('pending','processing')").bind(String(reason).slice(0, 200), id),
     env.DB.prepare(`UPDATE profiles SET ${col}=${col}+? WHERE id=? AND changes() > 0`).bind(wd.amount, wd.user_id),
     ledgerIfChanged(env, { userId: wd.user_id, wallet: wd.wallet, dir: 'in', amount: wd.amount, ref: 'withdraw-reversal-' + id, type: 'withdrawal-reversal', note: 'Withdrawal failed, money returned' }),
-    env.DB.prepare("UPDATE transactions SET status='failed' WHERE id=?").bind(id),
+    env.DB.prepare("UPDATE transactions SET updated_at=CURRENT_TIMESTAMP, status='failed' WHERE id=?").bind(id),
   ]);
   if (r[0].meta.changes !== 1) return false;
   await notify(env, wd.user_id, 'Withdrawal failed', `Your withdrawal of \u20a6${Number(wd.amount).toLocaleString()} did not go through. The money is back in your ${WALLET_NAME[wd.wallet]}.`);
@@ -1081,7 +1222,7 @@ FUNCTIONS['admin-manage-users'] = async (x, env, user) => {
         const back = t.type === 'airtime-to-cash' ? (JSON.parse(t.metadata || '{}').gross ?? t.amount) : t.amount;
         ops.push(db.prepare(`UPDATE profiles SET ${wallet}=${wallet}+? WHERE id=? AND ${guard}`).bind(back, t.user_id, t.id));
       }
-      ops.push(db.prepare("UPDATE transactions SET status=? WHERE id=? AND status='pending'").bind(ok ? 'successful' : 'failed', t.id));
+      ops.push(db.prepare("UPDATE transactions SET updated_at=CURRENT_TIMESTAMP, status=? WHERE id=? AND status='pending'").bind(ok ? 'successful' : 'failed', t.id));
       ops.push(log('resolve_transaction', t.user_id, `${t.id} -> ${ok ? 'successful' : 'failed (refunded)'}`));
       await db.batch(ops);
       return json({ ok: true });
@@ -1131,7 +1272,7 @@ FUNCTIONS['admin-manage-users'] = async (x, env, user) => {
     case 'mark_refunded': { // a payment that did not match: after you refunded the customer in the Flutterwave dashboard
       const c = await db.prepare("UPDATE remittances SET status='refunded', updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='amount_mismatch'").bind(String(x.id || '')).run();
       if (c.meta.changes !== 1) return fail('This exchange cannot be marked as refunded.');
-      await db.prepare("UPDATE transactions SET status='failed' WHERE id=? AND status='pending'").bind(String(x.id)).run();
+      await db.prepare("UPDATE transactions SET updated_at=CURRENT_TIMESTAMP, status='failed' WHERE id=? AND status='pending'").bind(String(x.id)).run();
       await log('mark_refunded', null, String(x.id)).run();
       return json({ ok: true });
     }
@@ -1148,7 +1289,7 @@ FUNCTIONS['admin-manage-users'] = async (x, env, user) => {
       const wd = await db.prepare('SELECT user_id,net FROM withdrawals WHERE id=?').bind(id).first();
       const c = await db.prepare("UPDATE withdrawals SET status='successful', updated_at=CURRENT_TIMESTAMP WHERE id=? AND status IN ('pending','processing')").bind(id).run();
       if (c.meta.changes !== 1) return fail('This withdrawal is no longer pending.', 404);
-      await db.prepare("UPDATE transactions SET status='successful' WHERE id=?").bind(id).run();
+      await db.prepare("UPDATE transactions SET updated_at=CURRENT_TIMESTAMP, status='successful' WHERE id=?").bind(id).run();
       await notify(env, wd.user_id, 'Withdrawal successful', `\u20a6${Number(wd.net).toLocaleString()} has been sent to your bank account.`);
       await log('confirm_withdrawal', null, id).run();
       return json({ ok: true });
@@ -1605,12 +1746,77 @@ function fallbackReply(kb, text) {
   return { text: ha ? 'Ba ni da tabbataccen bayani a kan wannan a yanzu, kuma SHOYI AI ba ya samuwa. Zan iya taimaka maka ka buɗe ticket ko ka tuntuɓi ma\'aikaci.' : 'I do not have verified information on that right now, and SHOYI AI is not available at the moment. You can open a ticket or ask for human support.', actions: [{ type: 'offer_ticket' }, { type: 'offer_handover' }], unanswered: redact(clip(text, 200)).replace(/\d{6,}/g, '***'), mode: 'articles' };
 }
 
+
+/* ---- Smart mode (free, no paid AI): SHOYI knows the app through the admin-managed knowledge base and answers account questions
+   with the same safe, read-only lookups the AI would use. Anything it cannot answer is saved for the admin (Admin > SHOYI > Questions). ---- */
+const naira = (n) => '\u20a6' + Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
+const STX = { successful: ['Successful', 'An samu nasara'], pending: ['Pending (still being processed, please do not pay again)', 'Pending (ana sarrafa shi, kada ka sake biya)'], failed: ['Failed', 'Ya gaza'], refunded: ['Failed and refunded', 'Ya gaza kuma an mayar da kuɗi'] };
+async function smartReply(env, user, text, kb, svc, convId) {
+  const ha = looksHausa(text), t = text.toLowerCase(), ctx = { actions: [], ticket: null, unanswered: null, kb, svc, conversationId: convId };
+  const T = (en, hau) => (ha ? hau : en), has = (re) => re.test(t);
+  const done = (txt, extra) => ({ text: txt, actions: ctx.actions, ticket: ctx.ticket, unanswered: ctx.unanswered, mode: 'rules', ...extra });
+  const tools = (n, i) => runTool(env, user, n, i || {}, ctx);
+  const line = (x) => `- ${x.description || x.type}: ${naira(x.amount_ngn)} (${x.direction === 'money in' ? '+' : '-'}), ${STX[x.status] ? T(STX[x.status][0], STX[x.status][1]) : x.status}, ${String(x.created_at_utc || '').slice(0, 16)} UTC`;
+  const kbAnswer = () => { const h = searchKb(kb, text, 2, false).filter((s) => s.score >= 2)[0]; return h ? clip(h.body, 700) : null; };
+  const nav = (page) => runTool(env, user, 'navigate_to', { page }, ctx);
+  const howto = has(/^(how|yaya|ta yaya|menene|me ake|why|me ya sa)\b/);
+  const NAVK = [[/\b(data)\b/, 'data'], [/airtime|kati/, 'airtime'], [/cable|dstv|gotv|startimes/, 'cable'], [/electric|nepa|meter|wuta|haske/, 'electricity'], [/exchange/, 'exchange'], [/withdraw|cire/, 'withdraw'], [/fund|ƙara kuɗi|kara kudi|add money/, 'fund'], [/password/, 'change_password'], [/\bpin\b/, 'change_pin'], [/transaction|history|tarihi/, 'history'], [/referral|refer/, 'referral'], [/ticket/, 'my_tickets'], [/profile|bank account/, 'profile']];
+
+  if (has(/^(hi|hello|hey|good (morning|afternoon|evening)|sannu|barka|ina kwana|ina wuni|assalamu|salam)/) && t.length < 40) return done(T('Hello! I am SHOYI, the UMARSHOYI-SUB virtual assistant (automated, not a human). Ask me about wallets, purchases, withdrawals or your transactions.', 'Sannu! Ni SHOYI ne, mataimakin UMARSHOYI-SUB na zamani (ba mutum ba ne). Ka tambaye ni game da wallet, sayayya, cire kuɗi ko transactions ɗinka.'));
+  if (has(/\b(human|agent|real person|customer care|ma.aikaci|mutum|wakili)\b/)) { ctx.actions.push({ type: 'offer_handover' }); return done(T('I can pass your request to the human support team. Tap the button below and I will give you a reference number.', 'Zan iya mika buƙatarka ga ma\'aikatan tallafi. Ka danna maɓallin da ke ƙasa, zan ba ka lambar reference.')); }
+  const idm = text.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|UMSW-[A-Za-z0-9-]+|flw-\d+/i);
+  if (idm) {
+    const r = await tools('get_transaction', { reference: idm[0] });
+    if (!r.found) return done(T('I could not find that transaction on your account. Please check the ID, or open Transactions and tap the transaction.', 'Ban sami wannan transaction a account ɗinka ba. Ka duba ID ɗin, ko ka buɗe Transactions ka danna transaction ɗin.'));
+    return done(`${line(r)}\n${T('Transaction ID', 'Transaction ID')}: ${r.transaction_id}${r.refund_note ? '\n' + r.refund_note : ''}${r.status === 'pending' ? '\n' + T('It is still being processed. If it stays pending for a long time, I can open a ticket for you.', 'Har yanzu ana sarrafa shi. Idan ya daɗe a pending, zan iya buɗe maka ticket.') : ''}`);
+  }
+  if (!howto && has(/balance|how much|my money|kuɗi na|kudi na|kuɗina|kudina|nawa (nake|ne)/)) {
+    const b = await tools('get_wallet_balances');
+    ctx.actions.push({ type: 'navigate', page: 'history', label: 'Transactions' });
+    return done(`${T('Your balances', 'Kuɗinka')}:\n- Main Wallet: ${naira(b.main_wallet_ngn)}\n- Exchange Wallet: ${naira(b.exchange_wallet_ngn)}\n- Airtime-to-Cash Wallet: ${naira(b.airtime_to_cash_wallet_ngn)}${b.pending_exchange_not_yet_available_ngn ? '\n' + T('Pending Exchange (not yet available): ', 'Exchange da ke pending (bai samu ba tukuna): ') + naira(b.pending_exchange_not_yet_available_ngn) : ''}`);
+  }
+  if (has(/pending|jiran|not (received|delivered)|bai (shigo|iso)|ban samu/) && !has(/withdraw|cire/)) {
+    const r = await tools('get_recent_transactions', { status: 'pending', limit: 5 });
+    if (r.transactions.length) return done(`${T('You have these pending transactions', 'Kana da waɗannan transactions da ke pending')}:\n${r.transactions.map(line).join('\n')}\n${T('Pending means it is still being processed. Please do not pay again. If it fails, the money returns to your wallet. If it takes too long, I can open a ticket.', 'Pending na nufin ana sarrafa shi. Kada ka sake biya. Idan ya gaza, ana mayar da kuɗin zuwa wallet ɗinka. Idan ya daɗe, zan iya buɗe maka ticket.')}`);
+    const k = kbAnswer(); return done(T('You have no pending transactions right now.', 'Ba ka da transaction da ke pending a yanzu.') + (k ? '\n\n' + k : ''));
+  }
+  if (has(/failed|refund|gaza|an mayar|mayar da/)) {
+    const r = await tools('get_recent_transactions', { status: 'failed', limit: 5 });
+    if (r.transactions.length) return done(`${T('Your recent failed transactions', 'Transactions ɗinka da suka gaza kwanan nan')}:\n${r.transactions.map(line).join('\n')}\n${T('For a failed purchase the amount is returned to your Main Wallet in the same step. If you did not get the money back, I can open a ticket.', 'Idan sayayya ta gaza, ana mayar da kuɗin zuwa Main Wallet ɗinka a lokaci guda. Idan ba ka samu kuɗin ba, zan iya buɗe maka ticket.')}`);
+  }
+  if (!howto && has(/withdraw|cire/)) {
+    const r = await tools('get_withdrawals', { limit: 3 });
+    if (r.withdrawals.length) return done(`${T('Your recent withdrawals', 'Withdrawals ɗinka na kwanan nan')}:\n${r.withdrawals.map((w) => `- ${naira(w.amount_ngn)} (${T('fee', 'kuɗin aiki')} ${naira(w.fee_ngn)}), ${w.bank} ${w.account}: ${w.status}`).join('\n')}\n${T('Pending/Processing means the bank transfer is not confirmed yet. A failed or reversed withdrawal returns the money to the same wallet.', 'Pending/Processing na nufin ba a tabbatar da transfer ɗin ba tukuna. Idan ya gaza, ana mayar da kuɗin zuwa wallet ɗin da aka cire.')}`);
+  }
+  if (!howto && has(/(last|recent|latest|my transactions?|transaction history|tarihi|ƙarshe|karshe|sayayya ta)/)) {
+    const r = await tools('get_recent_transactions', { limit: 5 });
+    ctx.actions.push({ type: 'navigate', page: 'history', label: 'Transactions' });
+    return done(r.transactions.length ? `${T('Your latest transactions', 'Transactions ɗinka na baya-bayan nan')}:\n${r.transactions.map(line).join('\n')}` : T('You have no transactions yet.', 'Ba ka da wata transaction tukuna.'));
+  }
+  if (has(/referral (code|link)|my referral|lambar referral/)) { const a = await tools('get_account_summary'); return done(a.referral_code ? `${T('Your referral code is', 'Lambar referral ɗinka ita ce')} ${a.referral_code}. ${T('Share it from Profile > Refer & Earn.', 'Ka raba ta daga Profile > Refer & Earn.')}` : T('You do not have a referral code yet.', 'Ba ka da lambar referral tukuna.')); }
+  if (has(/(my|status|na|dina).*tickets?|tickets?.*(status|my)/)) {
+    const r = await tools('get_my_tickets');
+    ctx.actions.push({ type: 'navigate', page: 'my_tickets', label: 'My Support Tickets' });
+    return done(r.tickets.length ? `${T('Your tickets', 'Tickets ɗinka')}:\n${r.tickets.map((k) => `- ${k.reference}: ${k.status}`).join('\n')}` : T('You have no support tickets.', 'Ba ka da ticket.'));
+  }
+  if (has(/\b(report|complain|korafi|buɗe ticket|open a ticket|create a ticket|submit a ticket)\b/)) { ctx.actions.push({ type: 'offer_ticket' }); return done(T('I can help you open a support ticket. Tap the button below.', 'Zan iya taimaka maka ka buɗe ticket. Ka danna maɓallin da ke ƙasa.')); }
+  const k = kbAnswer();
+  if (has(/\b(where|ina|open|go to|take me|kai ni|nuna|show me)\b/) || howto) {
+    for (const [re, pg] of NAVK) if (re.test(t)) { const n = await nav(pg); if (n && n.ok === false) return done(T(String(n.error || 'That service is not available yet.'), 'Wannan service ɗin ba ya samuwa a yanzu. Za a sanar idan ya samu.')); break; }
+  }
+  if (k) return done(k);
+  if (ctx.actions.length) return done(T('Here is a shortcut for you.', 'Ga hanyar da za ka bi.'));
+  ctx.unanswered = redact(clip(text, 200)).replace(/\d{6,}/g, '***');   // saved for the admin (Admin > SHOYI > Questions) so the answer can be added
+  ctx.actions.push({ type: 'offer_ticket' }, { type: 'offer_handover' });
+  return done(T('I do not have verified information on that yet. I have saved your question for the team. You can open a ticket or ask for human support.', 'Ba ni da tabbataccen bayani a kan wannan tukuna. Na adana tambayarka ga ƙungiyar. Za ka iya buɗe ticket ko ka nemi ma\'aikaci.'), { notice: null });
+}
+
 /* ------------------------------------------------------- customer functions */
 const FN = {};
 FN['shoyi-config'] = async (x, env) => {
   const wa = String(env.SUPPORT_WHATSAPP || '').replace(/\D/g, '');
   const s = await env.DB.prepare('SELECT active_avatar_url u, updated_at t FROM shoyi_settings WHERE id=1').first();
-  return json({ name: 'SHOYI', label: 'AI Customer Support', enabled: env.SHOYI_ENABLED !== '0', ai_available: aiAvailable(env), avatar_url: s?.u || '', avatar_updated_at: s?.t || '', hours: env.SHOYI_SUPPORT_HOURS || '', whatsapp: wa });
+  return json({ name: 'SHOYI', label: 'AI Customer Support', enabled: env.SHOYI_ENABLED !== '0', ai_available: aiAvailable(env), online: env.SHOYI_ENABLED !== '0', mode: aiAvailable(env) ? 'ai' : 'smart', avatar_url: s?.u || '', avatar_updated_at: s?.t || '', hours: env.SHOYI_SUPPORT_HOURS || '', whatsapp: wa });
 };
 FN['shoyi-history'] = async (x, env, user) => {
   const c = await env.DB.prepare("SELECT id FROM shoyi_conversations WHERE user_id=? AND status='open' AND updated_at > datetime('now','-1 day') ORDER BY updated_at DESC LIMIT 1").bind(user.id).first();
@@ -1641,13 +1847,13 @@ FN['shoyi-chat'] = async (x, env, user) => {
   let r, error = null;
   if (aiAvailable(env)) {
     try { r = await runAi(env, user, conv.id, rows, kb, svc, hadSecret); r.mode = 'ai'; }
-    catch (e) { aiFailAt = Date.now(); error = clip(e?.message || e, 160); console.error('shoyi ai failed', error); r = fallbackReply(kb, safe); r.notice = 'ai_unavailable'; }
-  } else r = fallbackReply(kb, safe);
+    catch (e) { aiFailAt = Date.now(); error = clip(e?.message || e, 160); console.error('shoyi ai failed', error); r = await smartReply(env, user, safe, kb, svc, conv.id); }
+  } else r = await smartReply(env, user, safe, kb, svc, conv.id);
   const aId = uid(), meta = JSON.stringify({ actions: r.actions || [], ticket: r.ticket || null, mode: r.mode, notice: r.notice || null });
   await env.DB.batch([
     env.DB.prepare('INSERT INTO shoyi_messages(id,conversation_id,user_id,role,content,meta) VALUES(?,?,?,?,?,?)').bind(aId, conv.id, user.id, 'assistant', r.text, meta),
     env.DB.prepare('UPDATE shoyi_conversations SET updated_at=CURRENT_TIMESTAMP WHERE id=?').bind(conv.id),
-    env.DB.prepare('INSERT INTO shoyi_usage_logs(id,user_id,conversation_id,mode,model,input_tokens,output_tokens,latency_ms,error,unanswered) VALUES(?,?,?,?,?,?,?,?,?,?)').bind(uid(), user.id, conv.id, r.mode || 'articles', r.model || null, r.tin || null, r.tout || null, r.ms || null, error, r.unanswered || null),
+    env.DB.prepare('INSERT INTO shoyi_usage_logs(id,user_id,conversation_id,mode,model,input_tokens,output_tokens,latency_ms,error,unanswered) VALUES(?,?,?,?,?,?,?,?,?,?)').bind(uid(), user.id, conv.id, r.mode || 'rules', r.model || null, r.tin || null, r.tout || null, r.ms || null, error, r.unanswered || null),
   ]);
   return json({ data: { conversation_id: conv.id, reply: { id: aId, content: r.text, created_at: new Date().toISOString().slice(0, 19).replace('T', ' '), meta: JSON.parse(meta) }, ai_available: aiAvailable(env), secret_removed: hadSecret } });
 };

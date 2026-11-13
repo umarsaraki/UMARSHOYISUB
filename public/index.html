@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<script>(function(){try{var p=JSON.parse(localStorage.getItem("ums_prefs")||"{}"),d=document.documentElement;d.dataset.theme=(p.theme==="dark"||(p.theme==="system"&&matchMedia("(prefers-color-scheme: dark)").matches))?"dark":"light";d.dataset.ts=p.text_size||"normal";if(p.reduce_motion)d.classList.add("reduce-motion")}catch(e){}})()</script>
 <script src="/data-plans.js"></script>
 <title>UMARSHOYI-SUB — Data & Airtime</title>
 
@@ -475,6 +476,128 @@ textarea.sh-ad-in{min-height:120px; resize:vertical;}
 @media (min-width:720px){ .txc-sum, .txc-chips, .txc-svc, .txc-search, #txcList, .txc-more{max-width:640px; margin-left:auto; margin-right:auto;} .txc-svc,.txc-search,.txc-more{width:640px;} }
 
 </style>
+<style id="settingsCss">
+:root{--soft:#eef1fb}
+/* ---- dark theme ---- */
+html[data-theme=dark]{color-scheme:dark;--bg:#0a1020;--card:#131c36;--soft:#1b2748;--line:#243157;--text:#e9eeff;--sub:#9fb0dd;--sh:0 10px 28px rgba(0,0,0,.38);--sh-sm:0 4px 14px rgba(0,0,0,.32)}
+html[data-theme=dark] body{background:#0a1020}
+html[data-theme=dark] .page{background:#0a1020}
+html[data-theme=dark] .page-head{background:rgba(10,16,32,.94)}
+html[data-theme=dark] .page-title,html[data-theme=dark] .tab-title,html[data-theme=dark] .section-title,html[data-theme=dark] .back-btn,html[data-theme=dark] .plan-size,html[data-theme=dark] .hd-name{color:#d6e3ff}
+html[data-theme=dark] .skel{background:linear-gradient(90deg,#16213f 0,#1d2a50 40%,#16213f 80%)}
+html[data-theme=dark] .banner,html[data-theme=dark] .notice,html[data-theme=dark] .qa,html[data-theme=dark] .svc{background:var(--soft)}
+html[data-theme=dark] .nav{border-top-color:var(--line)}
+html[data-theme=dark] .field input::placeholder{color:#6f80ad}
+html[data-theme=dark] .feature-icon{background:var(--soft)}
+html[data-theme=dark] .tx-icon{background:var(--soft)}
+html[data-theme=dark] .net-item{background:var(--card)}
+html[data-theme=dark] .net-item.selected{background:var(--soft)}
+html[data-theme=dark] .plan-row{background:var(--card)}
+html[data-theme=dark] .settings-list{background:var(--card)}
+html[data-theme=dark] .profit-card{background:var(--card)}
+html[data-theme=dark] .chat-bubble.bot{background:var(--soft)}
+html[data-theme=dark] .chat-quick span{background:var(--card)}
+html[data-theme=dark] .atab{background:var(--card)}
+html[data-theme=dark] .field input,html[data-theme=dark] .field select,html[data-theme=dark] .field textarea{background:var(--card)}
+html[data-theme=dark] .bell2{background:var(--card)}
+html[data-theme=dark] .searchbar{background:var(--card)}
+html[data-theme=dark] .chip{background:var(--card)}
+html[data-theme=dark] .btn-more{background:var(--soft)}
+html[data-theme=dark] .btn-outline{background:var(--soft)}
+html[data-theme=dark] .copyrow{background:var(--card)}
+html[data-theme=dark] .copybtn{background:var(--soft)}
+html[data-theme=dark] .sumbox{background:var(--card)}
+html[data-theme=dark] .segi{background:var(--card)}
+html[data-theme=dark] .segi.on{background:var(--soft)}
+html[data-theme=dark] .bankc{background:var(--card)}
+html[data-theme=dark] .bankc.on{background:var(--soft)}
+html[data-theme=dark] .bankc .bi{background:var(--soft)}
+html[data-theme=dark] .iconbtn{background:var(--soft)}
+html[data-theme=dark] .tl{background:var(--card)}
+html[data-theme=dark] .rbtns button{background:var(--card)}
+html[data-theme=dark] .sheet{background:var(--card)}
+html[data-theme=dark] .fav-chip{background:var(--card)}
+html[data-theme=dark] .sh-av{background:var(--soft)}
+html[data-theme=dark] .sh-search{background:var(--card)}
+html[data-theme=dark] .sh-card{background:var(--card)}
+html[data-theme=dark] .sh-topics{background:var(--card)}
+html[data-theme=dark] .sh-item{background:var(--card)}
+html[data-theme=dark] .sh-row.bot .sh-bub{background:var(--card)}
+html[data-theme=dark] .sh-act{background:var(--card)}
+html[data-theme=dark] .sh-tk{background:var(--card)}
+html[data-theme=dark] .sh-chip{background:var(--card)}
+html[data-theme=dark] .sh-comp .box{background:var(--card)}
+html[data-theme=dark] .sh-form textarea{background:var(--card)}
+html[data-theme=dark] .sh-form select{background:var(--card)}
+html[data-theme=dark] .sh-tkrow{background:var(--card)}
+html[data-theme=dark] .sh-tkrow .nt{background:var(--soft)}
+html[data-theme=dark] .sh-fb button{background:var(--card)}
+html[data-theme=dark] .sh-fb button.on{background:var(--soft)}
+html[data-theme=dark] .sh-ad-chips button{background:var(--card)}
+html[data-theme=dark] .sh-ad-card{background:var(--card)}
+html[data-theme=dark] .sh-ad-stats div{background:var(--soft)}
+html[data-theme=dark] .sh-btn.out{background:var(--card)}
+html[data-theme=dark] .sh-btn.red{background:var(--card)}
+html[data-theme=dark] .sh-prev>div{background:var(--soft)}
+html[data-theme=dark] .sh-prev .mini-msg span{background:var(--card)}
+html[data-theme=dark] .sh-ad-in{background:var(--card)}
+html[data-theme=dark] .txc-sum{background:var(--card)}
+html[data-theme=dark] .txc-chips button{background:var(--soft)}
+html[data-theme=dark] .txc-svc{background:var(--card)}
+html[data-theme=dark] .txc-search{background:var(--card)}
+html[data-theme=dark] .txc-tags span{background:var(--soft)}
+html[data-theme=dark] .txc-item{background:var(--card)}
+html[data-theme=dark] .txc-state{background:var(--card)}
+html[data-theme=dark] .txc-pick button{background:var(--card)}
+html[data-theme=dark] .txc-pick button.on{background:var(--soft)}
+html[data-theme=dark] .txc-fgrid select,html[data-theme=dark] .txc-fgrid input{background:var(--card)}
+html[data-theme=dark] .txc-hero{background:var(--card)}
+html[data-theme=dark] .txc-card{background:var(--card)}
+html[data-theme=dark] .cp{background:var(--soft)}
+html[data-theme=dark] .pin{background:var(--soft)}
+html[data-theme=dark] .tl::before{background:var(--soft)}
+html[data-theme=dark] .txc-act{background:var(--card)}
+html[data-theme=dark] .txc-hist{background:var(--soft)}
+/* ---- text size / motion ---- */
+html[data-ts=small] .page>*,html[data-ts=small] .app,html[data-ts=small] .nav,html[data-ts=small] .auth-screen>*{zoom:.92}
+html[data-ts=large] .page>*,html[data-ts=large] .app,html[data-ts=large] .nav,html[data-ts=large] .auth-screen>*{zoom:1.1}
+html.reduce-motion *,html.reduce-motion *::before,html.reduce-motion *::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}
+/* ---- profile + settings ---- */
+.hero-top{background:linear-gradient(160deg,var(--blue-1),var(--blue-2));color:#fff;padding:16px 18px 26px;border-radius:0 0 26px 26px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:6}
+.hero-top .hb{width:40px;height:40px;border-radius:50%;border:none;background:rgba(255,255,255,.18);color:#fff;font-size:19px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none}
+.hero-top .ht{flex:1;min-width:0;text-align:center;font-size:20px;font-weight:800}
+.hero-top .ht.l{text-align:left}.hero-top small{display:block;font-size:12.5px;font-weight:500;opacity:.88}
+.pf-hero{text-align:center;margin-top:-6px}
+.pf-av{position:relative;display:inline-block;cursor:pointer;margin-top:4px}
+.pf-avimg{width:104px;height:104px;border-radius:50%;background:linear-gradient(145deg,var(--electric),var(--blue-2)) center/cover;border:4px solid #f5b50a;box-shadow:var(--sh);display:flex;align-items:center;justify-content:center;color:#fff;font-size:40px;font-weight:800}
+.has-img{background-size:cover!important;background-position:center!important}
+.has-img #avatarLetter,.has-img #profileAvatarLetter{display:none}
+.pf-cam{position:absolute;right:-2px;bottom:2px;width:32px;height:32px;border-radius:50%;background:var(--blue-1);color:#fff;border:3px solid var(--card);display:flex;align-items:center;justify-content:center}
+.pf-cam .ic{width:16px;height:16px}
+.pf-name{font-size:22px;font-weight:800;margin-top:10px;color:var(--blue-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+html[data-theme=dark] .pf-name{color:#d6e3ff}
+.pf-user{display:inline-block;margin-top:6px;padding:5px 16px;border-radius:14px;background:var(--soft);color:var(--blue-1);font-weight:700;font-size:14px}
+.pf-act{display:inline-block;margin:8px 0 0 8px;padding:5px 14px;border-radius:14px;background:#13a05a;color:#fff;font-weight:700;font-size:12.5px}
+.pf-rm{display:block;margin:8px auto 0;background:none;border:none;color:var(--danger);font-weight:700;font-size:12.5px;cursor:pointer}
+.pf-wal{display:flex;background:var(--card);border-radius:18px;box-shadow:var(--sh-sm);margin:16px 0 14px;overflow:hidden}
+.pf-wal>div{flex:1;text-align:center;padding:12px 4px;cursor:pointer;border-right:1px solid var(--line);min-width:0}.pf-wal>div:last-child{border:none}
+.pf-wal b{display:block;font-size:15px;color:var(--blue-2);overflow:hidden;text-overflow:ellipsis}.pf-wal span{font-size:11.5px;color:var(--sub)}
+html[data-theme=dark] .pf-wal b{color:#d6e3ff}
+.st-card{background:var(--card);border-radius:18px;box-shadow:var(--sh-sm);padding:6px 14px;margin-bottom:12px}
+.st-row{display:flex;align-items:center;gap:12px;padding:13px 0;cursor:pointer;min-width:0}
+.st-card .st-row+.st-row,.st-card .st-opts+.st-row{border-top:1px solid var(--line)}
+.st-ic{width:40px;height:40px;border-radius:12px;background:var(--soft);color:var(--blue-1);display:flex;align-items:center;justify-content:center;flex:none}
+.st-t{flex:1;min-width:0}.st-t b{display:block;font-size:15px;color:var(--text)}.st-t small{display:block;font-size:12.5px;color:var(--sub);margin-top:2px}
+.st-arr{color:var(--blue-1);font-size:22px;flex:none}
+.st-opts{display:flex;gap:8px;padding:0 0 12px;flex-wrap:wrap}
+.st-opts button{flex:1;min-width:84px;padding:11px 6px;border-radius:13px;border:1.5px solid var(--line);background:var(--soft);color:var(--text);font-weight:700;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
+.st-opts button.on{background:var(--blue-1);border-color:var(--blue-1);color:#fff}
+.st-opts button.dk{background:#141a2b;color:#fff}.st-opts button.dk.on{background:#141a2b;border-color:var(--blue-1);box-shadow:0 0 0 2px var(--blue-1)}
+.st-note{font-size:12px;color:var(--sub);line-height:1.6;padding:2px 4px 12px}
+.st-kv{display:flex;justify-content:space-between;gap:14px;padding:12px 0;border-bottom:1px solid var(--line);font-size:14px}.st-kv:last-child{border:none}.st-kv span{color:var(--sub)}.st-kv b{text-align:right;word-break:break-word}
+.toggle-switch input:disabled+.toggle-slider{opacity:.55}
+</style>
+
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
@@ -495,6 +618,16 @@ textarea.sh-ad-in{min-height:120px; resize:vertical;}
 <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2.8"/><path d="m3.5 7.5 8.5 6 8.5-6"/></symbol>
 <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.3"/><path d="M3 19.5c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><circle cx="17" cy="9" r="2.4"/><path d="M17 14c2.5 0 4 1.7 4 4.2"/></symbol>
 <symbol id="i-receipt" viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></symbol>
+<symbol id="s-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="6.4"/><path d="M12 2.6v2.2M12 19.2v2.2M2.6 12h2.2M19.2 12h2.2M5.4 5.4 7 7M17 17l1.6 1.6M5.4 18.6 7 17M17 7l1.6-1.6"/></symbol>
+<symbol id="s-camera" viewBox="0 0 24 24"><path d="M4 8h3l1.5-2h7L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.3"/></symbol>
+<symbol id="s-shield" viewBox="0 0 24 24"><path d="M12 3l7 3v5.5c0 4.3-3 7.6-7 9.5-4-1.9-7-5.2-7-9.5V6z"/><path d="M9.5 12l2 2 3.5-4"/></symbol>
+<symbol id="s-bank" viewBox="0 0 24 24"><path d="M3 9l9-5 9 5z"/><path d="M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20h18"/></symbol>
+<symbol id="s-palette" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 0 18c1.4 0 2-1 1.5-2.2-.6-1.3.3-2.3 1.7-2.3H17a4 4 0 0 0 4-4C21 6.7 17 3 12 3z"/><circle cx="8" cy="11" r="1"/><circle cx="12" cy="7.5" r="1"/><circle cx="16" cy="10" r="1"/></symbol>
+<symbol id="s-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></symbol>
+<symbol id="s-access" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.8"/><path d="M5 9l7 1.5L19 9M12 10.5V15l-3 5M12 15l3 5"/></symbol>
+<symbol id="s-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></symbol>
+<symbol id="s-db" viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"/></symbol>
+<symbol id="s-doc" viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/></symbol>
 <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 2h-15z"/><path d="M10 21a2.2 2.2 0 0 0 4 0"/></symbol>
 <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.7-7 10-7 10 7 10 7-3.7 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></symbol>
 <symbol id="i-eyeoff" viewBox="0 0 24 24"><path d="M3 3l18 18"/><path d="M10.6 5.1A10 10 0 0 1 12 5c6.3 0 10 7 10 7a17 17 0 0 1-3.3 4.3M6.5 6.7A16.5 16.5 0 0 0 2 12s3.7 7 10 7c1.6 0 3-.4 4.3-1"/></symbol>
@@ -688,7 +821,7 @@ textarea.sh-ad-in{min-height:120px; resize:vertical;}
   <div class="page-body">
     <div class="field"><label>Phone Number</label><div class="inputwrap"><input id="purchasePhone" placeholder="080XXXXXXXX" oninput="onPhoneInput(); favSync(purchaseMode)"><button type="button" class="star-btn" id="star-purchase" onclick="favToggle(purchaseMode)" aria-label="Save number"><svg class="ic"><use href="#i-star"/></svg></button></div></div>
     <div class="fav-bar" id="fav-purchase"></div>
-    <div id="networkBadge" style="display:none; align-items:center; gap:10px; background:#eef1fb; border-radius:12px; padding:10px 14px; margin:-6px 0 16px;">
+    <div id="networkBadge" style="display:none; align-items:center; gap:10px; background:var(--soft); border-radius:12px; padding:10px 14px; margin:-6px 0 16px;">
       <div class="net-badge" id="networkBadgeIcon" style="width:26px; height:26px; font-size:10px;"></div>
       <div style="font-size:13px; font-weight:600;" id="networkBadgeText"></div>
       <a style="margin-left:auto; font-size:12px; color:var(--blue-1); font-weight:700;" onclick="showManualNetworkPicker()">Change</a>
@@ -722,7 +855,7 @@ textarea.sh-ad-in{min-height:120px; resize:vertical;}
       <div id="vaLoading" style="text-align:center; padding:30px; color:var(--sub); font-size:13px;">Loading your account number…</div>
 
       <div id="vaNeedId" style="display:none;">
-        <div class="hint" style="background:#eef1fb; border-radius:12px; padding:14px; font-size:12px; color:var(--sub); line-height:1.6; margin-bottom:16px;">
+        <div class="hint" style="background:var(--soft); border-radius:12px; padding:14px; font-size:12px; color:var(--sub); line-height:1.6; margin-bottom:16px;">
           To get your own permanent account number, we need your BVN or NIN once — this is required by Flutterwave for account verification. It's used only to create your account number and is never shown to other users.
         </div>
         <div class="field">
@@ -752,7 +885,7 @@ textarea.sh-ad-in{min-height:120px; resize:vertical;}
         <div class="plan-row" style="cursor:default; margin-top:10px;">
           <div><div class="plan-valid">Account Name</div><div class="plan-size" id="vaAccountName" style="font-size:13px;">—</div></div>
         </div>
-        <div class="hint" style="background:#eef1fb; border-radius:12px; padding:14px; font-size:12px; color:var(--sub); line-height:1.6; margin-top:16px;">
+        <div class="hint" style="background:var(--soft); border-radius:12px; padding:14px; font-size:12px; color:var(--sub); line-height:1.6; margin-top:16px;">
           Transfer any amount to this account from your bank app. Your wallet is credited automatically within a few minutes — no need to click anything here afterward.
         </div>
       </div>
@@ -769,7 +902,7 @@ textarea.sh-ad-in{min-height:120px; resize:vertical;}
     <div class="section-title" style="padding:0; margin:8px 0 10px;">Quick answers</div>
     <div id="chatLog" style="display:flex; flex-direction:column; gap:10px; margin-bottom:12px;"></div>
     <div style="display:flex; gap:8px;">
-      <input id="chatInput" placeholder="Ask a question…" style="flex:1; padding:13px 16px; border:1.5px solid var(--line); border-radius:22px; font-size:14px; background:#fff;" onkeypress="if(event.key==='Enter') sendChatMessage()">
+      <input id="chatInput" placeholder="Ask a question…" style="flex:1; padding:13px 16px; border:1.5px solid var(--line); border-radius:22px; font-size:14px; background:var(--card);" onkeypress="if(event.key==='Enter') sendChatMessage()">
       <button onclick="sendChatMessage()" aria-label="Send" style="background:var(--blue-1); color:#fff; border:none; border-radius:50%; width:46px; height:46px; display:flex; align-items:center; justify-content:center;"><svg class="ic"><use href="#i-upright"/></svg></button>
     </div>
   </div>
@@ -805,7 +938,7 @@ textarea.sh-ad-in{min-height:120px; resize:vertical;}
     <div class="field"><label>Meter Number</label><div class="inputwrap"><input id="meterNumber" placeholder="e.g. 04012345678" oninput="favSync('electricity')"><button type="button" class="star-btn" id="star-electricity" onclick="favToggle('electricity')" aria-label="Save meter"><svg class="ic"><use href="#i-star"/></svg></button></div></div>
     <div class="fav-bar" id="fav-electricity"></div>
     <div class="field"><label>Amount (₦1,000 – ₦200,000)</label><input id="electricityAmount" type="number" placeholder="5000" oninput="updateElectricityFee()"></div>
-    <div id="electricityFeeRow" style="display:none; background:#eef1fb; border-radius:12px; padding:12px 14px; font-size:13px; margin-bottom:14px;">
+    <div id="electricityFeeRow" style="display:none; background:var(--soft); border-radius:12px; padding:12px 14px; font-size:13px; margin-bottom:14px;">
       <div style="display:flex; justify-content:space-between;"><span style="color:var(--sub);">Service Fee</span><span id="electricityFeeAmt" style="font-weight:700;">₦0</span></div>
       <div style="display:flex; justify-content:space-between; margin-top:4px;"><span style="color:var(--sub);">Total to Pay</span><span id="electricityTotalAmt" style="font-weight:700; color:var(--blue-1);">₦0</span></div>
     </div>
@@ -858,7 +991,7 @@ textarea.sh-ad-in{min-height:120px; resize:vertical;}
 
     <!-- Step 2: enter OTP -->
     <div id="a2cStep2" style="display:none;">
-      <div class="hint" style="background:#eef1fb; border-radius:12px; padding:14px; font-size:12px; color:var(--sub); line-height:1.6; margin-bottom:16px;">
+      <div class="hint" style="background:var(--soft); border-radius:12px; padding:14px; font-size:12px; color:var(--sub); line-height:1.6; margin-bottom:16px;">
         We sent a 6-digit code via SMS to <span id="a2cPhoneDisplay"></span>. Enter it below to confirm this number is yours.
       </div>
       <div class="field"><label>OTP Code</label><input id="a2cOtpCode" inputmode="numeric" maxlength="6" placeholder="123456"></div>
@@ -872,7 +1005,7 @@ textarea.sh-ad-in{min-height:120px; resize:vertical;}
       <div class="field"><label>Transaction PIN</label><input id="a2cPin" type="password" autocomplete="one-time-code" inputmode="numeric" maxlength="4" placeholder="••••"></div>
       <div class="err-text" id="a2cStep3Err"></div>
       <button class="btn-primary" id="a2cConvertBtn" onclick="a2cConvert()">Convert to Cash</button>
-      <div class="hint" style="background:#eef1fb; border-radius:12px; padding:14px; font-size:12px; color:var(--sub); line-height:1.6; margin-top:16px;">
+      <div class="hint" style="background:var(--soft); border-radius:12px; padding:14px; font-size:12px; color:var(--sub); line-height:1.6; margin-top:16px;">
         A ₦30 fee applies for every ₦100 converted. Your balance stays in your Airtime-to-Cash Wallet until you choose to withdraw it to your bank.
       </div>
     </div>
@@ -902,7 +1035,7 @@ textarea.sh-ad-in{min-height:120px; resize:vertical;}
     <div class="field"><label>Transaction PIN</label><input id="examPin" type="password" autocomplete="one-time-code" inputmode="numeric" maxlength="4" placeholder="••••"></div>
     <div class="err-text" id="examErr"></div>
     <button class="btn-primary" id="examBtn" onclick="confirmExamPurchase()">Generate PIN(s)</button>
-    <div class="hint" style="background:#eef1fb; border-radius:12px; padding:14px; font-size:12px; color:var(--sub); line-height:1.6; margin-top:16px;">
+    <div class="hint" style="background:var(--soft); border-radius:12px; padding:14px; font-size:12px; color:var(--sub); line-height:1.6; margin-top:16px;">
       Prices shown are placeholders — update EXAM_TYPES in the code to match your real ClubKonnect WAEC/JAMB e-PIN prices.
     </div>
   </div>
@@ -918,7 +1051,7 @@ textarea.sh-ad-in{min-height:120px; resize:vertical;}
       <div class="profit-card"><div class="profit-label">This Month</div><div class="profit-value" id="profitMonth">₦0</div></div>
       <div class="profit-card"><div class="profit-label">All Time</div><div class="profit-value" id="profitAll">₦0</div></div>
     </div>
-    <div class="hint" style="background:#eef1fb; border-radius:12px; padding:14px; font-size:12px; color:var(--sub); line-height:1.6; margin-top:18px;">
+    <div class="hint" style="background:var(--soft); border-radius:12px; padding:14px; font-size:12px; color:var(--sub); line-height:1.6; margin-top:18px;">
       This is your markup on successful Data and Airtime purchases (what customers paid minus what ClubKonnect charged you) — calculated automatically for every transaction. It does not include Fund Wallet processing fees from Flutterwave.
     </div>
   </div>
@@ -928,7 +1061,7 @@ textarea.sh-ad-in{min-height:120px; resize:vertical;}
 <div class="page" id="page-exchange">
   <div class="page-head"><button class="back-btn" onclick="closePage('exchange')">←</button><div class="page-title">Exchange</div></div>
   <div class="page-body">
-    <div id="xInfo" style="display:none; background:#eef1fb; border-radius:16px; padding:14px; font-size:13px; line-height:1.6; margin-bottom:16px;"></div>
+    <div id="xInfo" style="display:none; background:var(--soft); border-radius:16px; padding:14px; font-size:13px; line-height:1.6; margin-bottom:16px;"></div>
     <div id="xForm" style="display:none;">
       <div class="field"><label>You pay</label>
         <div style="display:flex; gap:8px;">
@@ -955,7 +1088,7 @@ textarea.sh-ad-in{min-height:120px; resize:vertical;}
     <div class="field"><label>Phone numbers (separate with commas, spaces or new lines)</label><textarea id="smsRecipients" rows="5" placeholder="08031234567, 08129876543&#10;2348051112222" oninput="bulkSmsUpdate(); favSync('sms')"></textarea></div>
     <div style="display:flex; align-items:center; gap:10px; margin:-6px 0 12px;"><button type="button" class="chip" id="star-sms" onclick="favToggle('sms')" style="display:flex; align-items:center; gap:6px;"><svg class="ic sm"><use href="#i-star"/></svg>Save this list</button></div>
     <div class="fav-bar" id="fav-sms"></div>
-    <div class="hint" id="smsSummary" style="background:#eef1fb; border-radius:12px; padding:14px; font-size:13px; line-height:1.7; margin-bottom:14px;"></div>
+    <div class="hint" id="smsSummary" style="background:var(--soft); border-radius:12px; padding:14px; font-size:13px; line-height:1.7; margin-bottom:14px;"></div>
     <div class="field"><label>Transaction PIN</label><input id="smsPin" type="password" inputmode="numeric" maxlength="4" autocomplete="one-time-code" placeholder="••••"></div>
     <div class="err-text" id="smsErr"></div>
     <button class="btn-primary" id="smsBtn" onclick="confirmBulkSms()">Send Messages</button>
@@ -976,8 +1109,8 @@ textarea.sh-ad-in{min-height:120px; resize:vertical;}
   <div class="page-body">
     <div id="atab-overview">
       <div class="profit-grid" id="aStats"><div class="empty-note">Loading…</div></div>
-      <button class="btn-primary" style="margin-top:18px; background:#eef1fb; color:var(--blue-1);" onclick="adminSetupWebhook()">🔗 Connect VTUAgent webhook</button>
-      <div class="hint" style="background:#eef1fb; border-radius:12px; padding:14px; font-size:12px; color:var(--sub); line-height:1.6; margin-top:18px;">
+      <button class="btn-primary" style="margin-top:18px; background:var(--soft); color:var(--blue-1);" onclick="adminSetupWebhook()">🔗 Connect VTUAgent webhook</button>
+      <div class="hint" style="background:var(--soft); border-radius:12px; padding:14px; font-size:12px; color:var(--sub); line-height:1.6; margin-top:18px;">
         Tip: open <b>Transactions → Pending</b> to review payments or purchases that are stuck. You can confirm them, or fail them and refund the customer.
       </div>
     </div>
@@ -991,7 +1124,7 @@ textarea.sh-ad-in{min-height:120px; resize:vertical;}
       </div>
       <div class="admin-count" id="adminUserCount"></div>
       <div id="adminUserList"></div>
-      <button class="btn-primary" id="adminUserMore" style="display:none; background:#eef1fb; color:var(--blue-1);" onclick="adminLoadUsers(false)">Load more</button>
+      <button class="btn-primary" id="adminUserMore" style="display:none; background:var(--soft); color:var(--blue-1);" onclick="adminLoadUsers(false)">Load more</button>
     </div>
     <div id="atab-tx" style="display:none;">
       <div class="chips" id="adminTxChips">
@@ -1002,7 +1135,7 @@ textarea.sh-ad-in{min-height:120px; resize:vertical;}
       </div>
       <div class="admin-count" id="adminTxCount"></div>
       <div id="adminTxList"></div>
-      <button class="btn-primary" id="adminTxMore" style="display:none; background:#eef1fb; color:var(--blue-1);" onclick="adminLoadTx(false)">Load more</button>
+      <button class="btn-primary" id="adminTxMore" style="display:none; background:var(--soft); color:var(--blue-1);" onclick="adminLoadTx(false)">Load more</button>
     </div>
     <div id="atab-rem" style="display:none;">
       <div class="chips" id="adminRemChips">
@@ -1012,7 +1145,7 @@ textarea.sh-ad-in{min-height:120px; resize:vertical;}
       </div>
       <div class="admin-count" id="adminRemCount"></div>
       <div id="adminRemList"></div>
-      <button class="btn-primary" id="adminRemMore" style="display:none; background:#eef1fb; color:var(--blue-1);" onclick="adminLoadRem(false)">Load more</button>
+      <button class="btn-primary" id="adminRemMore" style="display:none; background:var(--soft); color:var(--blue-1);" onclick="adminLoadRem(false)">Load more</button>
     </div>
     <div id="atab-settings" style="display:none;">
       <div id="adminSettingsBox"></div>
@@ -1076,7 +1209,7 @@ textarea.sh-ad-in{min-height:120px; resize:vertical;}
     <div class="copyrow"><div style="min-width:0;"><div class="cl">REFERRAL CODE</div><div class="cv" id="refCode">—</div></div><button class="copybtn" onclick="copyText(refData.code)"><svg class="ic sm"><use href="#i-copy"/></svg>Copy</button></div>
     <div class="copyrow"><div style="min-width:0;"><div class="cl">REFERRAL LINK</div><div class="cv" id="refLink" style="font-size:13.5px;">—</div></div><button class="copybtn" onclick="copyText(refData.link)"><svg class="ic sm"><use href="#i-copy"/></svg>Copy</button></div>
     <button class="btn-primary" style="margin-top:4px;" onclick="shareReferral()">Invite Friends</button>
-    <div class="hint" id="refHow" style="background:#eef1fb; border-radius:16px; padding:14px; font-size:12.5px; color:var(--sub); line-height:1.7; margin:16px 0;"></div>
+    <div class="hint" id="refHow" style="background:var(--soft); border-radius:16px; padding:14px; font-size:12.5px; color:var(--sub); line-height:1.7; margin:16px 0;"></div>
     <div class="section-title" style="padding:0; margin:6px 0 10px;">My Referrals</div>
     <div id="refList"></div>
   </div>
@@ -1110,47 +1243,140 @@ textarea.sh-ad-in{min-height:120px; resize:vertical;}
 
 <!-- ===================== PROFILE (tab) ===================== -->
 <div class="page tab" id="page-profile">
-  <div class="tab-head"><div class="tab-title">Profile</div></div>
-  <div class="page-body" style="padding-top:8px;">
-    <div class="wcard" style="display:flex; align-items:center; gap:14px; padding:16px;">
-      <div class="avatar" style="width:60px; height:60px; border-color:rgba(255,255,255,.5);"><span id="profileAvatarLetter">U</span></div>
-      <div style="min-width:0;"><div style="font-size:19px; font-weight:800; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" id="profileCardName">—</div><div style="font-size:12.5px; opacity:.9;" id="profileCardEmail">—</div></div>
+  <div class="hero-top">
+    <button class="hb" onclick="showTab('home')" aria-label="Back">←</button>
+    <div class="ht">Profile</div>
+    <button class="hb" onclick="showPage('settings')" aria-label="Settings"><svg class="ic"><use href="#s-gear"/></svg></button>
+  </div>
+  <div class="page-body" style="padding-top:6px;">
+    <div class="pf-hero">
+      <label class="pf-av"><input type="file" id="avatarFile" accept="image/*" hidden onchange="pickAvatar(this)">
+        <div class="pf-avimg" id="pfAvatar"><span id="profileAvatarLetter">U</span></div>
+        <span class="pf-cam"><svg class="ic"><use href="#s-camera"/></svg></span></label>
+      <div class="pf-name" id="profileCardName">—</div>
+      <div><span class="pf-user" id="profileUser">@username</span></div>
+      <div><span class="pf-act">● Account Active</span></div>
+      <button class="pf-rm" id="avatarRemove" style="display:none;" onclick="removeAvatar()">Remove photo</button>
     </div>
-    <div class="settings-list" style="margin-top:16px;">
-      <div class="settings-row" onclick="showPage('personal-info')"><span>Personal Information</span><span>›</span></div>
-      <div class="settings-row" onclick="openWithdraw()"><span>Saved Bank Accounts &amp; Withdraw</span><span>›</span></div>
-      <div class="settings-row" onclick="openReferral()"><span>Refer &amp; Earn</span><span>›</span></div>
+    <div class="pf-wal">
+      <div onclick="openWallet('main')"><b id="pfMain">₦0.00</b><span>Main Wallet</span></div>
+      <div onclick="openWallet('exchange')"><b id="pfEx">₦0.00</b><span>Exchange Wallet</span></div>
+      <div onclick="openWallet('atc')"><b id="pfAtc">₦0.00</b><span>Airtime-to-Cash</span></div>
+    </div>
+    <div class="st-card">
+      <div class="st-row" onclick="showPage('personal-info')"><span class="st-ic"><svg class="ic"><use href="#i-user"/></svg></span><div class="st-t"><b>Personal Information</b><small>View and update your details</small></div><span class="st-arr">›</span></div>
+      <div class="st-row" onclick="showPage('security')"><span class="st-ic"><svg class="ic"><use href="#s-shield"/></svg></span><div class="st-t"><b>Security &amp; Privacy</b><small>Change password, PIN &amp; biometric</small></div><span class="st-arr">›</span></div>
+      <div class="st-row" onclick="openWithdraw()"><span class="st-ic"><svg class="ic"><use href="#s-bank"/></svg></span><div class="st-t"><b>Bank Account</b><small>Manage your bank details</small></div><span class="st-arr">›</span></div>
+      <div class="st-row" onclick="showPage('wallets')"><span class="st-ic"><svg class="ic"><use href="#i-wallet"/></svg></span><div class="st-t"><b>Wallet Management</b><small>View wallets and transaction history</small></div><span class="st-arr">›</span></div>
+      <div class="st-row" onclick="showTab('support')"><span class="st-ic"><svg class="ic"><use href="#i-headset"/></svg></span><div class="st-t"><b>Help &amp; Support</b><small>Get help and contact us</small></div><span class="st-arr">›</span></div>
+      <div class="st-row" onclick="termsPrivacySheet()"><span class="st-ic"><svg class="ic"><use href="#s-doc"/></svg></span><div class="st-t"><b>Terms &amp; Privacy</b><small>Terms of service and privacy policy</small></div><span class="st-arr">›</span></div>
     </div>
     <div id="adminRows" style="display:none;">
-      <div class="section-title" style="padding:0; margin:22px 0 10px;">Admin</div>
+      <div class="section-title" style="padding:0; margin:18px 0 10px;">Admin</div>
       <div class="settings-list">
         <div class="settings-row" id="adminPanelTile" onclick="showPage('admin-panel')"><span>Admin Panel</span><span>›</span></div>
         <div class="settings-row" id="profitTile" onclick="showPage('profit')"><span>My Profit</span><span>›</span></div>
       </div>
     </div>
-    <div class="section-title" style="padding:0; margin:22px 0 10px;">Security</div>
-    <div class="settings-list">
-      <div class="settings-row" onclick="showPage('change-pin')"><span>Change Transaction PIN</span><span>›</span></div>
-      <div class="settings-row" onclick="showPage('change-password')"><span>Change Password</span><span>›</span></div>
-      <div class="settings-row">
-        <span>Biometric Login</span>
-        <label class="toggle-switch"><input type="checkbox" id="biometricToggle" onchange="toggleBiometric()"><span class="toggle-slider"></span></label>
+    <button class="btn-primary" style="background:transparent; box-shadow:none; border:1.5px solid var(--danger); color:var(--danger); margin-top:22px;" onclick="logout()">Log Out</button>
+  </div>
+</div>
+
+<!-- ===================== SECURITY & PRIVACY ===================== -->
+<div class="page" id="page-security">
+  <div class="page-head"><button class="back-btn" onclick="closePage('security')">←</button><div class="page-title">Security &amp; Privacy</div></div>
+  <div class="page-body">
+    <div class="st-card">
+      <div class="st-row" onclick="showPage('change-pin')"><span class="st-ic"><svg class="ic"><use href="#s-shield"/></svg></span><div class="st-t"><b>Change Transaction PIN</b></div><span class="st-arr">›</span></div>
+      <div class="st-row" onclick="showPage('change-password')"><span class="st-ic"><svg class="ic"><use href="#s-shield"/></svg></span><div class="st-t"><b>Change Password</b></div><span class="st-arr">›</span></div>
+      <div class="st-row" style="cursor:default;"><span class="st-ic"><svg class="ic"><use href="#i-user"/></svg></span><div class="st-t"><b>Biometric Login</b></div>
+        <label class="toggle-switch"><input type="checkbox" id="biometricToggle" onchange="toggleBiometric()"><span class="toggle-slider"></span></label></div>
+    </div>
+    <div class="st-card">
+      <div class="st-row" onclick="showPage('privacy')"><span class="st-ic"><svg class="ic"><use href="#s-doc"/></svg></span><div class="st-t"><b>Privacy Policy</b></div><span class="st-arr">›</span></div>
+      <div class="st-row" onclick="showPage('terms')"><span class="st-ic"><svg class="ic"><use href="#s-doc"/></svg></span><div class="st-t"><b>Terms &amp; Conditions</b></div><span class="st-arr">›</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== WALLET MANAGEMENT ===================== -->
+<div class="page" id="page-wallets">
+  <div class="page-head"><button class="back-btn" onclick="closePage('wallets')">←</button><div class="page-title">Wallet Management</div></div>
+  <div class="page-body">
+    <div class="st-card">
+      <div class="st-row" onclick="openWallet('main')"><span class="st-ic"><svg class="ic"><use href="#i-wallet"/></svg></span><div class="st-t"><b>Main Wallet</b><small id="wmMain">₦0.00</small></div><span class="st-arr">›</span></div>
+      <div class="st-row" onclick="openWallet('exchange')"><span class="st-ic"><svg class="ic"><use href="#i-swap"/></svg></span><div class="st-t"><b>Exchange Wallet</b><small id="wmEx">₦0.00</small></div><span class="st-arr">›</span></div>
+      <div class="st-row" onclick="openWallet('atc')"><span class="st-ic"><svg class="ic"><use href="#i-wallet"/></svg></span><div class="st-t"><b>Airtime-to-Cash</b><small id="wmAtc">₦0.00</small></div><span class="st-arr">›</span></div>
+    </div>
+    <div class="st-card">
+      <div class="st-row" onclick="openWithdraw()"><span class="st-ic"><svg class="ic"><use href="#s-bank"/></svg></span><div class="st-t"><b>Withdraw</b><small>To a bank or to your Main Wallet</small></div><span class="st-arr">›</span></div>
+      <div class="st-row" onclick="showTab('transactions')"><span class="st-ic"><svg class="ic"><use href="#i-receipt"/></svg></span><div class="st-t"><b>Transaction History</b></div><span class="st-arr">›</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== SETTINGS ===================== -->
+<div class="page" id="page-settings">
+  <div class="hero-top"><button class="hb" onclick="closePage('settings')" aria-label="Back">←</button><div class="ht l">Settings<small>Manage your app experience</small></div></div>
+  <div class="page-body" style="padding-top:14px;">
+    <div class="st-card">
+      <div class="st-row" style="cursor:default;"><span class="st-ic"><svg class="ic"><use href="#s-palette"/></svg></span><div class="st-t"><b>Appearance &amp; Theme</b><small>Choose your preferred theme</small></div></div>
+      <div class="st-opts" id="stTheme">
+        <button data-v="light" onclick="setPref('theme','light')"><span>Light</span></button>
+        <button data-v="dark" class="dk" onclick="setPref('theme','dark')"><span>Dark</span></button>
+        <button data-v="system" onclick="setPref('theme','system')"><span>System</span></button>
       </div>
     </div>
-    <div class="section-title" style="padding:0; margin:22px 0 10px;">Legal</div>
-    <div class="settings-list">
-      <div class="settings-row" onclick="showPage('privacy')"><span>Privacy Policy</span><span>›</span></div>
-      <div class="settings-row" onclick="showPage('terms')"><span>Terms &amp; Conditions</span><span>›</span></div>
+    <div class="st-card">
+      <div class="st-row" style="cursor:default;"><span class="st-ic"><svg class="ic"><use href="#s-globe"/></svg></span><div class="st-t"><b>Language</b><small>Select your language</small></div></div>
+      <div class="st-opts" id="stLang">
+        <button data-v="en" onclick="setPref('language','en')">English</button>
+        <button data-v="ha" onclick="setPref('language','ha')">Hausa</button>
+        <button data-v="yo" onclick="setPref('language','yo')">Yoruba</button>
+      </div>
     </div>
-    <button class="btn-primary" style="background:transparent; box-shadow:none; border:1.5px solid var(--danger); color:var(--danger); margin-top:24px;" onclick="logout()">Log Out</button>
+    <div class="st-card">
+      <div class="st-row" style="cursor:default;"><span class="st-ic"><svg class="ic"><use href="#s-access"/></svg></span><div class="st-t"><b>Display &amp; Accessibility</b><small>Adjust text size and animations</small></div></div>
+      <div class="st-t" style="padding:0 0 8px;"><small style="font-weight:700;">Text Size</small></div>
+      <div class="st-opts" id="stSize">
+        <button data-v="small" onclick="setPref('text_size','small')"><span>Small</span></button>
+        <button data-v="normal" onclick="setPref('text_size','normal')"><span>Normal</span></button>
+        <button data-v="large" onclick="setPref('text_size','large')"><span>Large</span></button>
+      </div>
+      <div class="st-row" style="cursor:default;"><div class="st-t"><b>Reduce Motion</b></div>
+        <label class="toggle-switch"><input type="checkbox" id="stMotion" onchange="setPref('reduce_motion',this.checked)"><span class="toggle-slider"></span></label></div>
+    </div>
+    <div class="st-card">
+      <div class="st-row" onclick="showPage('set-notif')"><span class="st-ic"><svg class="ic"><use href="#i-bell"/></svg></span><div class="st-t"><b>Notification Preferences</b><small>Manage your notifications</small></div><span class="st-arr">›</span></div>
+      <div class="st-row" onclick="showPage('set-about')"><span class="st-ic"><svg class="ic"><use href="#s-info"/></svg></span><div class="st-t"><b>App Information</b><small id="stVer">Version</small></div><span class="st-arr">›</span></div>
+      <div class="st-row" onclick="showPage('set-data')"><span class="st-ic"><svg class="ic"><use href="#s-db"/></svg></span><div class="st-t"><b>Data &amp; Storage</b><small>Clear cache and manage storage</small></div><span class="st-arr">›</span></div>
+    </div>
   </div>
+</div>
+
+<div class="page" id="page-set-notif">
+  <div class="page-head"><button class="back-btn" onclick="closePage('set-notif')">←</button><div class="page-title">Notification Preferences</div></div>
+  <div class="page-body"><div class="st-card" id="ntList"></div>
+    <div class="st-note" id="ntNote"></div></div>
+</div>
+
+<div class="page" id="page-set-about">
+  <div class="page-head"><button class="back-btn" onclick="closePage('set-about')">←</button><div class="page-title">App Information</div></div>
+  <div class="page-body"><div class="st-card" id="abList"></div></div>
+</div>
+
+<div class="page" id="page-set-data">
+  <div class="page-head"><button class="back-btn" onclick="closePage('set-data')">←</button><div class="page-title">Data &amp; Storage</div></div>
+  <div class="page-body"><div class="st-card" id="dsList"></div>
+    <div class="st-note">Clearing the cache removes temporary files only. Your wallets, transactions, account details, support chats and login are never touched.</div>
+    <button class="btn-primary" onclick="askClearCache()">Clear Cache</button></div>
 </div>
 
 <!-- ===================== NOTIFICATIONS PAGE ===================== -->
 <div class="page" id="page-notifications">
   <div class="page-head"><button class="back-btn" onclick="closePage('notifications')">←</button><div class="page-title">Notifications</div></div>
   <div class="page-body">
-    <div id="adminNotifyBox" style="display:none; background:#eef1fb; border-radius:14px; padding:16px; margin-bottom:20px;">
+    <div id="adminNotifyBox" style="display:none; background:var(--soft); border-radius:14px; padding:16px; margin-bottom:20px;">
       <div style="font-weight:700; font-size:13px; margin-bottom:10px;">📢 Send a Notification to All Users</div>
       <div class="field"><label>Title</label><input id="notifTitle" placeholder="e.g. Network Update"></div>
       <div class="field"><label>Message</label><input id="notifMessage" placeholder="e.g. MTN data delayed, working on it"></div>
@@ -1171,7 +1397,7 @@ textarea.sh-ad-in{min-height:120px; resize:vertical;}
       <div class="pend" id="walletPend" style="display:none;"></div>
       <div class="acts" id="walletActs"></div>
     </div>
-    <div class="hint" id="walletNote" style="background:#eef1fb; border-radius:16px; padding:13px 14px; font-size:12.5px; color:var(--sub); line-height:1.7; margin:14px 0;"></div>
+    <div class="hint" id="walletNote" style="background:var(--soft); border-radius:16px; padding:13px 14px; font-size:12.5px; color:var(--sub); line-height:1.7; margin:14px 0;"></div>
     <div class="section-title" style="padding:0; margin:6px 0 10px;">History</div>
     <div class="txlist" id="walletTx" style="padding:0;"></div>
     <button class="btn-more" id="walletMore" style="display:none;" onclick="loadWalletTx(false)">Load more</button>
@@ -1184,12 +1410,14 @@ textarea.sh-ad-in{min-height:120px; resize:vertical;}
   <div class="page-body">
     <div class="section-title" style="padding:0; margin:0 0 10px;">Withdraw from</div>
     <div class="seg" id="wdWallets"></div>
+    <div class="section-title" style="padding:0; margin:14px 0 10px;">Withdraw to</div>
+    <div class="seg" id="wdDest"></div>
     <div class="field"><label>Amount (₦)</label><input id="wdAmount" type="number" inputmode="decimal" placeholder="e.g. 5000" oninput="wdQuoteDebounced()"></div>
     <div class="sumbox" id="wdSummary" style="display:none;"></div>
-    <div class="section-title" style="padding:0; margin:14px 0 10px;">Send to</div>
+    <div class="section-title" id="wdSendTo" style="padding:0; margin:14px 0 10px;">Send to</div>
     <div id="wdBanks"></div>
-    <button class="btn-outline" onclick="wdToggleAdd()"><svg class="ic sm"><use href="#i-plus"/></svg>Add bank account</button>
-    <div id="wdAddBox" style="display:none; background:#fff; border-radius:18px; padding:14px; box-shadow:var(--sh-sm); margin-bottom:14px;">
+    <button class="btn-outline" id="wdAddBtn" onclick="wdToggleAdd()"><svg class="ic sm"><use href="#i-plus"/></svg>Add bank account</button>
+    <div id="wdAddBox" style="display:none; background:var(--card); border-radius:18px; padding:14px; box-shadow:var(--sh-sm); margin-bottom:14px;">
       <div class="field"><label>Bank</label><select id="wdBankSelect"><option value="">Loading banks…</option></select></div>
       <div class="field"><label>Account number</label><input id="wdAccount" inputmode="numeric" maxlength="10" placeholder="10 digits" oninput="wdResolveDebounced()"></div>
       <div id="wdAccName" style="font-weight:800; font-size:14px; margin:-6px 0 12px; min-height:18px;"></div>
@@ -1200,7 +1428,7 @@ textarea.sh-ad-in{min-height:120px; resize:vertical;}
     <div class="field"><label>Transaction PIN</label><input id="wdPin" type="password" inputmode="numeric" maxlength="4" autocomplete="one-time-code" placeholder="••••"></div>
     <div class="err-text" id="wdErr"></div>
     <button class="btn-primary" id="wdReviewBtn" onclick="wdReview()">Review withdrawal</button>
-    <div class="hint" style="font-size:11.5px; color:var(--sub); line-height:1.6; margin:12px 0;">The Main Wallet is for buying services and cannot be withdrawn. Withdrawals go only to bank accounts you have verified here.</div>
+    <div class="hint" style="font-size:11.5px; color:var(--sub); line-height:1.6; margin:12px 0;">The Main Wallet is for buying services and cannot be sent to a bank. You can move money from Exchange or Airtime-to-Cash into your Main Wallet for free, or withdraw to a bank account you have verified here.</div>
     <div class="section-title" style="padding:0; margin:22px 0 10px;">My withdrawals</div>
     <div id="wdHistory"></div>
   </div>
@@ -1616,7 +1844,7 @@ function showTxReceipt(id){
       <div class="settings-row"><span>Time</span><span style="color:var(--text); font-weight:600;">${new Date(t.created_at).toLocaleTimeString()}</span></div>
       <div class="settings-row"><span>${t.type === 'electricity' && String(t.provider_ref || '').startsWith('Token:') ? 'Token' : 'Reference'}</span><span style="color:var(--text); font-weight:600; font-size:11px; word-break:break-all; text-align:right;">${t.provider_ref && !t.provider_ref.startsWith('[') && !t.provider_ref.startsWith('{') ? t.provider_ref : t.id}</span></div>
     </div>
-    <div class="hint" style="background:#eef1fb; border-radius:12px; padding:14px; font-size:12px; color:var(--sub); line-height:1.6; margin-top:16px;">
+    <div class="hint" style="background:var(--soft); border-radius:12px; padding:14px; font-size:12px; color:var(--sub); line-height:1.6; margin-top:16px;">
       Having an issue with this transaction? Take a screenshot of this receipt and send it to support.
     </div>
   `;
@@ -2164,9 +2392,26 @@ window.addEventListener('pageshow', e => { if(e.persisted) wipeInputs(document);
 window.addEventListener('pagehide', () => wipePinFields());
 
 /* ---------- Navigation ---------- */
-function showPage(name){ document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); document.getElementById('page-'+name).classList.add('active'); if(name==='history') renderTx(); if(name==='fund') loadVirtualAccount(); if(name==='bulksms') bulkSmsInit(); if(name==='exchange') exchangeInit(); if(name==='admin-panel') adminInit(); if(name==='profile') loadBiometricPref(); if(name==='privacy' || name==='terms') loadLegalDates(); if(name==='profit') loadProfit(); if(name==='support') initSupportChat(); if(name==='cable') renderCableProviderTabs(); if(name==='electricity') renderDiscoSelect(); if(name==='a2c') renderA2CNetworkGrid(); if(name==='exam') renderExamTypeGrid(); if(name==='notifications') loadNotifications(); }
-function closePage(name){ const pg = document.getElementById('page-'+name); pg.classList.remove('active'); wipeInputs(pg); wipePinFields(); }
-function goHome(){ document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); wipeInputs(document.querySelector('#app') || document); }
+const NAV = []; let histCount = 0, ignorePop = 0;
+function histReset(){ if(histCount > 0){ const n = histCount; histCount = 0; ignorePop++; history.go(-n); } }
+function showPage(name){
+  const el = document.getElementById('page-'+name);
+  if(el.classList.contains('tab')){ document.querySelectorAll('.page').forEach(p=>{ p.classList.remove('active'); p.style.zIndex=''; }); NAV.length = 0; histReset(); }
+  else { const i = NAV.indexOf(name); if(i > -1) NAV.splice(i,1); else { history.pushState({ n:name }, ''); histCount++; } NAV.push(name); el.style.zIndex = 200 + NAV.length; }
+  el.classList.add('active'); if(name==='history') renderTx(); if(name==='fund') loadVirtualAccount(); if(name==='bulksms') bulkSmsInit(); if(name==='exchange') exchangeInit(); if(name==='admin-panel') adminInit(); if(name==='security') loadBiometricPref(); if(name==='privacy' || name==='terms') loadLegalDates(); if(name==='profit') loadProfit(); if(name==='support') initSupportChat(); if(name==='cable') renderCableProviderTabs(); if(name==='electricity') renderDiscoSelect(); if(name==='a2c') renderA2CNetworkGrid(); if(name==='exam') renderExamTypeGrid(); if(name==='notifications') loadNotifications(); }
+function closePage(name){
+  const pg = document.getElementById('page-'+name); pg.classList.remove('active'); pg.style.zIndex = '';
+  const i = NAV.indexOf(name); if(i > -1){ NAV.splice(i,1); if(histCount > 0){ histCount--; ignorePop++; history.back(); } }
+  wipeInputs(pg); wipePinFields();
+}
+window.addEventListener('popstate', () => {   // phone back button / swipe: close the top page only
+  if(ignorePop > 0){ ignorePop--; return; }
+  if(histCount > 0) histCount--;
+  const top = NAV.pop();
+  if(top){ const pg = document.getElementById('page-'+top); if(pg){ pg.classList.remove('active'); pg.style.zIndex=''; wipeInputs(pg); wipePinFields(); } }
+  else { const cur = document.querySelector('#bottomNav .nav-item.active'); if(cur && cur.dataset.tab !== 'home') showTab('home'); }
+});
+function goHome(){ document.querySelectorAll('.page').forEach(p=>{ p.classList.remove('active'); p.style.zIndex=''; }); NAV.length = 0; histReset(); wipeInputs(document.querySelector('#app') || document); }
 
 /* ---------- Exchange ---------- */
 let xInfo = null, xBanks = null, xTimer = null, xResolveTimer = null, xQuote = null, xName = '';
@@ -2420,7 +2665,7 @@ function settingField(s){
   if(s.type === 'currencies'){
     const on = String(s.value).split(',');
     return `<div class="field"><label>${esc(s.label)} ${tag}</label><div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:6px;">`
-      + s.choices.map(c => `<div style="display:flex; align-items:center; gap:6px; font-size:13px; background:#eef1fb; padding:8px 10px; border-radius:10px;"><input type="checkbox" class="cur-${esc(s.key)}" value="${esc(c.code)}" ${on.includes(c.code) ? 'checked' : ''}><span>${esc(c.code)} \u00b7 ${esc(c.country)}</span></div>`).join('')
+      + s.choices.map(c => `<div style="display:flex; align-items:center; gap:6px; font-size:13px; background:var(--soft); padding:8px 10px; border-radius:10px;"><input type="checkbox" class="cur-${esc(s.key)}" value="${esc(c.code)}" ${on.includes(c.code) ? 'checked' : ''}><span>${esc(c.code)} \u00b7 ${esc(c.country)}</span></div>`).join('')
       + `</div><div style="font-size:11px; color:var(--sub); margin-top:6px;">${esc(s.hint)}</div></div>`;
   }
   if(s.type === 'bool') return `<div class="field"><label>${esc(s.label)} ${tag}</label><select id="${id}"><option value="1" ${s.value === '1' ? 'selected' : ''}>On</option><option value="0" ${s.value !== '1' ? 'selected' : ''}>Off</option></select></div>`;
@@ -2436,7 +2681,7 @@ async function adminLoadSettings(){
   const sec = (g) => `<div class="section-title" style="padding:0; margin:20px 0 10px;">${g}</div>` + adminSettings.filter(s => s.group === g).map(settingField).join('');
   box.innerHTML = (data.keys_can_be_saved ? '' : '<div class="err-text" style="margin-bottom:10px;">AUTH_SECRET is missing or too short in Cloudflare, so keys cannot be saved here yet.</div>')
     + sec('Exchange') + sec('Pricing') + sec('Keys')
-    + `<div style="background:#eef1fb; border-radius:12px; padding:14px; font-size:12px; line-height:1.7; margin:18px 0; word-break:break-all;">Put these web addresses in your dashboards:<br>
+    + `<div style="background:var(--soft); border-radius:12px; padding:14px; font-size:12px; line-height:1.7; margin:18px 0; word-break:break-all;">Put these web addresses in your dashboards:<br>
         <b>Flutterwave webhook:</b> ${esc(location.origin)}/api/webhook/flutterwave<br>
         <b>VTUAgent webhook:</b> use the button on the Overview tab.<br>
         Keys you save here are kept encrypted in your database and stay after every deploy.</div>`
@@ -2872,7 +3117,7 @@ async function onAuthed(s) {
   const h = new Date().getHours();
   $('greetLabel').textContent = h < 12 ? 'Good morning,' : h < 17 ? 'Good afternoon,' : 'Good evening,';
   await loadProfile();
-  loadAppConfig(); renderTx(); checkUnreadNotifications();
+  loadAppConfig(); renderTx(); checkUnreadNotifications(); loadServerPrefs();
 }
 async function loadProfile() {
   const { data, error } = await backend.from('profiles').select('*').eq('id', session.user.id).single();
@@ -2881,7 +3126,7 @@ async function loadProfile() {
   if (profile.is_banned) { await backend.auth.signOut(); alert('Your account has been suspended. Please contact support.'); location.reload(); return; }
   const nm = profile.full_name || session.user.email, L = nm.trim()[0].toUpperCase();
   $('userName').textContent = nm; $('avatarLetter').textContent = L; $('profileAvatarLetter').textContent = L;
-  $('profileCardName').textContent = nm; $('profileCardEmail').textContent = session.user.email;
+  $('profileCardName').textContent = nm; $('profileUser').textContent = profile.username ? '@' + profile.username : session.user.email;
   $('profileName').value = profile.full_name || ''; $('profileUsername').value = profile.username || '';
   $('profileEmail').value = session.user.email; $('profilePhone').value = profile.phone || '';
   $('adminRows').style.display = profile.is_admin ? 'block' : 'none';
@@ -3019,10 +3264,10 @@ function walletRender() {
 function loadWalletTx(reset) { return txPage($('walletTx'), $('walletMore'), { wallet: wCur }, reset, wState); }
 
 /* ---------- withdraw ---------- */
-let wd = { wallet: 'exchange', bank: null, accts: [], banks: null, timer: null, quote: null };
+let wd = { wallet: 'exchange', dest: 'bank', bank: null, accts: [], banks: null, timer: null, quote: null };
 async function openWithdraw(w) {
   if (w === 'atc' || w === 'exchange') wd.wallet = w; wd.quote = null;
-  showPage('withdraw'); $('wdSummary').style.display = 'none'; $('wdAmount').value = ''; wdRenderWallets();
+  showPage('withdraw'); $('wdSummary').style.display = 'none'; $('wdAmount').value = ''; wdRenderWallets(); wdRenderDest();
   await Promise.all([loadWallets(), wdLoadBanks(), wdLoadHistory()]); wdRenderWallets();
 }
 function wdRenderWallets() {
@@ -3034,7 +3279,7 @@ async function wdQuoteNow() {
   const amount = parseFloat($('wdAmount').value), box = $('wdSummary'); wd.quote = null;
   if (!(amount > 0)) { box.style.display = 'none'; return; }
   box.style.display = 'block'; box.innerHTML = '<div class="empty-note">Calculating…</div>';
-  const { data, errMsg } = await fn('withdraw-quote', { wallet: wd.wallet, amount });
+  const { data, errMsg } = await fn('withdraw-quote', { wallet: wd.wallet, amount, dest: wd.dest });
   if (errMsg) { box.innerHTML = `<div class="err-text" style="margin:10px 0;">${esc(errMsg)}</div>`; return; }
   const q = wd.quote = data.quote, r = (a, b, s = '') => `<div style="display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--line); ${s}"><span style="color:var(--sub);">${a}</span><b>${b}</b></div>`;
   box.innerHTML = r('Available balance', m2(q.balance)) + r('Withdrawal amount', m2(q.amount)) + r('Fee', m2(q.fee)) + r('You will receive', m2(q.net), 'color:var(--green);') + r('Remaining in wallet', m2(q.remaining), 'border:none;');
@@ -3085,16 +3330,16 @@ async function wdSaveBank() {
 function wdReview() {
   const e = $('wdErr'); e.textContent = ''; const q = wd.quote, b = wd.accts.find((a) => a.id === wd.bank), pin = $('wdPin').value.trim();
   if (!q) { e.textContent = 'Enter an amount first'; return; }
-  if (!b) { e.textContent = 'Choose or add a bank account'; return; }
+  if (wd.dest === 'bank' && !b) { e.textContent = 'Choose or add a bank account'; return; }
   if (!/^\d{4}$/.test(pin)) { e.textContent = 'Enter your 4-digit transaction PIN'; return; }
   const r = (a, c) => `<div style="display:flex; justify-content:space-between; padding:9px 0; border-bottom:1px solid var(--line);"><span style="color:var(--sub);">${a}</span><b style="text-align:right;">${c}</b></div>`;
-  openSheet(`<div style="font-weight:800; font-size:17px; margin-bottom:8px;">Confirm withdrawal</div>${r('From', WN[wd.wallet])}${r('Bank', esc(b.bank_name))}${r('Account name', esc(b.account_name))}${r('Account number', esc(b.account_number))}
+  openSheet(`<div style="font-weight:800; font-size:17px; margin-bottom:8px;">Confirm withdrawal</div>${r('From', WN[wd.wallet])}${wd.dest === 'main' ? r('To', 'Main Wallet') : r('Bank', esc(b.bank_name)) + r('Account name', esc(b.account_name)) + r('Account number', esc(b.account_number))}
     ${r('Amount', m2(q.amount))}${r('Fee', m2(q.fee))}${r('You receive', m2(q.net))}${r('Remaining balance', m2(q.remaining))}
     <button class="btn-primary" id="wdGoBtn" style="margin-top:16px;" onclick="wdSubmit()">Confirm withdrawal</button><button class="btn-outline" onclick="closeSheet()">Cancel</button>`);
 }
 async function wdSubmit() {
   setLoading('wdGoBtn', true);
-  const { data, errMsg } = await fn('withdraw-create', { wallet: wd.wallet, amount: wd.quote.amount, bankAccountId: wd.bank, pin: $('wdPin').value.trim() });
+  const { data, errMsg } = await fn('withdraw-create', { wallet: wd.wallet, amount: wd.quote.amount, dest: wd.dest, bankAccountId: wd.bank, pin: $('wdPin').value.trim() });
   wipePinFields(); closeSheet();
   if (errMsg) { $('wdErr').textContent = errMsg; return; }
   showToast(data.message || 'Withdrawal submitted', 'success'); $('wdAmount').value = ''; $('wdSummary').style.display = 'none'; wd.quote = null;
@@ -3941,5 +4186,169 @@ async function checkUnreadNotifications() {
 })();
 
 </script>
+<script>
+/* =================== SETTINGS, LANGUAGE, THEME, PROFILE PICTURE, WITHDRAW TO MAIN WALLET =================== */
+const PREF_KEYS = ['transaction','funding','withdrawal','service','security','support','promo'];
+const NOTIF_INFO = {
+  transaction:['Transaction updates','Purchases and their results'], funding:['Wallet funding updates','Money added to your wallet'],
+  withdrawal:['Withdrawal updates','Status of your withdrawals'], service:['Data and service updates','Network and service announcements'],
+  security:['Security alerts','Always on to protect your account'], support:['Support ticket updates','Replies on your tickets'], promo:['Promotional messages','Offers and rewards'] };
+const mergePrefs = (p) => { p = p || {}; const n = {}; PREF_KEYS.forEach((k) => n[k] = k === 'security' ? true : !(p.notif && p.notif[k] === false));
+  return { theme: ['light','dark','system'].includes(p.theme) ? p.theme : 'light', language: ['en','ha','yo'].includes(p.language) ? p.language : 'en', text_size: ['small','normal','large'].includes(p.text_size) ? p.text_size : 'normal', reduce_motion: !!p.reduce_motion, notif: n }; };
+let PREFS = (() => { try { return mergePrefs(JSON.parse(localStorage.getItem('ums_prefs') || '{}')); } catch (e) { return mergePrefs({}); } })();
+let AVATAR = '', LANG = 'en', prefTimer = null;
+const sysDark = window.matchMedia ? matchMedia('(prefers-color-scheme: dark)') : null;
+function applyPrefs() {
+  const d = document.documentElement, dark = PREFS.theme === 'dark' || (PREFS.theme === 'system' && sysDark && sysDark.matches);
+  d.dataset.theme = dark ? 'dark' : 'light'; d.dataset.ts = PREFS.text_size; d.classList.toggle('reduce-motion', PREFS.reduce_motion);
+  LANG = PREFS.language; d.lang = LANG; i18nAll();
+}
+if (sysDark && sysDark.addEventListener) sysDark.addEventListener('change', () => { if (PREFS.theme === 'system') applyPrefs(); });
+function saveLocal() { try { localStorage.setItem('ums_prefs', JSON.stringify(PREFS)); } catch (e) {} }
+function setPref(k, v) {
+  if (k === 'notif') PREFS.notif = { ...PREFS.notif, ...v }; else PREFS[k] = v;
+  saveLocal(); applyPrefs(); renderSettings(); if ($('page-set-notif').classList.contains('active')) renderNotifPrefs();
+  clearTimeout(prefTimer); prefTimer = setTimeout(async () => { const { errMsg } = await fn('save-settings', PREFS); if (errMsg) showToast(errMsg, 'error'); }, 500);
+}
+async function loadServerPrefs() {
+  const { data } = await fn('get-settings'); if (!data) return;
+  PREFS = mergePrefs(data.settings); AVATAR = data.avatar || ''; saveLocal(); applyPrefs(); paintAvatar();
+}
+function renderSettings() {
+  document.querySelectorAll('#stTheme button').forEach((b) => b.classList.toggle('on', b.dataset.v === PREFS.theme));
+  document.querySelectorAll('#stLang button').forEach((b) => b.classList.toggle('on', b.dataset.v === PREFS.language));
+  document.querySelectorAll('#stSize button').forEach((b) => b.classList.toggle('on', b.dataset.v === PREFS.text_size));
+  $('stMotion').checked = PREFS.reduce_motion; $('stVer').textContent = 'Version ' + (CFG.app_version || '1.0.0');
+}
+function renderNotifPrefs() {
+  $('ntList').innerHTML = PREF_KEYS.map((k) => `<div class="st-row" style="cursor:default;"><div class="st-t"><b>${NOTIF_INFO[k][0]}</b><small>${NOTIF_INFO[k][1]}</small></div>
+    <label class="toggle-switch"><input type="checkbox" ${PREFS.notif[k] ? 'checked' : ''} ${k === 'security' ? 'disabled' : ''} onchange="setPref('notif',{${k}:this.checked})"><span class="toggle-slider"></span></label></div>`).join('');
+  $('ntNote').textContent = 'Alerts appear in your Notification Center (the bell on Home). Phone push notifications are not set up yet. Security alerts cannot be switched off.';
+  i18nAll();
+}
+function renderAbout() {
+  const rows = [['Application name', 'UMARSHOYI-SUB'], ['Version', CFG.app_version || '1.0.0'], CFG.build ? ['Build number', CFG.build] : null,
+    ['Description', 'Buy data, airtime, cable TV and electricity, and manage your wallets.'],
+    CFG.support_email ? ['Support email', CFG.support_email] : null, CFG.support_whatsapp ? ['Support WhatsApp', CFG.support_whatsapp] : null,
+    CFG.website ? ['Website', CFG.website] : null, ['Copyright', '© ' + new Date().getFullYear() + ' UMARSHOYI-SUB. All rights reserved.']].filter(Boolean);
+  $('abList').innerHTML = rows.map((r) => `<div class="st-kv"><span>${r[0]}</span><b>${esc(r[1])}</b></div>`).join(''); i18nAll();
+}
+const fmtB = (n) => n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
+async function renderData() {
+  const rows = [];
+  try { if (navigator.storage && navigator.storage.estimate) { const e = await navigator.storage.estimate(); rows.push(['Storage used', fmtB(e.usage || 0)], ['Storage available', fmtB(Math.max(0, (e.quota || 0) - (e.usage || 0)))]); } else rows.push(['Storage', 'Not supported on this device']); } catch (e) { rows.push(['Storage', 'Not supported on this device']); }
+  try { if (window.caches) { let n = 0; for (const k of await caches.keys()) n += (await (await caches.open(k)).keys()).length; rows.push(['Cached files', String(n)]); } else rows.push(['Cached files', 'Not supported on this browser']); } catch (e) { rows.push(['Cached files', 'Not supported on this browser']); }
+  $('dsList').innerHTML = rows.map((r) => `<div class="st-kv"><span>${r[0]}</span><b>${r[1]}</b></div>`).join(''); i18nAll();
+}
+function askClearCache() {
+  openSheet(`<div style="font-weight:800; font-size:17px; margin-bottom:8px;">Clear cache?</div><div style="color:var(--sub); font-size:13.5px; line-height:1.6; margin-bottom:14px;">Only temporary files are removed. Your wallets, transactions, account, support chats and login stay safe.</div>
+    <button class="btn-primary" onclick="doClearCache()">Clear Cache</button><button class="btn-outline" onclick="closeSheet()">Cancel</button>`); i18nAll();
+}
+async function doClearCache() {
+  let ok = false;
+  try { if (window.caches) { for (const k of await caches.keys()) await caches.delete(k); ok = true; } } catch (e) {}
+  Object.keys(FAVC).forEach((k) => delete FAVC[k]);
+  closeSheet(); showToast(ok ? 'Cache cleared. Your data is safe.' : 'This browser has no cache storage. Nothing needed clearing.', 'success'); renderData(); loadWallets();
+}
+function termsPrivacySheet() {
+  openSheet(`<div style="font-weight:800; font-size:17px; margin-bottom:12px;">Terms &amp; Privacy</div><button class="btn-primary" onclick="closeSheet(); showPage('terms')">Terms &amp; Conditions</button><button class="btn-outline" onclick="closeSheet(); showPage('privacy')">Privacy Policy</button>`); i18nAll();
+}
+/* ---- profile picture ---- */
+function paintAvatar() {
+  ['avatar', 'pfAvatar'].forEach((id) => { const el = $(id); if (!el) return; el.style.backgroundImage = AVATAR ? `url(${AVATAR})` : ''; el.classList.toggle('has-img', !!AVATAR); });
+  $('avatarRemove').style.display = AVATAR ? 'block' : 'none';
+}
+function resizeImg(file, sz) {
+  return new Promise((ok, no) => { const im = new Image(), u = URL.createObjectURL(file);
+    im.onload = () => { const s = Math.min(im.width, im.height), c = document.createElement('canvas'); c.width = c.height = sz; c.getContext('2d').drawImage(im, (im.width - s) / 2, (im.height - s) / 2, s, s, 0, 0, sz, sz); URL.revokeObjectURL(u); ok(c.toDataURL('image/jpeg', 0.85)); };
+    im.onerror = () => { URL.revokeObjectURL(u); no(new Error('bad image')); }; im.src = u; });
+}
+async function pickAvatar(inp) {
+  const f = inp.files && inp.files[0]; inp.value = ''; if (!f) return;
+  try { const url = await resizeImg(f, 360), { errMsg } = await fn('set-avatar', { image: url }); if (errMsg) return showToast(errMsg, 'error'); AVATAR = url; paintAvatar(); showToast('Profile picture updated', 'success'); }
+  catch (e) { showToast('Could not read this picture. Try a JPG or PNG.', 'error'); }
+}
+async function removeAvatar() { const { errMsg } = await fn('set-avatar', { remove: true }); if (errMsg) return showToast(errMsg, 'error'); AVATAR = ''; paintAvatar(); showToast('Photo removed', 'success'); }
+/* ---- wallet balances on Profile / Wallet Management ---- */
+const _renderWallets = renderWallets;
+renderWallets = function () { _renderWallets(); const v = (x) => (balanceVisible ? m2(x) : '₦••••'); [['pfMain','main'],['pfEx','exchange'],['pfAtc','atc'],['wmMain','main'],['wmEx','exchange'],['wmAtc','atc']].forEach(([id,k]) => { if ($(id)) $(id).textContent = v(W[k]); }); };
+const _showPage2 = showPage;
+showPage = function (n) { _showPage2(n); if (n === 'settings') renderSettings(); if (n === 'set-notif') renderNotifPrefs(); if (n === 'set-about') renderAbout(); if (n === 'set-data') renderData(); if (n === 'wallets') renderWallets(); };
+/* ---- withdraw: bank OR Main Wallet ---- */
+function wdRenderDest() {
+  $('wdDest').innerHTML = [['bank', 'Bank account', 'Fee applies'], ['main', 'Main Wallet', 'Free and instant']].map(([k, n, a]) => `<div class="segi ${k === wd.dest ? 'on' : ''}" onclick="wdPickDest('${k}')"><div class="n">${n}</div><div class="a" style="font-size:11.5px;">${a}</div></div>`).join('');
+  const b = wd.dest === 'bank'; ['wdSendTo', 'wdBanks', 'wdAddBtn', 'wdAddBox'].forEach((id) => { if (!b) $(id).style.display = 'none'; else if (id !== 'wdAddBox') $(id).style.display = ''; });
+  $('wdReviewBtn').textContent = b ? 'Review withdrawal' : 'Review transfer'; i18nAll();
+}
+function wdPickDest(k) { wd.dest = k; wdRenderDest(); wdQuoteDebounced(); }
+/* ---- languages (all three: English, Hausa, Yoruba). Missing words simply stay in English. ---- */
+const I18N = {
+'Home':['Gida','Ilé'],'Transactions':['Mu\'amaloli','Àwọn Ìdúnàádúrà'],'Support':['Taimako','Ìrànlọ́wọ́'],'Profile':['Bayanina','Àkọọ́lẹ̀ Mi'],'Settings':['Saituna','Àwọn Ètò'],
+'Good morning,':['Ina kwana,','Ẹ káàárọ̀,'],'Good afternoon,':['Barka da rana,','Ẹ káàsán,'],'Good evening,':['Barka da yamma,','Ẹ káalẹ́,'],
+'Welcome back to UMARSHOYI-SUB':['Barka da dawowa UMARSHOYI-SUB','Káàbọ̀ padà sí UMARSHOYI-SUB'],
+'TOTAL WALLET BALANCE':['JIMLAR KUDIN WALLET','OWÓ INÚ WALLET GBOGBO'],'Main Wallet':['Babban Wallet','Wallet Àkọ́kọ́'],'Exchange Wallet':['Wallet na Musaya','Wallet Ìpààrọ̀'],
+'Airtime-to-Cash':['Airtime zuwa Kudi','Airtime sí Owó'],'Airtime to Cash':['Airtime zuwa Kudi','Airtime sí Owó'],'Buy Data':['Sayi Data','Ra Data'],'Electricity':['Wutar Lantarki','Iná Mọ̀nàmọ́ná'],
+'Exam PIN':['PIN na Jarrabawa','PIN Ìdánwò'],'Fund Wallet':['Saka Kudi a Wallet','Fi Owó Sínú Wallet'],'Withdraw':['Cire Kudi','Yọ Owó'],'History':['Tarihi','Ìtàn'],
+'Recent Transactions':['Mu\'amalolin Kwanan Nan','Àwọn Ìdúnàádúrà Àìpẹ́'],'View All':['Duba Duka','Wo Gbogbo'],'Quick Actions':['Ayyuka Masu Sauri','Àwọn Iṣẹ́ Kíákíá'],
+'Personal Information':['Bayanan Kai','Ìwífún Ara-ẹni'],'Security & Privacy':['Tsaro da Sirri','Ààbò àti Àṣírí'],'Bank Account':['Asusun Banki','Àkáǹtì Báńkì'],
+'Wallet Management':['Kula da Wallet','Ìṣàkóso Wallet'],'Help & Support':['Taimako da Tallafi','Ìrànlọ́wọ́ àti Àtìlẹ́yìn'],'Terms & Privacy':['Sharuɗɗa da Sirri','Àwọn Òfin àti Àṣírí'],
+'Terms & Conditions':['Sharuɗɗa da Ka\'idoji','Àwọn Òfin àti Ìlànà'],'Privacy Policy':['Manufar Sirri','Ìlànà Àṣírí'],'Log Out':['Fita','Jáde'],'Log In':['Shiga','Wọlé'],'Log in':['Shiga','Wọlé'],
+'Create Account':['Buɗe Asusu','Ṣí Àkáǹtì'],'View and update your details':['Duba ka sabunta bayananka','Wo kí o ṣe ìmúdójúìwọ̀n ìwífún rẹ'],'Change password, PIN & biometric':['Canja kalmar sirri, PIN da biometric','Yí ọ̀rọ̀ aṣínà, PIN àti biometric padà'],
+'Manage your bank details':['Sarrafa bayanan bankinka','Ṣàkóso ìwífún báńkì rẹ'],'View wallets and transaction history':['Duba wallet da tarihin mu\'amala','Wo wallet àti ìtàn ìdúnàádúrà'],
+'Get help and contact us':['Samu taimako ka tuntuɓe mu','Gba ìrànlọ́wọ́ kí o kàn sí wa'],'Terms of service and privacy policy':['Sharuɗɗan sabis da manufar sirri','Òfin iṣẹ́ àti ìlànà àṣírí'],
+'Remove photo':['Cire hoto','Yọ fọ́tò kúrò'],'Account Active':['Asusu yana aiki','Àkáǹtì wà ní ìṣiṣẹ́'],
+'Manage your app experience':['Sarrafa yadda kake amfani da manhaja','Ṣàkóso bí o ṣe ń lo ohun-èlò'],'Appearance & Theme':['Kamanni da Jigo','Ìrísí àti Àkòrí'],
+'Choose your preferred theme':['Zaɓi jigon da kake so','Yan àkòrí tí o fẹ́'],'Light':['Haske','Ìmọ́lẹ̀'],'Dark':['Duhu','Òkùnkùn'],'System':['Na\'ura','Ẹ̀rọ'],'Language':['Harshe','Èdè'],
+'Select your language':['Zaɓi harshenka','Yan èdè rẹ'],'Display & Accessibility':['Nuni da Sauƙin Amfani','Ìfihàn àti Ìrọ̀rùn Lílò'],'Adjust text size and animations':['Daidaita girman rubutu da motsi','Ṣàtúnṣe ìwọ̀n ọ̀rọ̀ àti ìṣíkiri'],
+'Text Size':['Girman Rubutu','Ìwọ̀n Ọ̀rọ̀'],'Small':['Karami','Kékeré'],'Normal':['Daidai','Déédé'],'Large':['Babba','Ńlá'],'Reduce Motion':['Rage Motsi','Dín Ìṣíkiri Kù'],
+'Notification Preferences':['Zaɓin Sanarwa','Àyànfẹ́ Ìfitónilétí'],'Manage your notifications':['Sarrafa sanarwarka','Ṣàkóso àwọn ìfitónilétí rẹ'],'App Information':['Bayanin Manhaja','Ìwífún Ohun-èlò'],
+'Data & Storage':['Data da Ajiya','Dátà àti Ìpamọ́'],'Clear cache and manage storage':['Share cache ka sarrafa ajiya','Pa cache rẹ́ kí o ṣàkóso ìpamọ́'],'Notifications':['Sanarwa','Àwọn Ìfitónilétí'],
+'Transaction updates':['Sabuntawar mu\'amala','Ìmúdójúìwọ̀n ìdúnàádúrà'],'Purchases and their results':['Sayayya da sakamakonsu','Àwọn ríra àti èsì wọn'],'Wallet funding updates':['Sabuntawar saka kudi','Ìmúdójúìwọ̀n fífi owó sínú wallet'],
+'Money added to your wallet':['Kudin da aka saka a wallet','Owó tí a fi sínú wallet rẹ'],'Withdrawal updates':['Sabuntawar cire kudi','Ìmúdójúìwọ̀n ìyọ owó'],'Status of your withdrawals':['Halin cire kudinka','Ipò ìyọ owó rẹ'],
+'Data and service updates':['Sabuntawar data da sabis','Ìmúdójúìwọ̀n dátà àti iṣẹ́'],'Network and service announcements':['Sanarwar network da sabis','Ìkéde nẹ́tíwọ́ọ̀kì àti iṣẹ́'],'Security alerts':['Faɗakarwar tsaro','Ìkìlọ̀ ààbò'],
+'Always on to protect your account':['A kullum a kunne don kare asusunka','Máa wà ní títàn láti dáàbò bo àkáǹtì rẹ'],'Support ticket updates':['Sabuntawar tikitin taimako','Ìmúdójúìwọ̀n tíkẹ́ẹ̀tì ìrànlọ́wọ́'],
+'Replies on your tickets':['Amsoshi kan tikitinka','Ìdáhùn sí àwọn tíkẹ́ẹ̀tì rẹ'],'Promotional messages':['Saƙonnin talla','Àwọn ìfiránṣẹ́ ìpolówó'],'Offers and rewards':['Tayi da lada','Àwọn ìfilọ́lẹ̀ àti èrè'],
+'Application name':['Sunan manhaja','Orúkọ ohun-èlò'],'Version':['Sigar manhaja','Àtẹ̀jáde'],'Build number':['Lambar build','Nọ́mbà build'],'Description':['Bayani','Àpèjúwe'],'Support email':['Imel na taimako','Ímeèlì ìrànlọ́wọ́'],
+'Support WhatsApp':['WhatsApp na taimako','WhatsApp ìrànlọ́wọ́'],'Website':['Shafin yanar gizo','Ojú opó wẹ́ẹ̀bù'],'Copyright':['Haƙƙin mallaka','Ẹ̀tọ́ àdàkọ'],'Storage used':['Ajiyar da aka yi amfani','Ìpamọ́ tí a lò'],
+'Storage available':['Ajiyar da ta rage','Ìpamọ́ tí ó ṣẹ́kù'],'Cached files':['Fayilolin cache','Àwọn fáìlì cache'],'Clear Cache':['Share Cache','Pa Cache Rẹ́'],'Clear cache?':['A share cache?','Ṣé kí a pa cache rẹ́?'],'Cancel':['Soke','Fagilé'],
+'Cache cleared. Your data is safe.':['An share cache. Bayananka lafiya suke.','A ti pa cache rẹ́. Dátà rẹ wà ní ààbò.'],'Profile picture updated':['An sabunta hoton bayananka','A ti ṣe ìmúdójúìwọ̀n fọ́tò rẹ'],'Photo removed':['An cire hoto','A ti yọ fọ́tò kúrò'],
+'Withdraw to':['Cire kudi zuwa','Yọ owó sí'],'Withdraw from':['Cire kudi daga','Yọ owó kúrò ní'],'Bank account':['Asusun banki','Àkáǹtì báńkì'],'Fee applies':['Ana cajin kuɗi','Owó ìdíyelé wà'],'Free and instant':['Kyauta kuma nan take','Ọ̀fẹ́ àti lẹ́sẹ̀kẹsẹ̀'],
+'Review withdrawal':['Duba cire kudi','Ṣàyẹ̀wò ìyọ owó'],'Review transfer':['Duba canja wuri','Ṣàyẹ̀wò ìfiránṣẹ́'],'My withdrawals':['Cire kudi na','Àwọn ìyọ owó mi'],'Send to':['Aika zuwa','Fi ránṣẹ́ sí'],'Amount':['Adadi','Iye'],
+'Amount (₦)':['Adadi (₦)','Iye (₦)'],'Transaction PIN':['PIN na mu\'amala','PIN ìdúnàádúrà'],'Add bank account':['Ƙara asusun banki','Fi àkáǹtì báńkì kún'],'Save Changes':['Ajiye Canje-canje','Fi Àwọn Àyípadà Pamọ́'],
+'Change Transaction PIN':['Canja PIN na Mu\'amala','Yí PIN Ìdúnàádúrà Padà'],'Change Password':['Canja Kalmar Sirri','Yí Ọ̀rọ̀ Aṣínà Padà'],'Biometric Login':['Shiga da Biometric','Wọlé pẹ̀lú Biometric'],
+'Phone Number':['Lambar Waya','Nọ́mbà Fóònù'],'Email':['Imel','Ímeèlì'],'Username':['Sunan Mai Amfani','Orúkọ Olùlò'],'Full Name':['Cikakken Suna','Orúkọ Kíkún'],'Password':['Kalmar Sirri','Ọ̀rọ̀ Aṣínà'],
+'Pending':['Ana jira','Ń dúró'],'Successful':['Nasara','Ó yọrí'],'Failed':['Ya gaza','Kò yọrí'],'Completed':['An kammala','Ti parí'],'Load more':['Kara lodawa','Gbé síwájú sí i'],'All':['Duka','Gbogbo'],'Today':['Yau','Òní'],
+'This Week':['Wannan Makon','Ọ̀sẹ̀ Yìí'],'This Month':['Wannan Watan','Oṣù Yìí'],'Loading…':['Ana lodawa…','Ń gbé…'],'Refer & Earn':['Gayyata ka Samu','Pè Kí O Jèrè'],'Invite Friends':['Gayyaci Abokai','Pe Àwọn Ọ̀rẹ́'],
+'Convert Airtime':['Mayar da Airtime','Pa Airtime Dà'],'Confirm Purchase':['Tabbatar da Sayayya','Jẹ́rìí Ríra'],'Total to Pay':['Jimlar Biya','Àpapọ̀ Láti San'],'You pay':['Kana biya','O san'],'Service Fee':['Kuɗin Sabis','Owó Iṣẹ́'],
+'Meter Number':['Lambar Mita','Nọ́mbà Mítà'],'Transaction History':['Tarihin Mu\'amala','Ìtàn Ìdúnàádúrà'],'Transaction Details':['Bayanin Mu\'amala','Àlàyé Ìdúnàádúrà'],'Security':['Tsaro','Ààbò'],'Legal':['Doka','Òfin'],
+'Already have an account?':['Kana da asusu?','Ṣé o ti ní àkáǹtì?'],'New here?':['Sabon shiga?','Tuntun níbí?'],'Update PIN':['Sabunta PIN','Ṣe ìmúdójúìwọ̀n PIN'],'Update Password':['Sabunta Kalmar Sirri','Ṣe ìmúdójúìwọ̀n Ọ̀rọ̀ Aṣínà'],
+'Account number':['Lambar asusu','Nọ́mbà àkáǹtì'],'Account Name':['Sunan asusu','Orúkọ àkáǹtì'],'Bank':['Banki','Báńkì'],'Phone':['Waya','Fóònù'],'Wallet':['Wallet','Wallet'],'Copy':['Kwafi','Dà kọ'],
+'Moved to Main Wallet':['An mayar zuwa Babban Wallet','A ti gbé e lọ sí Wallet Àkọ́kọ́'],'Ask a question…':['Yi tambaya…','Béèrè ìbéèrè…'],'Type your message here':['Rubuta saƙonka a nan','Kọ ìfiránṣẹ́ rẹ síbí']
+};
+const _tOrig = new WeakMap(), _tLast = new WeakMap();
+function tr(s) { if (LANG === 'en') return s; const k = String(s).trim(), e = I18N[k]; return e && e[LANG === 'ha' ? 0 : 1] ? String(s).replace(k, e[LANG === 'ha' ? 0 : 1]) : s; }
+function i18nText(n) {
+  const cur = n.nodeValue; if (!cur || !cur.trim()) return; let o = _tOrig.get(n);
+  if (o === undefined || cur !== _tLast.get(n)) { o = cur; _tOrig.set(n, o); }
+  const nv = LANG === 'en' ? o : tr(o); _tLast.set(n, nv); if (nv !== cur) n.nodeValue = nv;
+}
+function i18nAttrs(el) {
+  ['placeholder', 'aria-label'].forEach((a) => { if (!el.hasAttribute || !el.hasAttribute(a)) return; const k = 'i18n' + a.replace('-', '_'), cur = el.getAttribute(a); if (el.dataset[k] === undefined || cur !== el.dataset[k + 'L']) el.dataset[k] = cur; const nv = LANG === 'en' ? el.dataset[k] : tr(el.dataset[k]); el.dataset[k + 'L'] = nv; if (nv !== cur) el.setAttribute(a, nv); });
+}
+function i18nWalk(root) {
+  if (!root) return; if (root.nodeType === 3) { i18nText(root); return; } if (root.nodeType !== 1) return;
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT); let n = w.currentNode;
+  const skip = (e) => /^(SCRIPT|STYLE|TEXTAREA|OPTION)$/.test(e.tagName);
+  if (skip(root)) return; i18nAttrs(root);
+  while ((n = w.nextNode())) { if (n.nodeType === 3) { if (!skip(n.parentNode)) i18nText(n); } else i18nAttrs(n); }
+}
+function i18nAll() { i18nWalk(document.body); }
+new MutationObserver((ms) => { if (LANG === 'en' && !document.documentElement.dataset.i18nOn) return; ms.forEach((m) => { if (m.type === 'characterData') i18nText(m.target); else if (m.type === 'attributes') i18nAttrs(m.target); else m.addedNodes.forEach(i18nWalk); }); })
+  .observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['placeholder', 'aria-label'] });
+const _origToast = showToast; showToast = function (m, t) { _origToast(tr(m), t); };
+const _applyPrefs0 = applyPrefs; applyPrefs = function () { if (PREFS.language !== 'en') document.documentElement.dataset.i18nOn = '1'; _applyPrefs0(); };
+applyPrefs();
+</script>
+
 </body>
 </html>

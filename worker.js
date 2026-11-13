@@ -31,6 +31,11 @@ const SCHEMA = [
   `CREATE INDEX IF NOT EXISTS idx_un_user ON user_notifications(user_id, created_at)`,
   `CREATE TABLE IF NOT EXISTS support_tickets (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), tx_id TEXT, message TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'open', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
   `CREATE TABLE IF NOT EXISTS admin_log (id TEXT PRIMARY KEY, admin_id TEXT NOT NULL, action TEXT NOT NULL, target_id TEXT, detail TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+  `CREATE TABLE IF NOT EXISTS passkeys (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, public_key TEXT NOT NULL, alg INTEGER NOT NULL, counter INTEGER NOT NULL DEFAULT 0, device_name TEXT, revoked INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, last_used_at TEXT)`,
+  `CREATE INDEX IF NOT EXISTS idx_pk_user ON passkeys(user_id)`,
+  `CREATE TABLE IF NOT EXISTS auth_challenges (id TEXT PRIMARY KEY, kind TEXT NOT NULL, user_id TEXT, expires_at INTEGER NOT NULL)`,
+  `CREATE TABLE IF NOT EXISTS auth_attempts (k TEXT PRIMARY KEY, n INTEGER NOT NULL DEFAULT 0, started INTEGER NOT NULL)`,
+  `CREATE TABLE IF NOT EXISTS user_security (user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, bio_login INTEGER NOT NULL DEFAULT 0, bio_tx INTEGER NOT NULL DEFAULT 0, last_login_at TEXT, last_login_method TEXT, last_login_device TEXT)`,
   `CREATE TABLE IF NOT EXISTS user_prefs (user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, theme TEXT NOT NULL DEFAULT 'light', language TEXT NOT NULL DEFAULT 'en', text_size TEXT NOT NULL DEFAULT 'normal', reduce_motion INTEGER NOT NULL DEFAULT 0, notif_prefs TEXT, avatar TEXT, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
 ];
 // For databases created by the older worker: add columns that are missing.
@@ -113,6 +118,7 @@ async function migrateReferralCodes(env) {   // accounts created before the USS 
 /* -------------------------------------------------------------- PIN checks */
 // Returns null when the PIN is right, otherwise an error message.
 async function verifyPin(env, userId, pin) {
+  if (pin && typeof pin === 'object' && pin[BIO] === userId) return null;   // fingerprint already verified by the server (see route)
   if (!/^\d{4}$/.test(String(pin || ''))) return 'Enter your 4-digit transaction PIN';
   const p = await env.DB.prepare('SELECT transaction_pin_hash h, transaction_pin_salt s, pin_attempts a, pin_locked_until l FROM profiles WHERE id=?').bind(userId).first();
   if (!p || !p.h) return 'You have not set a transaction PIN yet.';
@@ -133,7 +139,12 @@ async function signup(req, env) {
   const email = String(x.email || '').trim().toLowerCase(), password = String(x.password || '');
   const username = String(meta.username || '').trim().toLowerCase(), pin = String(meta.raw_pin || '');
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail('Enter a valid email address.');
-  if (password.length < 6) return fail('Password must be at least 6 characters.');
+  const ipKey = 'signup:ip:' + clientIp(req), wait = await rateWait(env, ipKey, 15, 3600); if (wait) return tooMany(wait);
+  await rateHit(env, ipKey, 3600);
+  if (password.length < 8) return fail('Password must be at least 8 characters.');
+  if (String(meta.full_name || '').trim().length < 2) return fail('Enter your full name.');
+  meta.phone = String(meta.phone || '').replace(/[\s+\-()]/g, '');
+  if (!/^(0\d{10}|234\d{10})$/.test(meta.phone)) return fail('Enter a valid phone number, e.g. 08012345678.');
   if (!/^[a-z0-9_]{3,20}$/.test(username)) return fail('Username must be 3-20 letters, numbers or underscore.');
   if (!/^\d{4}$/.test(pin)) return fail('Transaction PIN must be exactly 4 digits.');
   const id = uid(), salt = uid(), pinSalt = uid();
@@ -158,22 +169,236 @@ async function signup(req, env) {
   } catch (e) {
     console.error('signup failed', e);
     const m = String(e?.message || e);
-    if (m.includes('UNIQUE')) return fail('Email or username already exists.', 409);
+    if (m.includes('UNIQUE')) {   // a retry of the same sign-up (slow network, double tap) must not fail or duplicate: sign the same person in
+      const ex = await env.DB.prepare('SELECT u.*, p.username un FROM users u JOIN profiles p ON p.id=u.id WHERE u.email=?').bind(email).first();
+      if (ex && ex.un === username && now() - Date.parse(String(ex.created_at).replace(' ', 'T') + 'Z') / 1000 < 900 && safeEq(await passwordHash(password, ex.password_salt), ex.password_hash)) return sessionFor(env, ex, req, 'password');
+      return fail('Email or username already exists.', 409);
+    }
     return fail('Could not create account: ' + m, 500);
   }
-  const user = { id, email };
-  return json({ user, session: { access_token: await tokenFor(user, env.AUTH_SECRET), token_type: 'bearer', user } });
+  return sessionFor(env, { id, email }, req, 'password');
 }
 async function login(req, env) {
   const x = await body(req), id = String(x.email || '').trim().toLowerCase();
+  const idKey = 'login:id:' + id, ipKey = 'login:ip:' + clientIp(req);
+  const wait = Math.max(await rateWait(env, idKey, 8, 900), await rateWait(env, ipKey, 30, 900)); if (wait) return tooMany(wait);
   let u = await env.DB.prepare('SELECT * FROM users WHERE email=?').bind(id).first();
   if (!u) u = await env.DB.prepare('SELECT u.* FROM users u JOIN profiles p ON p.id=u.id WHERE p.username=?').bind(id).first();
-  if (!u || !safeEq(await passwordHash(String(x.password || ''), u.password_salt), u.password_hash)) return fail('Invalid email/username or password.', 401);
+  if (!u || !safeEq(await passwordHash(String(x.password || ''), u.password_salt), u.password_hash)) { await rateHit(env, idKey, 900); await rateHit(env, ipKey, 900); return fail('Invalid email/username or password.', 401); }
+  await rateClear(env, idKey);
   const p = await env.DB.prepare('SELECT is_banned FROM profiles WHERE id=?').bind(u.id).first();
   if (p?.is_banned) return fail('Your account has been suspended. Contact support.', 403);
   if (isAdminEmail(env, u.email)) await env.DB.prepare('UPDATE profiles SET is_admin=1 WHERE id=?').bind(u.id).run();
+  return sessionFor(env, u, req, 'password');
+}
+
+/* ------------------------------------------------------------------ SMART LOGIN
+   Passkeys (WebAuthn: fingerprint / face / screen lock), abuse protection, forgot password.
+   The server never receives fingerprint data: the phone checks the finger itself and only sends back
+   a signature that is verified here with the public key saved when the device was registered. */
+const BIO = Symbol('biometric-confirmed');           // cannot be produced from JSON, so a client can never fake it
+const clientIp = (req) => req.headers.get('cf-connecting-ip') || 'unknown';
+const tooMany = (sec) => fail(`Too many attempts. Please try again in ${Math.max(1, Math.ceil(sec / 60))} minute(s).`, 429);
+async function rateWait(env, key, max, windowSec) {   // seconds the caller must wait, 0 when allowed
+  const r = await env.DB.prepare('SELECT n, started FROM auth_attempts WHERE k=?').bind(key).first();
+  if (!r || now() - r.started >= windowSec) return 0;
+  return r.n >= max ? windowSec - (now() - r.started) : 0;
+}
+async function rateHit(env, key, windowSec) {
+  const t = now();
+  await env.DB.prepare('INSERT INTO auth_attempts(k,n,started) VALUES(?,1,?) ON CONFLICT(k) DO UPDATE SET n = CASE WHEN ?-started >= ? THEN 1 ELSE n+1 END, started = CASE WHEN ?-started >= ? THEN ? ELSE started END')
+    .bind(key, t, t, windowSec, t, windowSec, t).run();
+  if (Math.random() < 0.02) await env.DB.prepare('DELETE FROM auth_attempts WHERE started < ?').bind(t - 86400).run();
+}
+const rateClear = (env, key) => env.DB.prepare('DELETE FROM auth_attempts WHERE k=?').bind(key).run();
+
+async function getSec(env, userId) {
+  const r = await env.DB.prepare('SELECT bio_login, bio_tx, last_login_at, last_login_method FROM user_security WHERE user_id=?').bind(userId).first();
+  return { bio_login: !!r?.bio_login, bio_tx: !!r?.bio_tx, last_login_at: r?.last_login_at || null, last_login_method: r?.last_login_method || null };
+}
+async function markLogin(env, userId, req, method) {
+  try {
+    const dev = String(req.headers.get('user-agent') || '').slice(0, 120);
+    await env.DB.prepare("INSERT INTO user_security(user_id,last_login_at,last_login_method,last_login_device) VALUES(?,CURRENT_TIMESTAMP,?,?) ON CONFLICT(user_id) DO UPDATE SET last_login_at=CURRENT_TIMESTAMP, last_login_method=excluded.last_login_method, last_login_device=excluded.last_login_device").bind(userId, method, dev).run();
+  } catch (e) { console.error('markLogin failed', e); }
+}
+async function sessionFor(env, u, req, method) {
   const user = { id: u.id, email: u.email };
+  await markLogin(env, u.id, req, method);
   return json({ user, session: { access_token: await tokenFor(user, env.AUTH_SECRET), token_type: 'bearer', user } });
+}
+
+/* ---- WebAuthn helpers ---- */
+const rpIdOf = (req) => new URL(req.url).hostname;
+function allowedOrigins(env, req) { const o = new Set([new URL(req.url).origin]); try { if (env.APP_URL) o.add(new URL(env.APP_URL).origin); } catch { /* ignore */ } return o; }
+async function newChallenge(env, kind, userId, ttl = 300) {
+  const ch = b64(crypto.getRandomValues(new Uint8Array(32)));
+  await env.DB.prepare('DELETE FROM auth_challenges WHERE expires_at < ?').bind(now()).run();
+  await env.DB.prepare('INSERT INTO auth_challenges(id,kind,user_id,expires_at) VALUES(?,?,?,?)').bind(ch, kind, userId || null, now() + ttl).run();
+  return ch;
+}
+async function useChallenge(env, ch, kind, userId) {   // single use: deleting it is what "uses" it
+  const r = await env.DB.prepare("DELETE FROM auth_challenges WHERE id=? AND kind=? AND expires_at>=? AND COALESCE(user_id,'')=? RETURNING 1 ok").bind(String(ch || ''), kind, now(), userId || '').first();
+  return !!r;
+}
+async function checkClientData(env, req, cdB64, type, kind, userId) {
+  let cd; try { cd = JSON.parse(new TextDecoder().decode(unb64(String(cdB64)))); } catch { return 'The device answer was not valid.'; }
+  if (cd.type !== type) return 'The device answer was not valid.';
+  if (!allowedOrigins(env, req).has(cd.origin)) return 'This sign-in came from an unexpected site.';
+  if (!(await useChallenge(env, cd.challenge, kind, userId))) return 'This request has expired. Please try again.';
+  return null;
+}
+async function checkAuthData(req, ad) {
+  if (ad.length < 37) return 'The device answer was not valid.';
+  const rp = new Uint8Array(await crypto.subtle.digest('SHA-256', enc(rpIdOf(req))));
+  for (let i = 0; i < 32; i++) if (ad[i] !== rp[i]) return 'This sign-in is for a different website.';
+  if (!(ad[32] & 0x01)) return 'The device did not confirm that you were present.';
+  if (!(ad[32] & 0x04)) return 'Fingerprint / screen-lock check was not completed.';
+  return null;
+}
+function derToRaw(der) {   // WebAuthn ES256 signatures are DER; Web Crypto wants r||s
+  let o = 2; if (der[0] !== 0x30) throw new Error('bad sig'); if (der[1] & 0x80) o = 2 + (der[1] & 0x7f);
+  const read = () => { if (der[o] !== 0x02) throw new Error('bad sig'); const l = der[o + 1]; let v = der.slice(o + 2, o + 2 + l); o += 2 + l; while (v.length > 32 && v[0] === 0) v = v.slice(1); if (v.length > 32) throw new Error('bad sig'); return v; };
+  const r = read(), s = read(), out = new Uint8Array(64); out.set(r, 32 - r.length); out.set(s, 64 - s.length); return out;
+}
+async function verifySig(alg, spki, data, sig) {
+  try {
+    if (alg === -7) return await crypto.subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, await crypto.subtle.importKey('spki', spki, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['verify']), derToRaw(sig), data);
+    if (alg === -257) return await crypto.subtle.verify('RSASSA-PKCS1-v1_5', await crypto.subtle.importKey('spki', spki, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']), sig, data);
+  } catch { /* fall through */ }
+  return false;
+}
+// a = { id, clientDataJSON, authenticatorData, signature } (all base64url). Returns { cred } or { error }.
+async function verifyAssertion(env, req, a, kind, userId) {
+  const cred = await env.DB.prepare('SELECT * FROM passkeys WHERE id=? AND revoked=0').bind(String(a?.id || '')).first();
+  if (!cred || (userId && cred.user_id !== userId)) return { error: 'This device is not registered. Please use your password.' };
+  const cdErr = await checkClientData(env, req, a.clientDataJSON, 'webauthn.get', kind, userId || null); if (cdErr) return { error: cdErr };
+  let ad, sig; try { ad = unb64(String(a.authenticatorData)); sig = unb64(String(a.signature)); } catch { return { error: 'The device answer was not valid.' }; }
+  const adErr = await checkAuthData(req, ad); if (adErr) return { error: adErr };
+  const cdHash = new Uint8Array(await crypto.subtle.digest('SHA-256', unb64(String(a.clientDataJSON))));
+  const signed = new Uint8Array(ad.length + 32); signed.set(ad); signed.set(cdHash, ad.length);
+  if (!(await verifySig(cred.alg, unb64(cred.public_key), signed, sig))) return { error: 'Fingerprint verification failed. Please try again or use your password.' };
+  const counter = ((ad[33] << 24) | (ad[34] << 16) | (ad[35] << 8) | ad[36]) >>> 0;
+  if ((counter || cred.counter) && counter <= cred.counter) return { error: 'This device could not be verified. Please use your password.' };
+  await env.DB.prepare('UPDATE passkeys SET counter=?, last_used_at=CURRENT_TIMESTAMP WHERE id=?').bind(counter, cred.id).run();
+  return { cred };
+}
+
+const passkeyPublic = async (req, env) => {   // routes that need no login yet
+  const path = new URL(req.url).pathname, ip = clientIp(req);
+  if (path === '/api/auth/passkey/login-options') {
+    if (await rateWait(env, 'pk:opt:' + ip, 40, 900)) return tooMany(900);
+    await rateHit(env, 'pk:opt:' + ip, 900);
+    return json({ challenge: await newChallenge(env, 'login', null, 180), rpId: rpIdOf(req), timeout: 60000 });
+  }
+  if (path === '/api/auth/passkey/login') {
+    const x = await body(req), w = await rateWait(env, 'pk:fail:' + ip, 10, 900); if (w) return tooMany(w);
+    const bad = async (m, s = 401) => { await rateHit(env, 'pk:fail:' + ip, 900); return fail(m, s); };
+    const v = await verifyAssertion(env, req, x, 'login', null);
+    if (v.error) return bad(v.error);
+    const u = await env.DB.prepare('SELECT u.*, p.is_banned FROM users u JOIN profiles p ON p.id=u.id WHERE u.id=?').bind(v.cred.user_id).first();
+    if (!u) return bad('This device is not registered. Please use your password.');
+    if (u.is_banned) return fail('Your account has been suspended. Contact support.', 403);
+    if (!(await getSec(env, u.id)).bio_login) return bad('Fingerprint login is switched off for this account. Please use your password.');
+    if (isAdminEmail(env, u.email)) await env.DB.prepare('UPDATE profiles SET is_admin=1 WHERE id=?').bind(u.id).run();
+    return sessionFor(env, u, req, 'fingerprint');
+  }
+  return null;
+};
+
+// Forgot password without e-mail/SMS: the customer proves who they are with the registered phone number and the transaction PIN.
+async function forgotPassword(req, env) {
+  const x = await body(req), id = String(x.identifier || '').trim().toLowerCase(), ip = clientIp(req);
+  const ipKey = 'fp:ip:' + ip, idKey = 'fp:id:' + id;
+  const w = Math.max(await rateWait(env, ipKey, 12, 3600), await rateWait(env, idKey, 5, 3600)); if (w) return tooMany(w);
+  const password = String(x.password || '');
+  if (!id) return fail('Enter your email or username.');
+  if (password.length < 8) return fail('New password must be at least 8 characters.');
+  if (!/^\d{4}$/.test(String(x.pin || ''))) return fail('Enter your 4-digit transaction PIN.');
+  const same = 'These details do not match our records.';
+  const miss = async () => { await rateHit(env, ipKey, 3600); await rateHit(env, idKey, 3600); return fail(same, 400); };
+  let u = await env.DB.prepare('SELECT * FROM users WHERE email=?').bind(id).first();
+  if (!u) u = await env.DB.prepare('SELECT u.* FROM users u JOIN profiles p ON p.id=u.id WHERE p.username=?').bind(id).first();
+  if (!u) { await passwordHash('x', 'dummy'); return miss(); }
+  const p = await env.DB.prepare('SELECT phone FROM profiles WHERE id=?').bind(u.id).first();
+  const d = (s) => String(s || '').replace(/\D/g, '').slice(-10);
+  if (d(x.phone).length < 10 || d(x.phone) !== d(p?.phone)) return miss();
+  const pe = await verifyPin(env, u.id, x.pin);
+  if (pe) { await rateHit(env, ipKey, 3600); await rateHit(env, idKey, 3600); return fail(pe === 'Wrong transaction PIN.' ? same : pe, 400); }
+  const salt = uid();
+  await env.DB.prepare('UPDATE users SET password_hash=?, password_salt=? WHERE id=?').bind(await passwordHash(password, salt), salt, u.id).run();
+  await rateClear(env, idKey); await rateClear(env, 'login:id:' + id);
+  await notify(env, u.id, 'Password changed', 'Your password was reset. If this was not you, contact support immediately.');
+  return json({ ok: true });
+}
+
+// ---- routes for a logged-in customer ----
+async function securityRoutes(req, env, user) {
+  const path = new URL(req.url).pathname;
+  const devices = async () => (await env.DB.prepare('SELECT id, device_name name, created_at, last_used_at FROM passkeys WHERE user_id=? AND revoked=0 ORDER BY created_at').bind(user.id).all()).results;
+  if (path === '/api/auth/security') {
+    const x = req.method === 'POST' ? await body(req) : {}, list = await devices();
+    if (req.method === 'POST' && (x.bio_login !== undefined || x.bio_tx !== undefined)) {
+      const cur = await getSec(env, user.id);
+      const bl = x.bio_login === undefined ? cur.bio_login : !!x.bio_login, bt = x.bio_tx === undefined ? cur.bio_tx : !!x.bio_tx;
+      if ((bl || bt) && !list.length) return fail('Register this device first.');
+      await env.DB.prepare('INSERT INTO user_security(user_id,bio_login,bio_tx) VALUES(?,?,?) ON CONFLICT(user_id) DO UPDATE SET bio_login=excluded.bio_login, bio_tx=excluded.bio_tx').bind(user.id, bl ? 1 : 0, bt ? 1 : 0).run();
+      await notify(env, user.id, 'Security settings changed', `Fingerprint login is now ${bl ? 'on' : 'off'} and fingerprint transaction confirmation is ${bt ? 'on' : 'off'}.`);
+    }
+    return json({ ...(await getSec(env, user.id)), devices: await devices(), pin_set: !!(await env.DB.prepare('SELECT transaction_pin_hash h FROM profiles WHERE id=?').bind(user.id).first())?.h });
+  }
+  if (path === '/api/auth/passkey/register-options' && req.method === 'POST') {
+    const x = await body(req), w = await rateWait(env, 'pk:reg:' + user.id, 5, 900); if (w) return tooMany(w);
+    const u = await env.DB.prepare('SELECT password_hash h, password_salt s FROM users WHERE id=?').bind(user.id).first();
+    if (!safeEq(await passwordHash(String(x.password || ''), u.s), u.h)) { await rateHit(env, 'pk:reg:' + user.id, 900); return fail('Wrong password. Enter your account password to add this device.'); }
+    const list = await devices(); if (list.length >= 10) return fail('You can register at most 10 devices. Remove one first.');
+    const prof = await env.DB.prepare('SELECT full_name, username FROM profiles WHERE id=?').bind(user.id).first();
+    return json({ challenge: await newChallenge(env, 'register', user.id), rpId: rpIdOf(req), rpName: env.APP_NAME || 'UMARSHOYI-SUB', user: { id: b64(enc(user.id)), name: user.email, displayName: prof?.full_name || prof?.username || user.email }, exclude: list.map((d) => d.id), timeout: 60000 });
+  }
+  if (path === '/api/auth/passkey/register' && req.method === 'POST') {
+    const x = await body(req), id = String(x.id || '');
+    if (!/^[A-Za-z0-9_-]{16,512}$/.test(id)) return fail('The device answer was not valid.');
+    const cdErr = await checkClientData(env, req, x.clientDataJSON, 'webauthn.create', 'register', user.id); if (cdErr) return fail(cdErr);
+    let ad; try { ad = unb64(String(x.authenticatorData)); } catch { return fail('The device answer was not valid.'); }
+    const adErr = await checkAuthData(req, ad); if (adErr) return fail(adErr);
+    if (!(ad[32] & 0x40) || ad.length < 55) return fail('The device answer was not valid.');
+    const idLen = (ad[53] << 8) | ad[54], embedded = ad.slice(55, 55 + idLen);
+    if (b64(embedded) !== id) return fail('The device answer was not valid.');
+    const alg = Number(x.alg); if (alg !== -7 && alg !== -257) return fail('This device uses a sign-in type we do not support. Use your password.');
+    try {
+      const spki = unb64(String(x.publicKey));
+      if (alg === -7) await crypto.subtle.importKey('spki', spki, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['verify']);
+      else await crypto.subtle.importKey('spki', spki, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']);
+    } catch { return fail('The device key was not valid.'); }
+    const name = String(x.name || 'This device').replace(/[<>]/g, '').trim().slice(0, 60) || 'This device';
+    const exists = await env.DB.prepare('SELECT user_id FROM passkeys WHERE id=?').bind(id).first();
+    if (exists && exists.user_id !== user.id) return fail('This device is already registered to another account.');
+    await env.DB.prepare('INSERT INTO passkeys(id,user_id,public_key,alg,counter,device_name) VALUES(?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET public_key=excluded.public_key, alg=excluded.alg, revoked=0, device_name=excluded.device_name')
+      .bind(id, user.id, String(x.publicKey), alg, ((ad[33] << 24) | (ad[34] << 16) | (ad[35] << 8) | ad[36]) >>> 0, name).run();
+    await notify(env, user.id, 'New device added', `"${name}" can now be used for fingerprint login. If this was not you, remove it in Profile > Security & Privacy.`);
+    return json({ ok: true, devices: await devices() });
+  }
+  if (path === '/api/auth/passkey/revoke' && req.method === 'POST') {
+    const x = await body(req);
+    const c = await env.DB.prepare('UPDATE passkeys SET revoked=1 WHERE id=? AND user_id=? AND revoked=0').bind(String(x.id || ''), user.id).run();
+    if (c.meta.changes !== 1) return fail('Device not found.', 404);
+    if (!(await devices()).length) await env.DB.prepare('UPDATE user_security SET bio_login=0, bio_tx=0 WHERE user_id=?').bind(user.id).run();
+    await notify(env, user.id, 'Device removed', 'A device was removed from your fingerprint login.');
+    return json({ ok: true, ...(await getSec(env, user.id)), devices: await devices() });
+  }
+  if (path === '/api/auth/passkey/tx-options' && req.method === 'POST') {
+    if (!(await getSec(env, user.id)).bio_tx) return fail('Fingerprint confirmation is off. Use your PIN.');
+    const list = await devices(); if (!list.length) return fail('No registered device. Use your PIN.');
+    return json({ challenge: await newChallenge(env, 'tx', user.id, 120), rpId: rpIdOf(req), allow: list.map((d) => d.id), timeout: 60000 });
+  }
+  if (path === '/api/auth/passkey/tx-verify' && req.method === 'POST') {
+    const w = await rateWait(env, 'pk:tx:' + user.id, 8, 900); if (w) return tooMany(w);
+    if (!(await getSec(env, user.id)).bio_tx) return fail('Fingerprint confirmation is off. Use your PIN.');
+    const v = await verifyAssertion(env, req, await body(req), 'tx', user.id);
+    if (v.error) { await rateHit(env, 'pk:tx:' + user.id, 900); return fail(v.error); }
+    return json({ bio_token: await newChallenge(env, 'txtoken', user.id, 120) });   // single-use, 2 minutes
+  }
+  return null;
 }
 
 /* ------------------------------------------------------- FLUTTERWAVE */
@@ -673,6 +898,11 @@ FUNCTIONS['exchange-create'] = async (x, env, user, req) => {
     env.DB.prepare("INSERT INTO transactions(id,user_id,type,label,amount,direction,status,provider_ref,wallet,metadata) VALUES(?,?,'exchange',?,?,'in','pending',?,'exchange',?)").bind(id, user.id, `Exchange (${q.currency} \u2192 NGN)`, q.receive_ngn, txRef, JSON.stringify({ currency: q.currency, source_amount: q.amount, rate: q.rate, fee_percent: q.fee_percent, fee_amount: q.fee_amount })),
   ]);
   return json({ data: { link: p.data.data.link, id, receive_ngn: q.receive_ngn } });
+};
+
+FUNCTIONS['exchange-history'] = async (x, env, user) => {   // the customer's own exchanges (money goes to the Exchange Wallet)
+  const rows = (await env.DB.prepare("SELECT id,currency,source_amount,receive_ngn,status,created_at FROM remittances WHERE user_id=? AND status<>'awaiting_payment' ORDER BY created_at DESC LIMIT 30").bind(user.id).all()).results;
+  return json({ items: rows });
 };
 
 /* ------------------------------------------------------------------ WALLETS, HISTORY, WITHDRAWALS, FAVOURITES, REFERRALS */
@@ -2184,6 +2414,8 @@ async function route(req, env) {
   if (path.startsWith('/api/auth/') && String(env.AUTH_SECRET).length < 32) return fail('AUTH_SECRET is too weak. Use a random value of at least 32 characters.', 503);
   if (path === '/api/auth/signup' && method === 'POST') return signup(req, env);
   if (path === '/api/auth/login' && method === 'POST') return login(req, env);
+  if (path === '/api/auth/forgot' && method === 'POST') return forgotPassword(req, env);
+  if (path.startsWith('/api/auth/passkey/login') && method === 'POST') return passkeyPublic(req, env);
 
   const user = await authUser(req, env);
   if (path === '/api/auth/session') return json({ session: user ? { access_token: (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, ''), user: { id: user.id, email: user.email } } : null });
@@ -2191,6 +2423,7 @@ async function route(req, env) {
   if (!user) return fail('Please log in again.', 401);
   if (user.is_banned) return fail('Your account has been suspended. Contact support.', 403);
 
+  if (path === '/api/auth/security' || path.startsWith('/api/auth/passkey/')) { const r = await securityRoutes(req, env, user); if (r) return r; }
   if (path === '/api/auth/password' && method === 'PATCH') {
     const x = await body(req);
     if (String(x.password || '').length < 6) return fail('Password must be at least 6 characters.');
@@ -2250,7 +2483,13 @@ async function route(req, env) {
   if (path === '/api/functions/get-virtual-account' && method === 'POST') return virtualAccount(req, env, user);
   if (path.startsWith('/api/functions/') && method === 'POST') {
     const fn = FUNCTIONS[path.split('/').pop()] || SHOYI_FUNCTIONS[path.split('/').pop()];   // SHOYI functions
-    return fn ? fn(await body(req), env, user, req) : fail('Unknown service.', 404);
+    if (!fn) return fail('Unknown service.', 404);
+    const fx = await body(req);
+    if (fx.bio_token) {   // fingerprint confirmation instead of the PIN: valid only once, only for this customer, only if they switched it on
+      if (!(await getSec(env, user.id)).bio_tx || !(await useChallenge(env, fx.bio_token, 'txtoken', user.id))) return fail('Fingerprint confirmation expired. Please confirm again or use your PIN.');
+      fx.pin = { [BIO]: user.id };
+    }
+    return fn(fx, env, user, req);
   }
   return fail('Not found', 404);
 }

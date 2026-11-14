@@ -1,7 +1,7 @@
 // UMARSHOYI-SUB — Cloudflare Worker (D1 database)
 // Auth, wallet, Flutterwave funding (+webhook, virtual account), purchases, OTP,
 // airtime-to-cash withdrawals and admin tools. The VTU provider lives in provider.js.
-import { runProvider, sendSms, convertAirtimeToCash, getDataPlans, getCablePlans, CABLE_PROVIDERS, verifySmartcard, verifyMeter, checkStatus, setWebhook, webhookHashOk, clearProviderCaches } from './provider.js';
+import { runProvider, sendSms, convertAirtimeToCash, getDataPlans, getCablePlans, CABLE_PROVIDERS, verifySmartcard, verifyMeter, checkStatus, clearProviderCaches, priceOf, feeOf, publicCatalog, PROFIT_DEFAULTS } from './provider.js';
 import * as C from './catalog.js';
 
 /* ------------------------------------------------------------------ schema */
@@ -504,15 +504,32 @@ async function flutterwaveWebhook(req, env) {
   return json({ ok: true });
 }
 
-// VTUAgent -> us. Registered with POST /v1/webhook/set (Admin Panel has a button for it).
-async function vtuagentWebhook(req, env) {
-  const e = await body(req);
-  if (!await webhookHashOk(env, e.reference, e.hash)) return fail('Invalid signature.', 401);
-  const st = String(e.status || '').toLowerCase();
+// Legitdataway -> us.  Its dashboard has one "callback URL" box: paste the address shown in Admin Panel -> Overview.
+// Legitdataway does not sign its callbacks, so the address itself carries a long secret (made from your AUTH_SECRET,
+// shown only to admins, and replaceable with one tap). Four more guards:
+//   1. a wrong secret gets a plain "not found" and the sender is blocked after 20 tries in 15 minutes;
+//   2. the request-id must be one of OUR unguessable transaction ids that is still "pending";
+//   3. only ever settles a purchase that is still pending (a second or conflicting callback changes nothing);
+//   4. every accepted callback is written to payment_events for you to audit.
+const WEBHOOK_TYPES = ['data', 'airtime', 'cable', 'electricity', 'exam', 'data-card', 'airtime-card', 'bulk-sms'];
+const lgwSalt = async (env) => (await env.DB.prepare("SELECT value FROM app_settings WHERE key='lgw_webhook_salt'").first())?.value || '1';
+async function lgwWebhookKey(env) {
+  const k = await crypto.subtle.importKey('raw', enc(String(env.AUTH_SECRET || '')), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sig = await crypto.subtle.sign('HMAC', k, enc('lgw-webhook-v1:' + await lgwSalt(env)));
+  return [...new Uint8Array(sig)].map((x) => x.toString(16).padStart(2, '0')).join('');
+}
+async function lgwWebhook(req, env, url) {
+  const rk = 'lgwwh:' + await ipHash(env, req);
+  if (await rateWait(env, rk, 20, 900)) return fail('Not found.', 404);
+  if (!authSecretOk(env) || !safeEq(url.searchParams.get('k') || '', await lgwWebhookKey(env))) { await rateHit(env, rk, 900); console.error('Legitdataway webhook: wrong secret'); return fail('Not found.', 404); }
+  const e = await body(req), reqId = String(e['request-id'] || ''), st = String(e.status || '').toLowerCase();
+  if (!/^[0-9a-f-]{36}$/.test(reqId) || !['success', 'fail', 'failed'].includes(st)) return json({ ok: true });   // not ours / not final: nothing to do
+  const t = await env.DB.prepare("SELECT id,status FROM transactions WHERE id=? AND direction='out' AND type IN (" + WEBHOOK_TYPES.map(() => '?').join(',') + ')').bind(reqId, ...WEBHOOK_TYPES).first();
+  if (!t) return json({ ok: true });
   try {
-    if (st === 'success' || st === 'successful') { if (await settlePurchase(env, e.reference, 'success')) await recordRealCost(env, e.reference); }
-    else if (st === 'failed' || st === 'refunded') await settlePurchase(env, e.reference, 'failed');
-  } catch (err) { console.error('vtuagent webhook error', err); return fail('Processing error', 500); }
+    if (t.status === 'pending') await settlePurchase(env, reqId, st === 'success' ? 'success' : 'failed');   // idempotent: safe if the provider repeats itself
+    await env.DB.prepare("INSERT OR IGNORE INTO payment_events(id,provider,event_id,tx_ref,status,payload) VALUES(?,'legitdataway',?,?,?,?)").bind(uid(), 'lgw-' + reqId + '-' + st + '-' + (t.status === 'pending' ? 'applied' : 'ignored'), reqId, st, JSON.stringify({ status: st, response: String(e.response || '').slice(0, 300) })).run();
+  } catch (err) { console.error('legitdataway webhook error', err); return fail('Processing error', 500); }
   return json({ ok: true });
 }
 
@@ -540,7 +557,7 @@ async function virtualAccount(req, env, user) {
 // Debit the wallet and record a pending transaction in ONE atomic step.
 // Then call the provider. Refund automatically if the provider refuses.
 // The transaction id is also the provider's request_ref (unique, used to look the purchase up later).
-const VTU_KINDS = ['data', 'airtime', 'cable', 'electricity'];
+const VTU_KINDS = ['data', 'airtime', 'cable', 'electricity', 'exam', 'data-card', 'airtime-card', 'bulk-sms'];
 
 /* ------------------------------------------------------------------ REFERRAL PROGRAM (rules in D1, reward only after a VERIFIED deposit)
    A referral is only rewarded when the person invited makes a deposit that Flutterwave itself confirmed (settleFlutterwave
@@ -624,19 +641,18 @@ async function settlePurchase(env, txId, outcome, extra = {}) {
   ]);
   return r[1].meta.changes === 1;
 }
-// After a successful VTU purchase, read what VTUAgent really charged us, so "My Profit" is exact.
-async function recordRealCost(env, txId) {
-  try {
-    const s = await checkStatus(env, txId);
-    if (s.state === 'success' && s.cost != null) await env.DB.prepare("UPDATE transactions SET metadata=json_set(COALESCE(metadata,'{}'),'$.cost',?) WHERE id=?").bind(s.cost, txId).run();
-  } catch (e) { console.error('cost lookup failed', e); }
+// After a successful purchase, keep what the provider REALLY took from our wallet, so "My Profit" is exact.
+async function recordRealCost(env, txId, cost) {
+  if (cost == null) return;
+  try { await env.DB.prepare("UPDATE transactions SET metadata=json_set(COALESCE(metadata,'{}'),'$.cost',?) WHERE id=?").bind(cost, txId).run(); }
+  catch (e) { console.error('cost record failed', e); }
 }
-// Resolve a pending VTU purchase by asking VTUAgent.
+// Legitdataway cannot be asked about a transaction (checkStatus always says 'pending'), so this only matters if that ever changes.
 async function reconcileTx(env, t) {
   const s = await checkStatus(env, t.id);
-  if (s.state === 'success') { if (await settlePurchase(env, t.id, 'success')) await recordRealCost(env, t.id); }
+  if (s.state === 'success') { await settlePurchase(env, t.id, 'success'); }
   else if (s.state === 'failed') await settlePurchase(env, t.id, 'failed');
-  else if (s.state === 'missing') {      // VTUAgent never saw it: safe to refund once enough time has passed
+  else if (s.state === 'missing') {      // provider never saw it: safe to refund once enough time has passed
     const age = Date.now() - Date.parse(String(t.created_at).replace(' ', 'T') + 'Z');
     if (age > 3 * 60 * 1000) await settlePurchase(env, t.id, 'failed');
   }
@@ -667,7 +683,7 @@ async function purchase(env, user, { pin, type, label, price, cost, kind, params
   if (res.ok) {
     const ref = res.pins ? JSON.stringify(res.pins) : (res.token ? `Token: ${res.token}${res.units ? ' · ' + res.units + ' units' : ''}` : (res.ref || null));
     await settlePurchase(env, txId, 'success', { ref });
-    if (VTU_KINDS.includes(kind)) await recordRealCost(env, txId);
+    await recordRealCost(env, txId, res.cost);
     return json({ data: { ok: true, id: txId, token: res.token || null, units: res.units || null } });
   }
   await settlePurchase(env, txId, 'failed');
@@ -704,24 +720,21 @@ const smsMax = (env) => Math.max(1, Math.min(5000, Number(env.SMS_MAX_RECIPIENTS
 
 const NETS = ['mtn', 'glo', 'airtel', '9mobile'];
 const validPhone = (p) => /^(0\d{10}|234\d{10})$/.test(String(p || ''));
-function findDataPlan(network, code) {
-  for (const cat of Object.keys(C.DATA_PLANS[network] || {})) { const p = C.DATA_PLANS[network][cat].find((x) => String(x.code) === String(code)); if (p) return { ...p, category: cat }; }
+function findDataPlan(env, network, code) {   // data CARDS (catalog.js): price = cost + your profit
+  for (const cat of Object.keys(C.DATA_CARD_PLANS[network] || {})) { const p = C.DATA_CARD_PLANS[network][cat].find((x) => String(x.code) === String(code)); if (p) return { ...p, category: cat, price: priceOf(env, 'data_card', p.cost) }; }
   return null;
 }
 const userPhone = async (env, id) => (await env.DB.prepare('SELECT phone FROM profiles WHERE id=?').bind(id).first())?.phone || '';
 const qtyOf = (x, max) => { const q = Math.floor(Number(x)); return Number.isFinite(q) && q >= 1 && q <= max ? q : null; };
 
 const FUNCTIONS = {
-  async 'get-sabildata-plans'(x, env) { // live data plans (cost + markup). The browser only ever sees the selling price.
-    try {
-      const plans = (await getDataPlans(env)).map((p) => ({ network: p.network.toUpperCase(), data_id: p.code, plan: p.category, size: p.size, validity: p.valid, price: p.price }));
-      return json({ plans });
-    } catch (e) { console.error('plans error', e); return fail('Data plans are temporarily unavailable. Please try again shortly.', 503); }
+  async 'get-catalog'(x, env) { return json(publicCatalog(env)); },   // prices already include your profit; costs never leave the server
+  async 'get-sabildata-plans'(x, env) {
+    return json({ plans: getDataPlans(env).map((p) => ({ network: p.network.toUpperCase(), data_id: p.code, plan: p.category, size: p.size, validity: p.valid, price: p.price })) });
   },
   async 'buy-data'(x, env, user) {
     const net = String(x.network || '').toLowerCase();
-    let plans; try { plans = await getDataPlans(env); } catch (e) { console.error(e); return fail('Data plans are temporarily unavailable. Please try again shortly.', 503); }
-    const plan = plans.find((p) => p.network === net && p.code === String(x.planCode));
+    const plan = getDataPlans(env).find((p) => p.network === net && p.code === String(x.planCode));
     if (!plan) return fail('That data plan is not available. Please refresh and choose again.');
     if (!validPhone(x.phone)) return fail('Enter a valid phone number.');
     return purchase(env, user, { pin: x.pin, type: 'data', label: `${plan.size} ${net.toUpperCase()} data → ${x.phone}`, price: plan.price, cost: plan.cost, kind: 'data', params: { network: net, phone: x.phone, planCode: plan.code } });
@@ -730,32 +743,27 @@ const FUNCTIONS = {
     const net = String(x.network || '').toLowerCase(), amt = money(x.amount);
     if (!NETS.includes(net)) return fail('Select a network.');
     if (!validPhone(x.phone)) return fail('Enter a valid phone number.');
-    if (!(amt >= 50 && amt <= 100000)) return fail('Airtime amount must be between ₦50 and ₦100,000.');
-    return purchase(env, user, { pin: x.pin, type: 'airtime', label: `${net.toUpperCase()} airtime → ${x.phone}`, price: amt, cost: amt, kind: 'airtime', params: { network: net, phone: x.phone, amount: amt } });
+    if (!(amt >= C.AIRTIME_MIN && amt <= C.AIRTIME_MAX)) return fail(`Airtime amount must be between ₦${C.AIRTIME_MIN} and ₦${C.AIRTIME_MAX.toLocaleString()}.`);
+    return purchase(env, user, { pin: x.pin, type: 'airtime', label: `${net.toUpperCase()} airtime → ${x.phone}`, price: amt + feeOf(env, 'airtime', amt), cost: amt * C.AIRTIME_COST_RATE, kind: 'airtime', params: { network: net, phone: x.phone, amount: amt } });
   },
   async 'get-cable-plans'(x, env) {
     const prov = String(x.provider || '').toLowerCase();
     if (!CABLE_PROVIDERS.includes(prov)) return fail('Select DStv, GOtv or Startimes.');
-    try { return json({ plans: (await getCablePlans(env, prov)).map((p) => ({ code: p.code, name: p.name, price: p.price })) }); }
-    catch (e) { console.error('cable plans error', e); return fail('Cable packages are temporarily unavailable. Please try again shortly.', 503); }
+    return json({ plans: getCablePlans(env, prov).map((p) => ({ code: p.code, name: p.name, price: p.price })) });
   },
-  async 'verify-smartcard'(x, env) {
+  async 'verify-smartcard'(x, env) {   // Legitdataway cannot check smartcards: the customer sees the number they typed
     const prov = String(x.provider || '').toLowerCase(), card = String(x.smartcard || '').trim();
     if (!CABLE_PROVIDERS.includes(prov)) return fail('Select DStv, GOtv or Startimes.');
     if (!/^\d{8,15}$/.test(card)) return fail('Enter a valid smartcard/IUC number.');
-    try { const v = await verifySmartcard(env, prov, card); return v.ok ? json({ name: v.name, status: v.status, due: v.due }) : fail(v.error); }
-    catch (e) { console.error('verify smartcard error', e); return fail('Could not verify the smartcard right now. Please try again.', 503); }
+    return json({ name: '', status: '', due: '', unverified: true });
   },
   async 'buy-cable'(x, env, user) {
     const prov = String(x.provider || '').toLowerCase(), card = String(x.smartcard || '').trim();
     if (!CABLE_PROVIDERS.includes(prov)) return fail('Select DStv, GOtv or Startimes.');
     if (!/^\d{8,15}$/.test(card)) return fail('Enter a valid smartcard/IUC number.');
-    let plans; try { plans = await getCablePlans(env, prov); } catch (e) { console.error(e); return fail('Cable packages are temporarily unavailable. Please try again shortly.', 503); }
-    const plan = plans.find((p) => p.code === String(x.planCode));
+    const plan = getCablePlans(env, prov).find((p) => p.code === String(x.planCode));
     if (!plan) return fail('That cable package is not available. Please refresh and choose again.');
-    const phone = await userPhone(env, user.id);
-    if (!validPhone(phone)) return fail('Please add a valid phone number to your profile first.');
-    return purchase(env, user, { pin: x.pin, type: 'cable', label: `${plan.name} → ${card}`, price: plan.price, cost: plan.cost, kind: 'cable', params: { provider: prov, planCode: plan.code, smartcard: card, amount: plan.cost, phone } });
+    return purchase(env, user, { pin: x.pin, type: 'cable', label: `${plan.name} → ${card}`, price: plan.price, cost: plan.cost, kind: 'cable', params: { provider: prov, planCode: plan.code, smartcard: card, amount: plan.cost } });
   },
   async 'verify-meter'(x, env) {
     const disco = C.ELECTRICITY_DISCOS.find((d) => d.code === String(x.discoCode)), type = String(x.meterType || '').toLowerCase(), meter = String(x.meterNumber || '').trim();
@@ -771,10 +779,8 @@ const FUNCTIONS = {
     if (!['prepaid', 'postpaid'].includes(type)) return fail('Select prepaid or postpaid.');
     if (!/^\d{6,15}$/.test(String(x.meterNumber || ''))) return fail('Enter a valid meter number.');
     if (!(amt >= C.ELECTRICITY_MIN && amt <= C.ELECTRICITY_MAX)) return fail(`Amount must be between ₦${C.ELECTRICITY_MIN} and ₦${C.ELECTRICITY_MAX}.`);
-    const phone = await userPhone(env, user.id);
-    if (!validPhone(phone)) return fail('Please add a valid phone number to your profile first.');
-    const fee = Math.floor(amt / 1000) * 100; // service fee shown on the app screen
-    return purchase(env, user, { pin: x.pin, type: 'electricity', label: `${disco.name} ${type} → ${x.meterNumber}`, price: amt + fee, cost: amt * C.ELECTRICITY_COST_RATE, kind: 'electricity', params: { disco: disco.code, meterType: type, meterNumber: String(x.meterNumber), amount: amt, phone } });
+    const fee = feeOf(env, 'electricity', amt);   // your service fee (Admin Panel -> Settings -> Profit)
+    return purchase(env, user, { pin: x.pin, type: 'electricity', label: `${disco.name} ${type} → ${x.meterNumber}`, price: amt + fee, cost: amt * C.ELECTRICITY_COST_RATE, kind: 'electricity', params: { disco: disco.id, meterType: type, meterNumber: String(x.meterNumber), amount: amt } });
   },
   async 'get-sms-info'(x, env) {
     return json({ available: smsPrice(env) > 0, price: smsPrice(env), max_recipients: smsMax(env) });
@@ -797,21 +803,25 @@ const FUNCTIONS = {
   async 'buy-exam-pin'(x, env, user) {
     const t = C.EXAM_TYPES[String(x.examType || '')], q = qtyOf(x.quantity, 10);
     if (!t) return fail('Select an exam type.');
+    if (!t.available) return fail(`${t.name} is coming soon.`);
     if (!q) return fail('Quantity must be between 1 and 10.');
-    return purchase(env, user, { pin: x.pin, type: 'exam', label: `${t.name} x${q}`, price: t.price * q, cost: t.cost * q, kind: 'exam', quantity: q, params: { examType: x.examType } });
+    return purchase(env, user, { pin: x.pin, type: 'exam', label: `${t.name} x${q}`, price: priceOf(env, 'exam', t.cost) * q, cost: t.cost * q, kind: 'exam', quantity: q, params: { examId: t.id } });
   },
   async 'buy-data-card'(x, env, user) {
-    const net = String(x.network || '').toLowerCase(), plan = findDataPlan(net, x.planCode), q = qtyOf(x.quantity, 100);
-    if (!plan) return fail('That data plan is not available.');
+    const net = String(x.network || '').toLowerCase(), plan = findDataPlan(env, net, x.planCode), q = qtyOf(x.quantity, 100);
+    if (!plan) return fail('That data card is not available yet.');
     if (!q) return fail('Quantity must be between 1 and 100.');
     return purchase(env, user, { pin: x.pin, type: 'data-card', label: `${plan.size} ${net.toUpperCase()} Data Card x${q}`, price: plan.price * q, cost: plan.cost * q, kind: 'data-card', quantity: q, params: { network: net, planCode: plan.code } });
   },
   async 'buy-airtime-card'(x, env, user) {
-    const net = String(x.network || '').toLowerCase(), unit = money(x.unitPrice), q = qtyOf(x.quantity, 100);
+    const net = String(x.network || '').toLowerCase(), face = money(x.unitPrice), q = qtyOf(x.quantity, 100);
     if (!NETS.includes(net)) return fail('Select a network.');
-    if (!(unit >= 50 && unit <= 5000)) return fail('Amount per PIN must be between ₦50 and ₦5,000.');
+    const list = C.RECHARGE_CARDS[net] || [];
+    if (!list.length) return fail('Recharge cards for this network are coming soon.');
+    const d = list.find((p) => p.amount === face);
+    if (!d) return fail('Choose one of the available card amounts.');
     if (!q) return fail('Quantity must be between 1 and 100.');
-    return purchase(env, user, { pin: x.pin, type: 'airtime-card', label: `₦${unit} ${net.toUpperCase()} Recharge Card x${q}`, price: unit * q, cost: unit * q * 0.97, kind: 'airtime-card', quantity: q, params: { network: net, unit } });
+    return purchase(env, user, { pin: x.pin, type: 'airtime-card', label: `₦${d.amount} ${net.toUpperCase()} Recharge Card x${q}`, price: priceOf(env, 'recharge_card', d.cost) * q, cost: d.cost * q, kind: 'airtime-card', quantity: q, params: { network: net, planCode: d.code } });
   },
 };
 
@@ -1094,7 +1104,7 @@ function txcRef(t) {      // a plain reference only: never a token or PIN list
   if (!r || r.startsWith('Token:') || r.startsWith('[') || r.startsWith('{')) return null;
   return r.length <= 80 ? r : null;
 }
-const txcProvider = (t, meta) => ({ data: 'VTUAgent', airtime: 'VTUAgent', cable: 'VTUAgent', electricity: 'VTUAgent', exchange: 'Flutterwave', withdrawal: 'Flutterwave' }[t.type] || (t.type === 'fund' && meta.provider === 'flutterwave' ? 'Flutterwave' : null));
+const txcProvider = (t, meta) => ({ data: 'Legitdataway', airtime: 'Legitdataway', cable: 'Legitdataway', electricity: 'Legitdataway', exchange: 'Flutterwave', withdrawal: 'Flutterwave' }[t.type] || (t.type === 'fund' && meta.provider === 'flutterwave' ? 'Flutterwave' : null));
 const txcDate = (s) => (/^\d{4}-\d{2}-\d{2}( \d{2}:\d{2}:\d{2})?$/.test(String(s || '')) ? String(s) : null);
 
 function txcWhere(x, userId) {
@@ -1899,17 +1909,21 @@ FUNCTIONS['admin-manage-users'] = async (x, env, user) => {
       const c = await db.prepare("UPDATE support_tickets SET status='closed' WHERE id=? AND status='open'").bind(String(x.id || '')).run();
       return c.meta.changes === 1 ? json({ ok: true }) : fail('Ticket not found.', 404);
     }
-    case 'check_transaction': { // ask VTUAgent what happened to a pending purchase
-      const t = await db.prepare("SELECT id,created_at FROM transactions WHERE id=? AND status='pending' AND type IN ('data','airtime','cable','electricity')").bind(String(x.txId || '')).first();
-      if (!t) return fail('This transaction is not a pending VTU purchase.', 404);
-      try { const state = await reconcileTx(env, t); await log('check_transaction', null, `${t.id} -> ${state}`).run(); return json({ ok: true, state }); }
-      catch (e) { return fail('Could not reach VTUAgent: ' + String(e.message || e), 502); }
+    case 'check_transaction': { // Legitdataway has no status lookup: tell the admin exactly what to do
+      const t = await db.prepare("SELECT id FROM transactions WHERE id=? AND status='pending'").bind(String(x.txId || '')).first();
+      if (!t) return fail('That transaction is no longer pending.', 404);
+      return fail('Legitdataway cannot be asked about a transaction from here. Open the Legitdataway dashboard, search for this request ID: ' + t.id + ' — then press Confirm (if it succeeded) or Fail & refund (if it failed).');
     }
-    case 'setup_webhook': {
+    case 'webhook_info': {   // the secret callback address to paste in the Legitdataway dashboard (admins only)
       const origin = String(x.origin || '');
       if (!/^https:\/\/[A-Za-z0-9.-]+(:\d+)?$/.test(origin)) return fail('Open the admin panel from your https address first.');
-      try { const r = await setWebhook(env, origin + '/api/webhook/vtuagent'); if (!r.ok) return fail(r.error, 502); await log('setup_webhook', null, origin).run(); return json({ ok: true }); }
-      catch (e) { return fail('Could not reach VTUAgent: ' + String(e.message || e), 502); }
+      if (!authSecretOk(env)) return fail('AUTH_SECRET must be set in Cloudflare (32+ characters) first.');
+      return json({ url: origin + '/api/webhook/legitdataway?k=' + await lgwWebhookKey(env) });
+    }
+    case 'regenerate_webhook': {   // the old address stops working at once
+      const salt = uid();
+      await db.batch([db.prepare("INSERT INTO app_settings(key,value,updated_at) VALUES('lgw_webhook_salt',?,CURRENT_TIMESTAMP) ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=CURRENT_TIMESTAMP").bind(salt), log('regenerate_webhook', null, 'callback secret replaced')]);
+      return json({ ok: true });
     }
     case 'get_log': {
       const rows = (await db.prepare('SELECT l.action,l.detail,l.created_at,a.username admin,t.username target FROM admin_log l LEFT JOIN profiles a ON a.id=l.admin_id LEFT JOIN profiles t ON t.id=l.target_id ORDER BY l.created_at DESC, l.rowid DESC LIMIT ? OFFSET ?').bind(PAGE * 2, page(x.offset)).all()).results;
@@ -2081,7 +2095,8 @@ async function services(env) {
   const smsOn = Number(env.SMS_PRICE_PER_UNIT) > 0;
   return rows.map((s) => {
     let on = !!s.enabled;
-    if (on && ['data', 'airtime', 'cable', 'electricity'].includes(s.key)) on = !!env.VTUAGENT_API_KEY;
+    if (on && ['data', 'airtime', 'cable', 'electricity', 'exam', 'data-card', 'airtime-card'].includes(s.key)) on = !!env.LEGITDATAWAY_TOKEN;
+    if (on && s.key === 'cable') on = CABLE_PROVIDERS.some((p) => getCablePlans(env, p).length > 0);   // no packages in catalog.js = coming soon
     if (on && s.key === 'exchange') on = env.EXCHANGE_ENABLED === '1' && !!env.FLW_SECRET_KEY;
     if (on && s.key === 'referral') on = env.REFERRAL_ENABLED !== '0';
     if (on && s.key === 'bulk-sms') on = smsOn;
@@ -2599,7 +2614,7 @@ const SETTINGS = {
   exchange_min_amount:  { env: 'EXCHANGE_MIN_AMOUNT',  type: 'number', group: 'Exchange', label: 'Minimum per transfer (USD, other currencies converted)', def: '5', min: 0.5, max: 1000000, hint: 'Default 5' },
   exchange_max_amount:  { env: 'EXCHANGE_MAX_AMOUNT',  type: 'number', group: 'Exchange', label: 'Maximum per transfer (USD, other currencies converted)', def: '100', min: 0.5, max: 1000000, hint: 'Default 100' },
   exchange_daily_count: { env: 'EXCHANGE_DAILY_COUNT', type: 'number', group: 'Exchange', label: 'Transfers allowed per user per day', def: '3', min: 1, max: 100, int: true, hint: 'Default 3' },
-  price_markup_percent: { env: 'PRICE_MARKUP_PERCENT', type: 'number', group: 'Pricing',  label: 'Markup on data and cable (%)', def: '12', min: 0, max: 100, hint: 'Default 12' },
+  price_markup_percent: { env: 'PRICE_MARKUP_PERCENT', type: 'number', group: 'Pricing',  label: 'Older markup (%) — used by Data and Cable until you fill their own Profit fields', def: '12', min: 0, max: 100, hint: 'Default 12' },
   sms_price_per_unit:   { env: 'SMS_PRICE_PER_UNIT',   type: 'number', group: 'Pricing',  label: 'Bulk SMS price per page (naira)', def: '', min: 0, max: 100000, allowEmpty: true, hint: 'Empty = Bulk SMS closed' },
   sms_cost_per_unit:    { env: 'SMS_COST_PER_UNIT',    type: 'number', group: 'Pricing',  label: 'Bulk SMS cost per page (naira)', def: '', min: 0, max: 100000, allowEmpty: true, hint: 'Optional, for profit' },
   withdraw_fee_flat:    { env: 'WITHDRAW_FEE_FLAT',    type: 'number', group: 'Withdrawals', label: 'Withdrawal fee (naira, taken from the amount)', def: '0', min: 0, max: 100000, hint: 'Default 0' },
@@ -2611,8 +2626,14 @@ const SETTINGS = {
   support_email:        { env: 'SUPPORT_EMAIL',        type: 'text',   group: 'App', label: 'Support email address', def: '', allowEmpty: true, pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/, hint: 'For example support@yourdomain.com' },
   flw_secret_key:       { env: 'FLW_SECRET_KEY',       type: 'secret', group: 'Keys', label: 'Flutterwave secret key', minLen: 10 },
   flw_webhook_hash:     { env: 'FLW_WEBHOOK_HASH',     type: 'secret', group: 'Keys', label: 'Flutterwave webhook secret hash', minLen: 16 },
-  vtuagent_api_key:     { env: 'VTUAGENT_API_KEY',     type: 'secret', group: 'Keys', label: 'VTUAgent API key', minLen: 8 },
+  legitdataway_token:   { env: 'LEGITDATAWAY_TOKEN',   type: 'secret', group: 'Keys', label: 'Legitdataway API token', minLen: 8 },
 };
+// Profit per service (customer price = provider cost in catalog.js + this profit). Empty = the default shown in the hint.
+const PROFIT_SVCS = [['data', 'Data'], ['airtime', 'Airtime (extra on top of the amount)'], ['cable', 'Cable TV'], ['electricity', 'Electricity (service fee on the amount)'], ['exam', 'Exam PIN (per PIN)'], ['data_card', 'Data Card (per card)'], ['recharge_card', 'Recharge Card (per card)']];
+for (const [k, label] of PROFIT_SVCS) {
+  SETTINGS['profit_' + k + '_percent'] = { env: 'PROFIT_' + k.toUpperCase() + '_PERCENT', type: 'number', group: 'Profit', label: label + ' — profit (%)', def: '', min: 0, max: 500, allowEmpty: true, hint: 'Empty = ' + (PROFIT_DEFAULTS[k] ?? 0) + '%' };
+  SETTINGS['profit_' + k + '_fixed'] = { env: 'PROFIT_' + k.toUpperCase() + '_FIXED', type: 'number', group: 'Profit', label: label + ' — profit (₦ fixed)', def: '', min: 0, max: 1000000, allowEmpty: true, hint: 'Empty = ₦0' };
+}
 const authSecretOk = (env) => String(env.AUTH_SECRET || '').length >= 32;
 async function settingsKey(env) { return crypto.subtle.importKey('raw', await crypto.subtle.digest('SHA-256', enc('settings-v1:' + env.AUTH_SECRET)), 'AES-GCM', false, ['encrypt', 'decrypt']); }
 async function encryptSetting(env, text) {
@@ -2698,10 +2719,10 @@ async function route(req, env) {
   env = await withSettings(env);
 
   if (path.startsWith('/api/shoyi/avatar') && method === 'GET') return shoyiPublic(req, env);   // SHOYI picture (public, cached)
-  if (path === '/api/health') return json({ ok: true, service: env.APP_NAME || 'Worker', database: 'connected', auth: String(env.AUTH_SECRET || '').length >= 32, flutterwave: !!env.FLW_SECRET_KEY, vtuagent: !!env.VTUAGENT_API_KEY, webhook: String(env.FLW_WEBHOOK_HASH || '').length >= 16 });
+  if (path === '/api/health') return json({ ok: true, service: env.APP_NAME || 'Worker', database: 'connected', auth: String(env.AUTH_SECRET || '').length >= 32, flutterwave: !!env.FLW_SECRET_KEY, legitdataway: !!env.LEGITDATAWAY_TOKEN, webhook: String(env.FLW_WEBHOOK_HASH || '').length >= 16 });
   if (path === '/api/payment/return' && method === 'GET') return paymentReturn(req, env);
   if (path === '/api/webhook/flutterwave' && method === 'POST') return flutterwaveWebhook(req, env);
-  if (path === '/api/webhook/vtuagent' && method === 'POST') return vtuagentWebhook(req, env);
+  if (path === '/api/webhook/legitdataway' && method === 'POST') return lgwWebhook(req, env, url);
 
   if (path === '/api/referral/check' && method === 'GET') {   // public: lets the sign-up form say whether a code is valid
     const code = String(url.searchParams.get('code') || '').trim().toUpperCase();

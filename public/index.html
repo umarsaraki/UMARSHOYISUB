@@ -4,7 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <script>(function(){try{var p=JSON.parse(localStorage.getItem("ums_prefs")||"{}"),d=document.documentElement;d.dataset.theme=(p.theme==="dark"||(p.theme==="system"&&matchMedia("(prefers-color-scheme: dark)").matches))?"dark":"light";d.dataset.ts=p.text_size||"normal";if(p.reduce_motion)d.classList.add("reduce-motion")}catch(e){}})()</script>
-<script src="/data-plans.js"></script>
+<script>
+/* Data plans come from the server catalog (catalog.js + your profit). No external file needed. */
+function normalizePlan(p){
+  return { category: String(p.plan || p.category || 'Data'), size: String(p.size || ''), valid: String(p.validity || p.valid || ''), price: Number(p.price) || 0, code: String(p.data_id ?? p.code ?? '') };
+}
+</script>
 <title>UMARSHOYI-SUB — Data & Airtime</title>
 
 <style>
@@ -2079,7 +2084,7 @@ function showManualNetworkPicker(){
       <div class="net-name">${n.name}</div></div>`).join('');
 }
 
-// Plan normalization is provided by public/data-plans.js.
+// Plan normalization: see normalizePlan() at the top of this file.
 function getPlansForCurrentNetwork(){
   const netName = { mtn:'MTN', glo:'GLO', airtel:'AIRTEL', '9mobile':'9MOBILE' }[selectedNetwork];
   return (liveDataPlans || [])

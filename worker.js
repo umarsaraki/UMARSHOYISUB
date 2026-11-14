@@ -31,6 +31,14 @@ const SCHEMA = [
   `CREATE INDEX IF NOT EXISTS idx_un_user ON user_notifications(user_id, created_at)`,
   `CREATE TABLE IF NOT EXISTS support_tickets (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), tx_id TEXT, message TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'open', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
   `CREATE TABLE IF NOT EXISTS admin_log (id TEXT PRIMARY KEY, admin_id TEXT NOT NULL, action TEXT NOT NULL, target_id TEXT, detail TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+  `CREATE TABLE IF NOT EXISTS referral_rules (id TEXT PRIMARY KEY, enabled INTEGER NOT NULL DEFAULT 1, reward_type TEXT NOT NULL DEFAULT 'fixed', reward_value REAL NOT NULL DEFAULT 0, min_deposit REAL NOT NULL DEFAULT 0, first_only INTEGER NOT NULL DEFAULT 1, max_per_referral REAL NOT NULL DEFAULT 0, max_count_per_referrer INTEGER NOT NULL DEFAULT 0, max_total_per_referrer REAL NOT NULL DEFAULT 0, terms TEXT NOT NULL DEFAULT '', effective_from INTEGER NOT NULL DEFAULT 0, created_by TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+  `CREATE TABLE IF NOT EXISTS admin_audit (id TEXT PRIMARY KEY, admin_id TEXT NOT NULL, admin_name TEXT, area TEXT NOT NULL, action TEXT NOT NULL, before_json TEXT, after_json TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+  `CREATE INDEX IF NOT EXISTS idx_audit_area ON admin_audit(area, created_at)`,
+  `CREATE TABLE IF NOT EXISTS admin_config (k TEXT PRIMARY KEY, v TEXT NOT NULL)`,
+  `CREATE TABLE IF NOT EXISTS notices (id TEXT PRIMARY KEY, title TEXT NOT NULL, message TEXT NOT NULL, image_url TEXT NOT NULL DEFAULT '', btn1_text TEXT NOT NULL DEFAULT 'Okay', btn1_url TEXT NOT NULL DEFAULT '', btn2_text TEXT NOT NULL DEFAULT '', btn2_url TEXT NOT NULL DEFAULT '', chips TEXT NOT NULL DEFAULT '', footer_text TEXT NOT NULL DEFAULT '', audience TEXT NOT NULL DEFAULT 'all', audience_ids TEXT NOT NULL DEFAULT '[]', audience_group TEXT NOT NULL DEFAULT '', start_at INTEGER, end_at INTEGER, frequency TEXT NOT NULL DEFAULT 'once', freq_days INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'draft', created_by TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL)`,
+  `CREATE TABLE IF NOT EXISTS notice_events (id TEXT PRIMARY KEY, notice_id TEXT NOT NULL, user_id TEXT NOT NULL, kind TEXT NOT NULL, btn INTEGER, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+  `CREATE INDEX IF NOT EXISTS idx_nev_notice ON notice_events(notice_id, kind)`,
+  `CREATE TABLE IF NOT EXISTS notice_seen (notice_id TEXT NOT NULL, user_id TEXT NOT NULL, views INTEGER NOT NULL DEFAULT 0, last_view_at INTEGER NOT NULL DEFAULT 0, last_login_marker TEXT NOT NULL DEFAULT '', PRIMARY KEY(notice_id, user_id))`,
   `CREATE TABLE IF NOT EXISTS passkeys (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, public_key TEXT NOT NULL, alg INTEGER NOT NULL, counter INTEGER NOT NULL DEFAULT 0, device_name TEXT, revoked INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, last_used_at TEXT)`,
   `CREATE INDEX IF NOT EXISTS idx_pk_user ON passkeys(user_id)`,
   `CREATE TABLE IF NOT EXISTS auth_challenges (id TEXT PRIMARY KEY, kind TEXT NOT NULL, user_id TEXT, expires_at INTEGER NOT NULL)`,
@@ -40,6 +48,9 @@ const SCHEMA = [
 ];
 // For databases created by the older worker: add columns that are missing.
 const MIGRATIONS = [
+  `ALTER TABLE referrals ADD COLUMN deposit_amount REAL`, `ALTER TABLE referrals ADD COLUMN deposit_ref TEXT`, `ALTER TABLE referrals ADD COLUMN deposit_at TEXT`,
+  `ALTER TABLE referrals ADD COLUMN reason TEXT`, `ALTER TABLE referrals ADD COLUMN flag TEXT`, `ALTER TABLE referrals ADD COLUMN rule_id TEXT`,
+  `ALTER TABLE referrals ADD COLUMN ip_hash TEXT`, `ALTER TABLE referrals ADD COLUMN reviewed_by TEXT`,
   `ALTER TABLE profiles ADD COLUMN atc_balance REAL NOT NULL DEFAULT 0`,
   `ALTER TABLE profiles ADD COLUMN pin_attempts INTEGER NOT NULL DEFAULT 0`,
   `ALTER TABLE profiles ADD COLUMN pin_locked_until INTEGER NOT NULL DEFAULT 0`,
@@ -150,8 +161,8 @@ async function signup(req, env) {
   const id = uid(), salt = uid(), pinSalt = uid();
   // A referral code is optional. A wrong code never blocks registration: it is simply ignored.
   const usedRaw = String(meta.referral_code_used || '').trim().toUpperCase();
-  const referrer = /^USS\d{4,6}$/.test(usedRaw) ? await env.DB.prepare('SELECT id FROM profiles WHERE referral_code=?').bind(usedRaw).first() : null;
-  const refEnabled = env.REFERRAL_ENABLED !== '0', reward = Number(env.REFERRAL_REWARD ?? 500);
+  const referrer = /^USS\d{4,6}$/.test(usedRaw) ? await env.DB.prepare('SELECT id, phone FROM profiles WHERE referral_code=?').bind(usedRaw).first() : null;
+  const refEnabled = !!(await refRule(env)).enabled, last10 = (s) => String(s || '').replace(/\D/g, '').slice(-10), selfRef = !!referrer && last10(referrer.phone) === last10(meta.phone);
   try {
     const hash = await passwordHash(password, salt), pinHash = await passwordHash(pin, pinSalt);
     const nowStr = new Date().toISOString().slice(0, 19).replace('T', ' ');
@@ -162,7 +173,7 @@ async function signup(req, env) {
         env.DB.prepare('INSERT INTO profiles(id,full_name,username,phone,referral_code_used,referral_code,transaction_pin_hash,transaction_pin_salt,is_admin,notif_seen_at) VALUES(?,?,?,?,?,?,?,?,?,?)')
           .bind(id, String(meta.full_name || '').trim(), username, String(meta.phone || '').trim(), referrer ? usedRaw : '', code, pinHash, pinSalt, isAdminEmail(env, email) ? 1 : 0, nowStr),
       ];
-      if (referrer && refEnabled) stmts.push(env.DB.prepare("INSERT INTO referrals(id,referrer_id,referee_id,code,status,reward_amount) VALUES(?,?,?,?,'pending',?)").bind(uid(), referrer.id, id, usedRaw, reward));
+      if (referrer && refEnabled) stmts.push(env.DB.prepare("INSERT INTO referrals(id,referrer_id,referee_id,code,status,reward_amount,ip_hash,reason) VALUES(?,?,?,?,?,0,?,?)").bind(uid(), referrer.id, id, usedRaw, selfRef ? 'void' : 'pending', await ipHash(env, req), selfRef ? 'Self-referral: same phone number as the referring customer' : null));
       try { await env.DB.batch(stmts); break; }
       catch (e) { if (attempt < 2 && String(e.message).includes('referral_code')) continue; throw e; }
     }
@@ -445,7 +456,7 @@ async function settleFlutterwave(env, flwId) {
       env.DB.prepare("UPDATE profiles SET balance_ngn=balance_ngn+? WHERE id=? AND EXISTS(SELECT 1 FROM transactions WHERE id=? AND status='pending')").bind(pending.amount, pending.user_id, pending.id),
       env.DB.prepare("UPDATE transactions SET updated_at=CURRENT_TIMESTAMP, status='successful' WHERE id=? AND status='pending'").bind(pending.id),
     ]);
-    if (r[1].meta.changes === 1) await notify(env, pending.user_id, 'Wallet funded', `\u20a6${Number(pending.amount).toLocaleString()} was added to your Main Wallet.`);
+    if (r[1].meta.changes === 1) { await notify(env, pending.user_id, 'Wallet funded', `\u20a6${Number(pending.amount).toLocaleString()} was added to your Main Wallet.`); await referralDeposit(env, pending.user_id, pending.amount, d.tx_ref); }
     return { ok: true, credited: r[1].meta.changes === 1 };
   }
   // bank transfer into a user's virtual account
@@ -458,7 +469,7 @@ async function settleFlutterwave(env, flwId) {
     env.DB.prepare('UPDATE profiles SET balance_ngn=balance_ngn+? WHERE id=? AND EXISTS(SELECT 1 FROM payment_events WHERE id=?)').bind(paid, userId, evId),
     env.DB.prepare("INSERT INTO transactions(id,user_id,type,label,amount,direction,status,provider_ref,metadata) SELECT ?,?,'fund','Bank transfer funding',?,'in','successful',?,? WHERE EXISTS(SELECT 1 FROM payment_events WHERE id=?)").bind(uid(), userId, paid, 'flw-' + d.id, JSON.stringify({ provider: 'flutterwave', via: 'virtual-account' }), evId),
   ]);
-  if (r[0].meta.changes === 1) await notify(env, userId, 'Wallet funded', `\u20a6${Number(paid).toLocaleString()} was added to your Main Wallet.`);
+  if (r[0].meta.changes === 1) { await notify(env, userId, 'Wallet funded', `\u20a6${Number(paid).toLocaleString()} was added to your Main Wallet.`); await referralDeposit(env, userId, paid, 'flw-' + d.id); }
   return { ok: true, credited: r[0].meta.changes === 1 };
 }
 
@@ -531,29 +542,80 @@ async function virtualAccount(req, env, user) {
 // The transaction id is also the provider's request_ref (unique, used to look the purchase up later).
 const VTU_KINDS = ['data', 'airtime', 'cable', 'electricity'];
 
-// Referral reward: when a referred user completes their FIRST successful purchase, the referrer earns the reward in the MAIN wallet.
-// The "pending" -> "earned" change and the credit happen in one atomic step, so a reward can never be paid twice.
-async function maybeEarnReferral(env, userId, amount) {
+/* ------------------------------------------------------------------ REFERRAL PROGRAM (rules in D1, reward only after a VERIFIED deposit)
+   A referral is only rewarded when the person invited makes a deposit that Flutterwave itself confirmed (settleFlutterwave
+   verifies it with Flutterwave before calling referralDeposit). Registering alone never earns anything.
+   Rules are versioned: every change is a new row with an effective date, so rewards already earned are never altered. */
+const REF_TERMS = 'Invite friends with your referral code or link. You earn a reward when a friend you invited registers and then makes a qualifying deposit that is confirmed by our payment provider. Registering alone does not earn a reward. Rewards are paid to your Main Wallet. Self-referrals, duplicate or suspicious referrals are not rewarded and may be cancelled.';
+let refRuleCache = { at: 0, row: null };
+async function refRule(env, fresh) {
+  if (!fresh && refRuleCache.row && Date.now() - refRuleCache.at < 20000) return refRuleCache.row;
+  const t = now();
+  let r = await env.DB.prepare('SELECT * FROM referral_rules WHERE effective_from<=? ORDER BY effective_from DESC, rowid DESC LIMIT 1').bind(t).first();
+  if (!r) {   // first use: start from the values the old Settings page had, so nothing changes silently
+    const old = {}; try { for (const q of (await env.DB.prepare("SELECT key,value FROM app_settings WHERE key IN ('referral_enabled','referral_reward','referral_min_purchase')").all()).results) old[q.key] = q.value; } catch (e) { /* no old settings */ }
+    const pick = (k, envv, d) => (old[k] !== undefined && old[k] !== '' ? old[k] : (envv ?? d));
+    await env.DB.prepare("INSERT OR IGNORE INTO referral_rules(id,enabled,reward_type,reward_value,min_deposit,first_only,max_per_referral,max_count_per_referrer,max_total_per_referrer,terms,effective_from,created_by) VALUES('initial',?,'fixed',?,?,1,0,0,0,?,0,'system')")
+      .bind(String(pick('referral_enabled', env.REFERRAL_ENABLED, '1')) === '0' ? 0 : 1, Number(pick('referral_reward', env.REFERRAL_REWARD, 500)) || 0, Number(pick('referral_min_purchase', env.REFERRAL_MIN_PURCHASE, 0)) || 0, REF_TERMS).run();
+    r = await env.DB.prepare('SELECT * FROM referral_rules WHERE effective_from<=? ORDER BY effective_from DESC, rowid DESC LIMIT 1').bind(t).first();
+  }
+  refRuleCache = { at: Date.now(), row: r }; return r;
+}
+const refRuleText = (r) => (r.reward_type === 'percent' ? `${r.reward_value}% of the qualifying deposit${r.max_per_referral > 0 ? ' (up to ₦' + Number(r.max_per_referral).toLocaleString() + ')' : ''}` : `₦${Number(r.reward_value).toLocaleString()}`)
+  + (r.min_deposit > 0 ? `, minimum deposit ₦${Number(r.min_deposit).toLocaleString()}` : '');
+const dbTime = (d = new Date()) => d.toISOString().slice(0, 19).replace('T', ' ');
+async function ipHash(env, req) { const b = new Uint8Array(await crypto.subtle.digest('SHA-256', enc(String(env.AUTH_SECRET || '') + '|ip|' + clientIp(req)))); return [...b.slice(0, 8)].map((x) => x.toString(16).padStart(2, '0')).join(''); }
+
+// Pays the reward: status goes to 'earned' and the Main Wallet is credited in ONE atomic batch, so it can never be paid twice.
+async function creditReferral(env, r, from, amount, by, dep) {
+  const amt = money(amount); if (!(amt > 0)) return false;
+  const res = await env.DB.batch([
+    env.DB.prepare("UPDATE referrals SET status='earned', earned_at=CURRENT_TIMESTAMP, reward_amount=?, reviewed_by=COALESCE(?,reviewed_by), deposit_amount=COALESCE(?,deposit_amount), deposit_ref=COALESCE(?,deposit_ref), deposit_at=COALESCE(?,deposit_at), rule_id=COALESCE(?,rule_id) WHERE id=? AND status=?")
+      .bind(amt, by || null, dep?.amount ?? null, dep?.ref ?? null, dep?.at ?? null, dep?.rule ?? null, r.id, from),
+    env.DB.prepare('UPDATE profiles SET balance_ngn=balance_ngn+? WHERE id=? AND changes() > 0').bind(amt, r.referrer_id),
+    env.DB.prepare("INSERT INTO transactions(id,user_id,type,label,amount,direction,status,provider_ref,wallet) SELECT ?,?,'referral-bonus','Referral bonus',?,'in','successful',?,'main' WHERE changes() > 0").bind(uid(), r.referrer_id, amt, 'refbonus-' + r.id),
+  ]);
+  if (res[0].meta.changes !== 1) return false;
+  await notify(env, r.referrer_id, 'Referral reward', `You earned ₦${amt.toLocaleString()} because a friend you invited made a qualifying deposit.`);
+  return true;
+}
+// Called ONLY after a deposit was verified with the payment provider and credited.
+async function referralDeposit(env, userId, amount, depositRef) {
   try {
-    if (env.REFERRAL_ENABLED === '0') return;                       // switched off in Admin Panel: rewards stay pending
-    if (Number(amount) < Number(env.REFERRAL_MIN_PURCHASE ?? 0)) return;
-    const r = await env.DB.prepare("SELECT id, referrer_id, reward_amount FROM referrals WHERE referee_id=? AND status='pending'").bind(userId).first();
+    const r = await env.DB.prepare("SELECT * FROM referrals WHERE referee_id=? AND status='pending'").bind(userId).first();
     if (!r) return;
-    if (!(r.reward_amount > 0)) { await env.DB.prepare("UPDATE referrals SET status='earned', earned_at=CURRENT_TIMESTAMP WHERE id=? AND status='pending'").bind(r.id).run(); return; }
-    const res = await env.DB.batch([
-      env.DB.prepare("UPDATE referrals SET status='earned', earned_at=CURRENT_TIMESTAMP WHERE id=? AND status='pending'").bind(r.id),
-      env.DB.prepare('UPDATE profiles SET balance_ngn=balance_ngn+? WHERE id=? AND changes() > 0').bind(r.reward_amount, r.referrer_id),
-      env.DB.prepare("INSERT INTO transactions(id,user_id,type,label,amount,direction,status,provider_ref,wallet) SELECT ?,?,'referral-bonus','Referral bonus',?,'in','successful',?,'main' WHERE changes() > 0").bind(uid(), r.referrer_id, r.reward_amount, 'refbonus-' + r.id),
-    ]);
-    if (res[0].meta.changes === 1) await notify(env, r.referrer_id, 'Referral reward', `You earned ₦${Number(r.reward_amount).toLocaleString()} because a friend you invited made their first purchase.`);
+    const rule = await refRule(env, true);
+    if (!rule.enabled) return;                                       // switched off: stays pending, nothing is lost
+    const amt = money(amount);
+    if (amt < rule.min_deposit) return;                              // too small to qualify
+    if (rule.first_only) {
+      const n = (await env.DB.prepare("SELECT COUNT(*) n FROM transactions WHERE user_id=? AND type='fund' AND status='successful'").bind(userId).first()).n;
+      if (n > 1) return;                                             // this was not the first deposit
+    }
+    let reward = rule.reward_type === 'percent' ? Math.round(amt * rule.reward_value) / 100 : Number(rule.reward_value);
+    if (rule.max_per_referral > 0) reward = Math.min(reward, rule.max_per_referral);
+    reward = money(reward);
+    const dep = { amount: amt, ref: String(depositRef || ''), at: dbTime(), rule: rule.id };
+    const mark = (status, reason, flag) => env.DB.prepare("UPDATE referrals SET status=?, reward_amount=?, deposit_amount=?, deposit_ref=?, deposit_at=?, rule_id=?, reason=?, flag=? WHERE id=? AND status='pending'").bind(status, reward, dep.amount, dep.ref, dep.at, dep.rule, reason, flag, r.id).run();
+    if (!(reward > 0)) { await mark('void', 'Reward amount is zero under the current rules', null); return; }
+    if (rule.max_count_per_referrer > 0 || rule.max_total_per_referrer > 0) {
+      const s = await env.DB.prepare("SELECT COUNT(*) n, COALESCE(SUM(reward_amount),0) t FROM referrals WHERE referrer_id=? AND status='earned'").bind(r.referrer_id).first();
+      if ((rule.max_count_per_referrer > 0 && s.n >= rule.max_count_per_referrer) || (rule.max_total_per_referrer > 0 && s.t + reward > rule.max_total_per_referrer)) { await mark('void', 'Reward limit for the referring customer was reached', null); return; }
+    }
+    let flag = null;
+    if (r.ip_hash && (await env.DB.prepare('SELECT COUNT(*) n FROM referrals WHERE referrer_id=? AND ip_hash=? AND id<>?').bind(r.referrer_id, r.ip_hash, r.id).first()).n >= 1) flag = 'Another sign-up from the same network was referred by the same customer';
+    else if ((await env.DB.prepare("SELECT COUNT(*) n FROM referrals WHERE referrer_id=? AND created_at >= datetime(?,'-1 hour') AND created_at <= datetime(?,'+1 hour')").bind(r.referrer_id, r.created_at, r.created_at).first()).n >= 5) flag = 'Many sign-ups for the same customer within a short time';
+    if (flag) { await mark('review', 'Held for admin review', flag); return; }
+    await creditReferral(env, r, 'pending', reward, null, dep);
   } catch (e) { console.error('referral reward failed', e); }
 }
+
 async function settlePurchase(env, txId, outcome, extra = {}) {
   const t = await env.DB.prepare("SELECT id,user_id,amount FROM transactions WHERE id=? AND status='pending'").bind(txId).first();
   if (!t) return false;                                   // already settled: nothing to do (safe to call twice)
   if (outcome === 'success') {
     const r = await env.DB.prepare("UPDATE transactions SET updated_at=CURRENT_TIMESTAMP, status='successful', provider_ref=COALESCE(?,provider_ref) WHERE id=? AND status='pending'").bind(extra.ref ?? null, txId).run();
-    if (r.meta.changes === 1) { await maybeEarnReferral(env, t.user_id, t.amount); return true; }
+    if (r.meta.changes === 1) return true;
     return false;
   }
   const r = await env.DB.batch([
@@ -1308,15 +1370,254 @@ FUNCTIONS['fav-delete'] = async (x, env, user) => {
   return c.meta.changes === 1 ? json({ ok: true }) : fail('Not found.', 404);
 };
 
+/* ------------------------------------------------------------------ ADMIN: audit log, REFERRAL MANAGER, POPUP NOTICE MANAGER */
+async function auditLog(env, user, area, action, before, after) {   // who changed what, when, from what to what
+  try { await env.DB.prepare('INSERT INTO admin_audit(id,admin_id,admin_name,area,action,before_json,after_json) VALUES(?,?,?,?,?,?,?)')
+    .bind(uid(), user.id, user.email || '', area, action, before == null ? null : JSON.stringify(before).slice(0, 6000), after == null ? null : JSON.stringify(after).slice(0, 6000)).run(); }
+  catch (e) { console.error('audit failed', e); }
+}
+const auditList = async (env, area, offset) => json({ items: (await env.DB.prepare('SELECT id,admin_name,action,before_json,after_json,created_at FROM admin_audit WHERE area=? ORDER BY created_at DESC, id DESC LIMIT 20 OFFSET ?').bind(area, Math.max(0, Math.floor(Number(offset) || 0))).all()).results });
+const csvCell = (v) => { let s = String(v ?? ''); if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+const REF_STATUS_LABEL = { pending: 'Pending', review: 'Under review', earned: 'Approved & credited', void: 'Cancelled' };
+
+FUNCTIONS['admin-referrals'] = async (x, env, user) => {
+  if (!user.is_admin) return fail('Admin permission required.', 403);
+  const db = env.DB, page = (n) => Math.max(0, Math.floor(Number(n) || 0)), PAGE = 20;
+  const where = () => {   // search + filters shared by the list and the export
+    const w = ['1=1'], a = [], q = String(x.q || '').trim().toLowerCase().slice(0, 60);
+    if (q) { w.push("(LOWER(a.username) LIKE ? OR LOWER(b.username) LIKE ? OR LOWER(r.code) LIKE ? OR LOWER(a.full_name) LIKE ? OR LOWER(b.full_name) LIKE ?)"); const l = `%${q.replace(/[%_]/g, '')}%`; a.push(l, l, l, l, l); }
+    if (['pending', 'review', 'earned', 'void'].includes(x.status)) { w.push('r.status=?'); a.push(x.status); }
+    if (x.deposit === 'qualified') w.push('r.deposit_at IS NOT NULL'); else if (x.deposit === 'none') w.push('r.deposit_at IS NULL');
+    return { sql: w.join(' AND '), args: a };
+  };
+  const FROM = 'FROM referrals r JOIN profiles a ON a.id=r.referrer_id JOIN profiles b ON b.id=r.referee_id';
+  switch (x.action) {
+    case 'overview': {
+      const s = await db.prepare("SELECT COUNT(*) total, COALESCE(SUM(status='earned'),0) ok, COALESCE(SUM(status='pending'),0) pend, COALESCE(SUM(status='review'),0) rev, COALESCE(SUM(status='void'),0) cancelled, COALESCE(SUM(deposit_at IS NOT NULL),0) qualified, COALESCE(SUM(CASE WHEN status='earned' THEN reward_amount END),0) earned, COALESCE(SUM(CASE WHEN status='review' THEN reward_amount END),0) pending_amt, COALESCE(SUM(CASE WHEN status='void' AND deposit_at IS NOT NULL THEN reward_amount END),0) cancelled_amt FROM referrals").first();
+      const rule = await refRule(env, true), upcoming = (await db.prepare('SELECT * FROM referral_rules WHERE effective_from>? ORDER BY effective_from').bind(now()).all()).results;
+      return json({ stats: { total: s.total, successful: s.ok, pending: s.pend, review: s.rev, cancelled: s.cancelled, qualified_deposits: s.qualified, rewards_earned: money(s.earned), rewards_pending: money(s.pending_amt), rewards_cancelled: money(s.cancelled_amt) }, rule, upcoming });
+    }
+    case 'list': {
+      const f = where(), off = page(x.offset);
+      const rows = (await db.prepare(`SELECT r.id,r.status,r.reward_amount,r.code,r.created_at,r.earned_at,r.deposit_amount,r.deposit_at,r.reason,r.flag,a.username referrer,a.full_name referrer_name,b.username referee,b.full_name referee_name ${FROM} WHERE ${f.sql} ORDER BY r.created_at DESC LIMIT ? OFFSET ?`).bind(...f.args, PAGE, off).all()).results;
+      const total = (await db.prepare(`SELECT COUNT(*) n ${FROM} WHERE ${f.sql}`).bind(...f.args).first()).n;
+      return json({ items: rows, total, page_size: PAGE });
+    }
+    case 'detail': {
+      const r = await db.prepare(`SELECT r.*,a.username referrer,a.full_name referrer_name,a.phone referrer_phone,b.username referee,b.full_name referee_name,b.phone referee_phone,b.created_at referee_joined ${FROM} WHERE r.id=?`).bind(String(x.id || '')).first();
+      if (!r) return fail('Referral not found.', 404);
+      delete r.ip_hash; const rule = r.rule_id ? await db.prepare('SELECT * FROM referral_rules WHERE id=?').bind(r.rule_id).first() : null;
+      return json({ referral: r, rule });
+    }
+    case 'codes': {
+      const q = String(x.q || '').trim().toLowerCase().replace(/[%_]/g, '').slice(0, 40), l = `%${q}%`;
+      const rows = (await db.prepare("SELECT p.username, p.full_name, p.referral_code code, (SELECT COUNT(*) FROM referrals r WHERE r.referrer_id=p.id) referred, (SELECT COUNT(*) FROM referrals r WHERE r.referrer_id=p.id AND r.status='earned') successful, (SELECT COALESCE(SUM(reward_amount),0) FROM referrals r WHERE r.referrer_id=p.id AND r.status='earned') earned FROM profiles p WHERE p.referral_code IS NOT NULL AND (?='' OR LOWER(p.username) LIKE ? OR LOWER(p.referral_code) LIKE ? OR LOWER(p.full_name) LIKE ?) ORDER BY referred DESC, p.created_at DESC LIMIT ? OFFSET ?").bind(q, l, l, l, PAGE, page(x.offset)).all()).results;
+      return json({ items: rows, page_size: PAGE });
+    }
+    case 'export': {
+      const f = where();
+      const rows = (await db.prepare(`SELECT r.status,r.reward_amount,r.code,r.created_at,r.earned_at,r.deposit_amount,r.deposit_at,r.deposit_ref,r.reason,r.flag,a.username referrer,a.full_name referrer_name,b.username referee,b.full_name referee_name ${FROM} WHERE ${f.sql} ORDER BY r.created_at DESC LIMIT 5000`).bind(...f.args).all()).results;
+      const head = ['Joined (UTC)', 'Referrer username', 'Referrer name', 'Code', 'Referred username', 'Referred name', 'Status', 'Qualifying deposit', 'Deposit time (UTC)', 'Deposit reference', 'Reward', 'Credited (UTC)', 'Note'];
+      const csv = [head, ...rows.map((r) => [r.created_at, r.referrer, r.referrer_name, r.code, r.referee, r.referee_name, REF_STATUS_LABEL[r.status] || r.status, r.deposit_amount ?? '', r.deposit_at ?? '', r.deposit_ref ?? '', r.status === 'pending' ? '' : r.reward_amount, r.earned_at ?? '', r.flag || r.reason || ''])].map((l) => l.map(csvCell).join(',')).join('\r\n');
+      await auditLog(env, user, 'referral', 'export', null, { rows: rows.length, filters: { q: x.q || '', status: x.status || '', deposit: x.deposit || '' } });
+      return json({ csv, filename: `referrals-${dbTime().slice(0, 10)}.csv`, rows: rows.length });
+    }
+    case 'save_rule': case 'set_enabled': {
+      const cur = await refRule(env, true), n = { ...cur };
+      if (x.action === 'set_enabled') n.enabled = x.enabled ? 1 : 0;
+      else {
+        const num = (v, max, name, int) => { const k = Number(v === '' || v == null ? 0 : v); if (!Number.isFinite(k) || k < 0 || k > max || (int && !Number.isInteger(k))) throw new Error(`${name} is not valid.`); return int ? k : money(k); };
+        try {
+          n.enabled = x.enabled ? 1 : 0;
+          n.reward_type = x.reward_type === 'percent' ? 'percent' : 'fixed';
+          n.reward_value = num(x.reward_value, n.reward_type === 'percent' ? 100 : 1000000, 'Reward');
+          n.min_deposit = num(x.min_deposit, 100000000, 'Minimum deposit');
+          n.first_only = x.first_only ? 1 : 0;
+          n.max_per_referral = num(x.max_per_referral, 100000000, 'Maximum reward per referral');
+          n.max_count_per_referrer = num(x.max_count_per_referrer, 1000000, 'Maximum rewards per referring customer', true);
+          n.max_total_per_referrer = num(x.max_total_per_referrer, 1000000000, 'Maximum total per referring customer');
+        } catch (e) { return fail(e.message); }
+        const terms = String(x.terms ?? cur.terms).trim();
+        if (terms.length < 10 || terms.length > 3000 || /[<>]/.test(terms)) return fail('Terms must be 10 to 3000 characters (no < or >).');
+        n.terms = terms;
+        if (n.reward_type === 'fixed' && n.reward_value <= 0 && n.enabled) return fail('Enter a reward amount above zero.');
+      }
+      let eff = now();
+      if (x.effective_from) { eff = Math.floor(Date.parse(String(x.effective_from)) / 1000); if (!Number.isFinite(eff)) return fail('The effective date is not valid.'); if (eff < now() - 120) return fail('The effective date cannot be in the past.'); eff = Math.max(eff, now()); }
+      const id = uid(), pick = (r) => ({ enabled: !!r.enabled, reward_type: r.reward_type, reward_value: r.reward_value, min_deposit: r.min_deposit, first_only: !!r.first_only, max_per_referral: r.max_per_referral, max_count_per_referrer: r.max_count_per_referrer, max_total_per_referrer: r.max_total_per_referrer, terms_changed: r.terms !== cur.terms });
+      await db.prepare('INSERT INTO referral_rules(id,enabled,reward_type,reward_value,min_deposit,first_only,max_per_referral,max_count_per_referrer,max_total_per_referrer,terms,effective_from,created_by) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)')
+        .bind(id, n.enabled, n.reward_type, n.reward_value, n.min_deposit, n.first_only, n.max_per_referral, n.max_count_per_referrer, n.max_total_per_referrer, n.terms, eff, user.id).run();
+      refRuleCache = { at: 0, row: null };
+      await auditLog(env, user, 'referral', x.action === 'set_enabled' ? (n.enabled ? 'turn_on' : 'turn_off') : 'save_rule', { ...pick(cur), effective_from: cur.effective_from }, { ...pick(n), effective_from: eff, terms_changed: n.terms !== cur.terms });
+      return json({ ok: true, effective_from: eff, scheduled: eff > now() });
+    }
+    case 'approve': {   // a held (suspicious) referral that the admin accepts
+      const r = await db.prepare("SELECT * FROM referrals WHERE id=? AND status='review'").bind(String(x.id || '')).first();
+      if (!r) return fail('Only a referral under review can be approved.');
+      const ok = await creditReferral(env, r, 'review', r.reward_amount, user.id);
+      if (!ok) return fail('Could not credit this reward (already handled?).');
+      await auditLog(env, user, 'referral', 'approve_reward', { id: r.id, status: 'review' }, { id: r.id, status: 'earned', amount: r.reward_amount });
+      return json({ ok: true });
+    }
+    case 'cancel': {
+      const reason = String(x.reason || 'Cancelled by admin').trim().slice(0, 200);
+      const r = await db.prepare("SELECT id,status FROM referrals WHERE id=? AND status IN ('pending','review')").bind(String(x.id || '')).first();
+      if (!r) return fail('Only a pending or held referral can be cancelled. Rewards already paid are not changed.');
+      const c = await db.prepare("UPDATE referrals SET status='void', reason=?, reviewed_by=? WHERE id=? AND status IN ('pending','review')").bind(reason, user.id, r.id).run();
+      if (c.meta.changes !== 1) return fail('Already handled.');
+      await auditLog(env, user, 'referral', 'cancel_referral', { id: r.id, status: r.status }, { id: r.id, status: 'void', reason });
+      return json({ ok: true });
+    }
+    case 'audit': return auditList(env, 'referral', x.offset);
+    default: return fail('Unknown action.');
+  }
+};
+
+/* ---------- popup notices ---------- */
+const NOTICE_GROUPS = {
+  new: ['New customers (joined in the last 30 days)', "p.created_at >= datetime('now','-30 days')"],
+  depositors: ['Customers who have funded their wallet', "EXISTS (SELECT 1 FROM transactions t WHERE t.user_id=p.id AND t.type='fund' AND t.status='successful')"],
+  non_depositors: ['Customers who have never funded their wallet', "NOT EXISTS (SELECT 1 FROM transactions t WHERE t.user_id=p.id AND t.type='fund' AND t.status='successful')"],
+  active: ['Active customers (bought something in the last 30 days)', "EXISTS (SELECT 1 FROM transactions t WHERE t.user_id=p.id AND t.direction='out' AND t.status='successful' AND t.created_at >= datetime('now','-30 days'))"],
+  inactive: ['Inactive customers (nothing bought in the last 30 days)', "NOT EXISTS (SELECT 1 FROM transactions t WHERE t.user_id=p.id AND t.direction='out' AND t.status='successful' AND t.created_at >= datetime('now','-30 days'))"],
+  referrers: ['Customers who have invited someone', 'EXISTS (SELECT 1 FROM referrals r WHERE r.referrer_id=p.id)'],
+};
+const noticesOn = async (env) => (await env.DB.prepare("SELECT v FROM admin_config WHERE k='popup_notices_enabled'").first())?.v !== '0';
+async function inAudience(env, n, userId, username) {
+  if (n.audience === 'all') return true;
+  if (n.audience === 'selected') { try { return JSON.parse(n.audience_ids || '[]').includes(String(username || '').toLowerCase()); } catch { return false; } }
+  const g = NOTICE_GROUPS[n.audience_group]; if (!g) return false;
+  return !!(await env.DB.prepare(`SELECT 1 FROM profiles p WHERE p.id=? AND (${g[1]})`).bind(userId).first());
+}
+const okUrl = (u) => /^https?:\/\/[^\s<>"']{3,480}$/i.test(u);
+const noticePublic = (n) => ({ id: n.id, title: n.title, message: n.message, image_url: n.image_url || '', btn1_text: n.btn1_text, btn1_url: n.btn1_url || '', btn2_text: n.btn2_text || '', btn2_url: n.btn2_url || '', chips: n.chips ? n.chips.split('|').filter(Boolean) : [], footer_text: n.footer_text || '' });
+
+FUNCTIONS['active-notice'] = async (x, env, user) => {   // the one popup this customer should see right now (or none)
+  if (!(await noticesOn(env))) return json({ notice: null });
+  const t = now();
+  const rows = (await env.DB.prepare("SELECT * FROM notices WHERE status='active' AND (start_at IS NULL OR start_at<=?) AND (end_at IS NULL OR end_at>=?) ORDER BY created_at DESC LIMIT 25").bind(t, t).all()).results;
+  if (!rows.length) return json({ notice: null });
+  const me = await env.DB.prepare('SELECT p.username, (SELECT last_login_at FROM user_security WHERE user_id=p.id) ll FROM profiles p WHERE p.id=?').bind(user.id).first();
+  for (const n of rows) {
+    if (!(await inAudience(env, n, user.id, me?.username))) continue;
+    const s = await env.DB.prepare('SELECT last_view_at, last_login_marker FROM notice_seen WHERE notice_id=? AND user_id=?').bind(n.id, user.id).first();
+    if (s) {
+      if (n.frequency === 'once') continue;
+      if (n.frequency === 'every_login' && s.last_login_marker === String(me?.ll || '')) continue;
+      if (n.frequency === 'days' && t - s.last_view_at < Math.max(1, n.freq_days) * 86400) continue;
+    }
+    return json({ notice: noticePublic(n) });
+  }
+  return json({ notice: null });
+};
+FUNCTIONS['notice-event'] = async (x, env, user) => {   // the app tells us what the customer really saw / tapped
+  const id = String(x.id || ''), kind = String(x.kind || '');
+  if (!['view', 'click', 'dismiss'].includes(kind)) return fail('Bad event.');
+  const n = await env.DB.prepare("SELECT id FROM notices WHERE id=? AND status<>'deleted'").bind(id).first();
+  if (!n) return fail('Notice not found.', 404);
+  const btn = kind === 'click' ? (Number(x.btn) === 2 ? 2 : 1) : null;
+  const stmts = [env.DB.prepare('INSERT INTO notice_events(id,notice_id,user_id,kind,btn) VALUES(?,?,?,?,?)').bind(uid(), id, user.id, kind, btn)];
+  if (kind === 'view') {
+    const ll = (await env.DB.prepare('SELECT last_login_at FROM user_security WHERE user_id=?').bind(user.id).first())?.last_login_at || '';
+    stmts.push(env.DB.prepare('INSERT INTO notice_seen(notice_id,user_id,views,last_view_at,last_login_marker) VALUES(?,?,1,?,?) ON CONFLICT(notice_id,user_id) DO UPDATE SET views=views+1, last_view_at=excluded.last_view_at, last_login_marker=excluded.last_login_marker').bind(id, user.id, now(), String(ll)));
+  }
+  await env.DB.batch(stmts);
+  return json({ ok: true });
+};
+
+FUNCTIONS['admin-notices'] = async (x, env, user) => {
+  if (!user.is_admin) return fail('Admin permission required.', 403);
+  const db = env.DB;
+  const stats = async (id) => (await db.prepare("SELECT COUNT(DISTINCT CASE WHEN kind='view' THEN user_id END) viewers, COALESCE(SUM(kind='view'),0) views, COUNT(DISTINCT CASE WHEN kind='click' THEN user_id END) clickers, COALESCE(SUM(kind='click' AND btn=1),0) c1, COALESCE(SUM(kind='click' AND btn=2),0) c2, COALESCE(SUM(kind='dismiss'),0) dismissed FROM notice_events WHERE notice_id=?").bind(id).first());
+  const audienceSize = async (n) => {
+    if (n.audience === 'all') return (await db.prepare('SELECT COUNT(*) n FROM profiles').first()).n;
+    if (n.audience === 'selected') { try { return JSON.parse(n.audience_ids || '[]').length; } catch { return 0; } }
+    const g = NOTICE_GROUPS[n.audience_group]; return g ? (await db.prepare(`SELECT COUNT(*) n FROM profiles p WHERE ${g[1]}`).first()).n : 0;
+  };
+  switch (x.action) {
+    case 'overview': {
+      const rows = (await db.prepare("SELECT * FROM notices WHERE status<>'deleted' ORDER BY created_at DESC LIMIT 100").all()).results;
+      const items = []; for (const n of rows) items.push({ ...n, image_url: n.image_url ? 'yes' : '', stats: await stats(n.id), audience_size: await audienceSize(n) });
+      return json({ enabled: await noticesOn(env), items, groups: Object.fromEntries(Object.entries(NOTICE_GROUPS).map(([k, v]) => [k, v[0]])) });
+    }
+    case 'get': { const n = await db.prepare("SELECT * FROM notices WHERE id=? AND status<>'deleted'").bind(String(x.id || '')).first(); return n ? json({ notice: n }) : fail('Notice not found.', 404); }
+    case 'set_enabled': {
+      const before = await noticesOn(env), on = x.enabled ? '1' : '0';
+      await db.prepare("INSERT INTO admin_config(k,v) VALUES('popup_notices_enabled',?) ON CONFLICT(k) DO UPDATE SET v=excluded.v").bind(on).run();
+      await auditLog(env, user, 'notice', on === '1' ? 'turn_on_popups' : 'turn_off_popups', { enabled: before }, { enabled: on === '1' });
+      return json({ ok: true, enabled: on === '1' });
+    }
+    case 'save': {
+      const s = (v, max) => String(v ?? '').trim().slice(0, max);
+      const f = { title: s(x.title, 80), message: s(x.message, 700), btn1_text: s(x.btn1_text, 24) || 'Okay', btn1_url: s(x.btn1_url, 500), btn2_text: s(x.btn2_text, 24), btn2_url: s(x.btn2_url, 500), footer_text: s(x.footer_text, 80), image_url: s(x.image_url, 600000) };
+      if (!f.title) return fail('Enter a title.'); if (!f.message) return fail('Enter the message.');
+      if (/[<>]/.test(f.title + f.message + f.btn1_text + f.btn2_text + f.footer_text)) return fail('Please do not use < or > in the text.');
+      for (const k of ['btn1_url', 'btn2_url']) if (f[k] && !okUrl(f[k])) return fail('Button links must start with https:// (or http://).');
+      if (f.image_url && !(okUrl(f.image_url) || /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/=]+$/.test(f.image_url))) return fail('The image must be an uploaded picture or a link starting with https://.');
+      if (f.image_url.length > 450000) return fail('The image is too big. Use a smaller picture.');
+      if (!f.btn2_text) f.btn2_url = '';
+      const chips = (Array.isArray(x.chips) ? x.chips : String(x.chips || '').split(/[|,\n]/)).map((c) => String(c).trim().slice(0, 24)).filter(Boolean).slice(0, 4);
+      if (chips.some((c) => /[<>|]/.test(c))) return fail('Highlights cannot contain < > or |.');
+      const audience = ['all', 'selected', 'group'].includes(x.audience) ? x.audience : 'all';
+      let ids = '[]', grp = '';
+      if (audience === 'selected') {
+        const names = [...new Set(String(Array.isArray(x.audience_ids) ? x.audience_ids.join(',') : x.audience_ids || '').toLowerCase().split(/[\s,;]+/).map((v) => v.replace(/^@/, '')).filter(Boolean))].slice(0, 500);
+        if (!names.length) return fail('Enter at least one username for "Selected customers".');
+        const found = new Set(); for (let i = 0; i < names.length; i += 50) { const part = names.slice(i, i + 50); (await db.prepare(`SELECT LOWER(username) u FROM profiles WHERE LOWER(username) IN (${part.map(() => '?').join(',')})`).bind(...part).all()).results.forEach((r) => found.add(r.u)); }
+        const missing = names.filter((n) => !found.has(n)); if (missing.length) return fail('These usernames do not exist: ' + missing.slice(0, 8).join(', '));
+        ids = JSON.stringify(names);
+      }
+      if (audience === 'group') { grp = String(x.audience_group || ''); if (!NOTICE_GROUPS[grp]) return fail('Choose a customer group.'); }
+      const frequency = ['once', 'every_login', 'days'].includes(x.frequency) ? x.frequency : 'once';
+      const days = frequency === 'days' ? Math.floor(Number(x.freq_days)) : 0;
+      if (frequency === 'days' && !(days >= 1 && days <= 365)) return fail('Enter the number of days (1 to 365).');
+      const toEpoch = (v) => { if (!v) return null; const t = Math.floor(Date.parse(String(v)) / 1000); return Number.isFinite(t) ? t : NaN; };
+      const start = toEpoch(x.start_at), end = toEpoch(x.end_at);
+      if (Number.isNaN(start) || Number.isNaN(end)) return fail('A date is not valid.');
+      if (start && end && end <= start) return fail('The expiry date must be after the start date.');
+      const status = x.publish ? 'active' : null;
+      const id = String(x.id || '');
+      if (id) {
+        const old = await db.prepare("SELECT * FROM notices WHERE id=? AND status<>'deleted'").bind(id).first(); if (!old) return fail('Notice not found.', 404);
+        await db.prepare('UPDATE notices SET title=?,message=?,image_url=?,btn1_text=?,btn1_url=?,btn2_text=?,btn2_url=?,chips=?,footer_text=?,audience=?,audience_ids=?,audience_group=?,start_at=?,end_at=?,frequency=?,freq_days=?,status=COALESCE(?,status),updated_at=? WHERE id=?')
+          .bind(f.title, f.message, f.image_url, f.btn1_text, f.btn1_url, f.btn2_text, f.btn2_url, chips.join('|'), f.footer_text, audience, ids, grp, start, end, frequency, days, status, now(), id).run();
+        await auditLog(env, user, 'notice', 'edit_notice', { id, title: old.title, status: old.status, audience: old.audience, frequency: old.frequency, start_at: old.start_at, end_at: old.end_at, btn1_url: old.btn1_url }, { id, title: f.title, status: status || old.status, audience, frequency, start_at: start, end_at: end, btn1_url: f.btn1_url });
+        return json({ ok: true, id });
+      }
+      const nid = uid();
+      await db.prepare('INSERT INTO notices(id,title,message,image_url,btn1_text,btn1_url,btn2_text,btn2_url,chips,footer_text,audience,audience_ids,audience_group,start_at,end_at,frequency,freq_days,status,created_by,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+        .bind(nid, f.title, f.message, f.image_url, f.btn1_text, f.btn1_url, f.btn2_text, f.btn2_url, chips.join('|'), f.footer_text, audience, ids, grp, start, end, frequency, days, status || 'draft', user.id, now(), now()).run();
+      await auditLog(env, user, 'notice', 'create_notice', null, { id: nid, title: f.title, status: status || 'draft', audience, frequency, start_at: start, end_at: end, btn1_url: f.btn1_url });
+      return json({ ok: true, id: nid });
+    }
+    case 'set_status': {
+      const to = String(x.status || ''); if (!['active', 'paused', 'draft'].includes(to)) return fail('Bad status.');
+      const old = await db.prepare("SELECT id,title,status FROM notices WHERE id=? AND status<>'deleted'").bind(String(x.id || '')).first(); if (!old) return fail('Notice not found.', 404);
+      await db.prepare('UPDATE notices SET status=?, updated_at=? WHERE id=?').bind(to, now(), old.id).run();
+      await auditLog(env, user, 'notice', to === 'active' ? 'publish_notice' : 'pause_notice', { id: old.id, title: old.title, status: old.status }, { id: old.id, status: to });
+      return json({ ok: true });
+    }
+    case 'delete': {   // hidden for good from the admin list; its view/click records are kept
+      const old = await db.prepare("SELECT id,title,status FROM notices WHERE id=? AND status<>'deleted'").bind(String(x.id || '')).first(); if (!old) return fail('Notice not found.', 404);
+      await db.prepare("UPDATE notices SET status='deleted', updated_at=? WHERE id=?").bind(now(), old.id).run();
+      await auditLog(env, user, 'notice', 'delete_notice', { id: old.id, title: old.title, status: old.status }, null);
+      return json({ ok: true });
+    }
+    case 'audit': return auditList(env, 'notice', x.offset);
+    default: return fail('Unknown action.');
+  }
+};
+
 /* ----- referral dashboard ----- */
 const firstName = (n) => { const p = String(n || '').trim().split(/\s+/); return p[0] ? p[0] + (p[1] ? ' ' + p[1][0] + '.' : '') : 'User'; };
 FUNCTIONS['referral-summary'] = async (x, env, user, req) => {
-  const p = await env.DB.prepare('SELECT referral_code FROM profiles WHERE id=?').bind(user.id).first();
-  const s = await env.DB.prepare("SELECT COALESCE(SUM(CASE WHEN status='earned' THEN reward_amount END),0) earned, COALESCE(SUM(CASE WHEN status='pending' THEN reward_amount END),0) pending, COALESCE(SUM(CASE WHEN status='earned' AND date(earned_at)=date('now') THEN reward_amount END),0) today FROM referrals WHERE referrer_id=?").bind(user.id).first();
-  const rows = (await env.DB.prepare("SELECT r.status, r.reward_amount, r.created_at, p.full_name FROM referrals r JOIN profiles p ON p.id=r.referee_id WHERE r.referrer_id=? AND r.status IN ('pending','earned') ORDER BY r.created_at DESC LIMIT 100").bind(user.id).all()).results;
+  const p = await env.DB.prepare('SELECT referral_code FROM profiles WHERE id=?').bind(user.id).first(), rule = await refRule(env);
+  const s = await env.DB.prepare("SELECT COALESCE(SUM(CASE WHEN status='earned' THEN reward_amount END),0) earned, COALESCE(SUM(status IN ('pending','review')),0) waiting, COALESCE(SUM(CASE WHEN status='earned' AND date(earned_at)=date('now') THEN reward_amount END),0) today FROM referrals WHERE referrer_id=?").bind(user.id).first();
+  const rows = (await env.DB.prepare("SELECT r.status, r.reward_amount, r.created_at, p.full_name FROM referrals r JOIN profiles p ON p.id=r.referee_id WHERE r.referrer_id=? AND r.status IN ('pending','review','earned') ORDER BY r.created_at DESC LIMIT 100").bind(user.id).all()).results;
   const code = p?.referral_code || '';
-  return json({ enabled: env.REFERRAL_ENABLED !== '0', reward: cfgNum(env, 'REFERRAL_REWARD', 500), code, link: `${appBase(env, req)}/r/${code}`, total_earned: money(s.earned), pending: money(s.pending), today: money(s.today),
-    items: rows.map((r) => ({ name: firstName(r.full_name), joined: r.created_at, status: r.status, reward: r.reward_amount })) });
+  return json({ enabled: !!rule.enabled, reward: rule.reward_type === 'fixed' ? rule.reward_value : 0, reward_type: rule.reward_type, reward_value: rule.reward_value, rule_text: refRuleText(rule), min_deposit: rule.min_deposit, terms: rule.terms, code, link: `${appBase(env, req)}/r/${code}`, total_earned: money(s.earned),
+    pending: rule.reward_type === 'fixed' ? money(s.waiting * rule.reward_value) : 0, pending_count: s.waiting, today: money(s.today),
+    items: rows.map((r) => ({ name: firstName(r.full_name), joined: r.created_at, status: r.status === 'earned' ? 'earned' : 'pending', reward: r.status === 'earned' ? r.reward_amount : (rule.reward_type === 'fixed' ? rule.reward_value : 0) })) });
 };
 
 /* ----- support ----- */
@@ -1733,7 +2034,7 @@ const KB_SEED = [
   ['Transaction statuses and what to do', 'Transactions', 'Pending: the request is still being processed. Do not pay again. Check Transactions later.\nSuccessful: confirmed by the system.\nFailed: the purchase did not complete. For a failed purchase the amount is returned to the Main Wallet in the same step that marks it failed.\nIf a transaction shows Successful but the service was not received, or a pending transaction stays pending for a long time, open Support > Submit a Ticket (you can choose the transaction) so the team can verify it. Each receipt shows the transaction ID and a receipt hash that support can verify.', 1],
   ['Favourite beneficiaries', 'Services', 'In Data, Airtime, Airtime-to-Cash, Electricity, Cable TV and Bulk SMS you can tap the star icon to save the number/meter/smartcard/list with a name (for example Mum or Home Meter). Saved items appear as chips; tap one to fill the form. To rename or remove one, tap the star again while it is selected. Up to 30 saved items per service.', 0],
   ['Security: password, PIN and biometrics', 'Security', 'Change your login password at Profile > Change Password. Change your transaction PIN at Profile > Change Transaction PIN (your current PIN is needed). After 5 wrong PIN attempts the PIN is locked for 15 minutes. Biometric login (fingerprint/face unlock) can be switched on in Profile if the device supports it. The app logs you out after being in the background for 10 minutes.\nNEVER share your password, transaction PIN, OTP, secret keys or full card details with anyone, including SHOYI and support staff.', 1],
-  ['Refer & Earn', 'Referral', 'Every user has a referral code (like USS1234) and a link under Profile > Refer & Earn. When someone you invited signs up and completes their first successful purchase, the reward is added to your Main Wallet (reward amount and on/off status: see LIVE CONFIG). Rewards show as Pending until that first purchase. Referral rewards can be used to buy services; they cannot be withdrawn.', 0],
+  ['Refer & Earn', 'Referral', 'Every user has a referral code (like USS1234) and a link under Profile > Refer & Earn. When someone you invited signs up and makes a qualifying deposit that our payment provider has confirmed, the reward is added to your Main Wallet (reward rules and on/off status: see LIVE CONFIG). Registering alone earns nothing; rewards show as Pending until the qualifying deposit. Referral rewards can be used to buy services; they cannot be withdrawn.', 0],
   ['Exchange', 'Services', 'Exchange lets a person pay in a foreign currency by card or bank (for example USD, GBP, EUR, GHS) on a secure payment page. After the payment is confirmed, the naira (after the service fee) is added to the Exchange Wallet. Fee, limits and open currencies are in LIVE CONFIG. It is only available when switched on by the owner.', 0],
   ['Support, tickets and human help', 'Support', 'Support > Start Chat talks to SHOYI (an AI assistant). Support > Submit a Ticket sends a report to the team; every ticket gets a reference like TKT-ABC123 and a status: Open, In Progress, Waiting for Customer, Resolved or Closed. Support > My Support Tickets shows your tickets. SHOYI can also hand over to human support when you ask or when the problem needs staff.', 1],
   ['Services that may not be available', 'Services', 'Exam PIN, Data Card, Recharge Card, Bulk SMS and Airtime-to-Cash are only available when the owner has switched them on (see LIVE CONFIG). If one is not listed as available, tell the customer it is not available yet and that it will be announced.', 0],
@@ -1791,7 +2092,7 @@ function liveConfig(env, svc) {
   const L = [];
   L.push('Services: ' + svc.map((s) => `${s.name}=${s.available ? 'AVAILABLE' : 'NOT AVAILABLE'}${s.note ? ' (' + s.note + ')' : ''}`).join('; '));
   L.push(`Withdrawals: minimum N${cfgNum(env, 'WITHDRAW_MIN_AMOUNT', 1000)}, fee N${money(cfgNum(env, 'WITHDRAW_FEE_FLAT', 0))} per withdrawal (taken from the amount). Only Exchange Wallet and Airtime-to-Cash Wallet.`);
-  L.push(`Referral: ${env.REFERRAL_ENABLED === '0' ? 'switched off' : 'on, reward N' + cfgNum(env, 'REFERRAL_REWARD', 500) + ' to the Main Wallet after the first successful purchase of the person invited (minimum purchase N' + cfgNum(env, 'REFERRAL_MIN_PURCHASE', 0) + ')'}.`);
+  L.push(`Referral: ${env.REFERRAL_ENABLED === '0' ? 'switched off' : 'on, reward ' + (env.REFERRAL_RULE_TEXT || ('N' + cfgNum(env, 'REFERRAL_REWARD', 500))) + ' paid to the Main Wallet only after the person invited makes a verified qualifying deposit (registering alone earns nothing)'}.`);
   if (svc.find((s) => s.key === 'exchange')?.available) L.push(`Exchange: fee ${cfgNum(env, 'EXCHANGE_FEE_PERCENT', 10)}%, limit about ${cfgNum(env, 'EXCHANGE_MIN_AMOUNT', 5)} to ${cfgNum(env, 'EXCHANGE_MAX_AMOUNT', 100)} USD per transfer, ${cfgNum(env, 'EXCHANGE_DAILY_COUNT', 3)} per day, currencies: ${String(env.EXCHANGE_CURRENCIES || 'USD,GBP,EUR,GHS')}.`);
   L.push(env.SHOYI_SUPPORT_HOURS ? `Human support hours: ${env.SHOYI_SUPPORT_HOURS}. (Whether an agent is online right now is NOT known.)` : 'Human support hours: not configured. Never promise a response time.');
   if (env.SERVICE_NOTICE_ON !== '0' && env.SERVICE_NOTICE) L.push('Current service notice shown to customers: ' + env.SERVICE_NOTICE);
@@ -2303,9 +2604,6 @@ const SETTINGS = {
   sms_cost_per_unit:    { env: 'SMS_COST_PER_UNIT',    type: 'number', group: 'Pricing',  label: 'Bulk SMS cost per page (naira)', def: '', min: 0, max: 100000, allowEmpty: true, hint: 'Optional, for profit' },
   withdraw_fee_flat:    { env: 'WITHDRAW_FEE_FLAT',    type: 'number', group: 'Withdrawals', label: 'Withdrawal fee (naira, taken from the amount)', def: '0', min: 0, max: 100000, hint: 'Default 0' },
   withdraw_min_amount:  { env: 'WITHDRAW_MIN_AMOUNT',  type: 'number', group: 'Withdrawals', label: 'Minimum withdrawal (naira)', def: '1000', min: 100, max: 10000000, hint: 'Default 1000' },
-  referral_enabled:     { env: 'REFERRAL_ENABLED',     type: 'bool',   group: 'Referral', label: 'Referral rewards', def: '1', hint: 'When off, nobody earns new rewards (pending ones wait)' },
-  referral_reward:      { env: 'REFERRAL_REWARD',      type: 'number', group: 'Referral', label: 'Reward per referral (naira, paid to the Main Wallet)', def: '500', min: 0, max: 100000, hint: 'Default 500' },
-  referral_min_purchase:{ env: 'REFERRAL_MIN_PURCHASE',type: 'number', group: 'Referral', label: 'Smallest first purchase that earns the reward (naira)', def: '0', min: 0, max: 1000000, hint: 'Default 0. A small minimum such as 100 helps stop fake accounts' },
   app_url:              { env: 'APP_URL',              type: 'url',    group: 'App', label: 'Website address used in referral links', def: '', allowEmpty: true, hint: 'For example https://umarshoyi.com. Empty = this website' },
   service_notice_on:    { env: 'SERVICE_NOTICE_ON',    type: 'bool',   group: 'App', label: 'Show the "Service Update" card on Home', def: '1' },
   service_notice:       { env: 'SERVICE_NOTICE',       type: 'text',   group: 'App', label: 'Service Update message', def: 'Some services may be undergoing maintenance.', maxLen: 200 },
@@ -2340,6 +2638,7 @@ async function loadSettings(env) {
 async function withSettings(env) {   // the env the rest of the code sees: Cloudflare variables overridden by saved settings
   const map = await loadSettings(env), over = {};
   for (const [k, d] of Object.entries(SETTINGS)) if (map[k] !== undefined && map[k] !== '') over[d.env] = map[k];
+  try { const rr = await refRule(env); over.REFERRAL_ENABLED = rr.enabled ? '1' : '0'; over.REFERRAL_REWARD = rr.reward_type === 'fixed' ? String(rr.reward_value) : '0'; over.REFERRAL_RULE_TEXT = refRuleText(rr); } catch (e) { console.error('referral rule', e); }   // the Referral Manager (D1) is the one source of truth
   return Object.keys(over).length ? { ...env, ...over } : env;
 }
 function validateSetting(def, raw) {   // returns the cleaned value, or null when invalid
@@ -2407,7 +2706,7 @@ async function route(req, env) {
   if (path === '/api/referral/check' && method === 'GET') {   // public: lets the sign-up form say whether a code is valid
     const code = String(url.searchParams.get('code') || '').trim().toUpperCase();
     const valid = /^USS\d{4,6}$/.test(code) && !!(await env.DB.prepare('SELECT 1 FROM profiles WHERE referral_code=?').bind(code).first());
-    return json({ valid, enabled: env.REFERRAL_ENABLED !== '0' });
+    return json({ valid, enabled: !!(await refRule(env)).enabled });
   }
 
   if (path.startsWith('/api/auth/') && !env.AUTH_SECRET) return fail('AUTH_SECRET is not configured in Cloudflare Worker secrets.', 503);

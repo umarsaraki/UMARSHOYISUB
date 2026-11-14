@@ -58,6 +58,7 @@ const MIGRATIONS = [
   `ALTER TABLE profiles ADD COLUMN notif_seen_at TEXT NOT NULL DEFAULT '1970-01-01 00:00:00'`,
   `ALTER TABLE transactions ADD COLUMN wallet TEXT NOT NULL DEFAULT 'main'`,
   `ALTER TABLE transactions ADD COLUMN updated_at TEXT`,
+  `ALTER TABLE wallet_ledger ADD COLUMN balance_before REAL`, `ALTER TABLE wallet_ledger ADD COLUMN balance_after REAL`,
 ];
 const SAFE_PROFILE = 'id,full_name,username,phone,referral_code,referral_code_used,balance_ngn,atc_balance,exchange_balance,is_admin,is_banned,created_at';
 const WALLET_COL = { main: 'balance_ngn', exchange: 'exchange_balance', atc: 'atc_balance' };
@@ -927,7 +928,7 @@ async function settleRemittance(env, d) {
   const res = await env.DB.batch([
     env.DB.prepare("UPDATE remittances SET status='credited', flw_tx_id=?, updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='awaiting_payment'").bind(String(d.id), r.id),
     env.DB.prepare('UPDATE profiles SET exchange_balance=exchange_balance+? WHERE id=? AND changes() > 0').bind(r.receive_ngn, r.user_id),
-    env.DB.prepare("INSERT INTO wallet_ledger(id,user_id,wallet,direction,amount,ref,type,note) SELECT ?,?,'exchange','in',?,?,'exchange',? WHERE changes() > 0").bind(uid(), r.user_id, r.receive_ngn, 'exchange-' + r.id, `${r.source_amount} ${r.currency} exchange`),
+    ledgerIfChanged(env, { userId: r.user_id, wallet: 'exchange', dir: 'in', amount: r.receive_ngn, ref: 'exchange-' + r.id, type: 'exchange', note: `${r.source_amount} ${r.currency} exchange` }),
     env.DB.prepare("UPDATE transactions SET updated_at=CURRENT_TIMESTAMP, status='successful' WHERE id=? AND status='pending'").bind(r.id),
   ]);
   const credited = res[0].meta.changes === 1;
@@ -1009,8 +1010,11 @@ async function notify(env, userId, title, message) {   // a personal notificatio
   }
   catch (e) { console.error('notify failed', e); }
 }
-function ledgerIfChanged(env, p) {   // ledger line, only written when the statement before it changed a row
-  return env.DB.prepare('INSERT INTO wallet_ledger(id,user_id,wallet,direction,amount,ref,type,note) SELECT ?,?,?,?,?,?,?,? WHERE changes() > 0').bind(uid(), p.userId, p.wallet, p.dir, p.amount, p.ref, p.type, p.note || null);
+// Ledger line, only written when the statement before it changed a row. It also keeps the wallet balance right after the movement
+// (read from the profile at that moment) and the balance before it, so Wallet History can show both for new movements.
+function ledgerIfChanged(env, p) {
+  return env.DB.prepare("INSERT INTO wallet_ledger(id,user_id,wallet,direction,amount,ref,type,note,balance_after,balance_before) SELECT ?,?,?,?,?,?,?,?, b, CASE ? WHEN 'in' THEN b-? ELSE b+? END FROM (SELECT CASE ? WHEN 'main' THEN balance_ngn WHEN 'exchange' THEN exchange_balance ELSE atc_balance END b FROM profiles WHERE id=?) WHERE changes() > 0")
+    .bind(uid(), p.userId, p.wallet, p.dir, p.amount, p.ref, p.type, p.note || null, p.dir, p.amount, p.amount, p.wallet, p.userId);
 }
 
 // A fingerprint for every transaction: HMAC-SHA256 with the server secret over fields that never change.
@@ -1085,8 +1089,8 @@ const TXC_SERVICES = {
   data: ['Data Bundle', "t.type='data'"], airtime: ['Airtime', "t.type='airtime'"], a2c: ['Airtime to Cash', "t.type='airtime-to-cash'"],
   electricity: ['Electricity', "t.type='electricity'"], cable: ['Cable TV', "t.type='cable'"], exam: ['Exam PIN', "t.type='exam'"],
   recharge: ['Recharge Card', "t.type='airtime-card'"], datacard: ['Data Card', "t.type='data-card'"], bulksms: ['Bulk SMS', "t.type='bulk-sms'"],
-  exchange: ['Exchange', "t.type='exchange'"], w_main: ['Main Wallet', "t.wallet='main'"], w_exchange: ['Exchange Wallet', "t.wallet='exchange'"],
-  w_atc: ['Airtime-to-Cash Wallet', "t.wallet='atc'"], referral: ['Referral Earnings', "t.type='referral-bonus'"],
+  exchange: ['Exchange', "t.type='exchange'"],
+  fund: ['Wallet Funding', "t.type='fund'"], withdrawal: ['Withdrawals', "t.type='withdrawal'"], referral: ['Referral Earnings', "t.type='referral-bonus'"],
 };
 // refunded = the money went back to the customer: a failed outgoing payment (the app returns it in the same step that marks it failed),
 // or an Exchange payment that the admin marked as refunded.
@@ -1211,8 +1215,50 @@ FUNCTIONS['txc-detail'] = async (x, env, user) => {
   }
   const hasRef = !!out.provider.reference;
   const typeKey = Object.keys(TXC_SERVICES).find((k) => TXC_SERVICES[k][1] === `t.type='${t.type}'`);
-  const walletKey = { main: 'w_main', exchange: 'w_exchange', atc: 'w_atc' }[t.wallet] || null;
-  out.actions = { copy_provider_ref: hasRef, copy_token: !!out.token, similar_service: typeKey || walletKey };
+  out.actions = { copy_provider_ref: hasRef, copy_token: !!out.token, similar_service: typeKey || null };
+  return json(out);
+};
+
+
+/* ----- Wallet History: only the movements of ONE wallet (Main / Exchange / Airtime-to-Cash) -----
+   Two real sources, never the same movement twice:
+   - wallet_ledger rows: withdrawals, withdrawal reversals, exchange credits, airtime-to-cash credits, transfers, admin adjustments
+   - transactions rows of that wallet that have NO ledger line: wallet funding, purchases (and their refunds), referral rewards, older records
+   A ledger line that belongs to a transaction carries that transaction's id (tx_id), so the customer can open the full details. */
+const WH_LINK = "(CASE WHEN l.ref LIKE 'withdraw-reversal-%' THEN substr(l.ref,19) WHEN l.ref LIKE 'withdraw-%' THEN substr(l.ref,10) WHEN l.ref LIKE 'exchange-%' THEN substr(l.ref,10) WHEN l.ref LIKE 'a2c-%' THEN substr(l.ref,5) WHEN l.ref LIKE 'admin-%' THEN substr(l.ref,7) WHEN l.ref LIKE 'wtm-out-%' THEN substr(l.ref,9) WHEN l.ref LIKE 'wtm-in-%' THEN substr(l.ref,8) ELSE NULL END)";
+const WH_HAS_LEDGER = "EXISTS (SELECT 1 FROM wallet_ledger l WHERE l.user_id=t.user_id AND l.wallet=t.wallet AND l.ref IN ('withdraw-'||t.id,'withdraw-reversal-'||t.id,'exchange-'||t.id,'a2c-'||t.id,'admin-'||t.id,'wtm-out-'||t.id,'wtm-in-'||t.id))";
+const WH_NAME = { fund: 'Wallet Funding', withdrawal: 'Withdrawal', 'withdrawal-reversal': 'Withdrawal Returned', exchange: 'Exchange Credit', 'airtime-to-cash': 'Airtime-to-Cash Credit', transfer: 'Wallet Transfer', adjustment: 'Admin Adjustment', 'referral-bonus': 'Referral Earnings' };
+function whUnion(wallet) {
+  return `SELECT l.created_at created_at, l.id k, 'L' src, l.direction dir, l.amount amount, l.type type, l.note note, t2.id tx_id,
+      (CASE WHEN l.type='withdrawal-reversal' THEN 'successful' ELSE COALESCE(t2.status,'successful') END) status, l.balance_before bb, l.balance_after ba
+    FROM wallet_ledger l LEFT JOIN transactions t2 ON t2.user_id=l.user_id AND t2.id=${WH_LINK}
+    WHERE l.user_id=? AND l.wallet=${wallet}
+   UNION ALL
+   SELECT t.created_at, t.id, 'T', t.direction, t.amount, t.type, t.label, t.id, t.status, NULL, NULL
+    FROM transactions t WHERE t.user_id=? AND t.wallet=${wallet} AND NOT ${WH_HAS_LEDGER} AND NOT (t.type='exchange' AND t.status<>'successful')`;
+}
+FUNCTIONS['wallet-history'] = async (x, env, user) => {
+  const wallet = String(x.wallet || 'main'); if (!WALLET_COL[wallet]) return fail('Choose a wallet.');
+  const w = `'${wallet}'`;   // the value is checked against WALLET_COL above, so it is safe to place in the query text
+  const f = [], fa = [];
+  if (x.direction === 'credit') f.push("dir='in'"); else if (x.direction === 'debit') f.push("dir='out'");
+  if (x.kind === 'funding') f.push("type='fund'"); else if (x.kind === 'withdrawals') f.push("type IN ('withdrawal','withdrawal-reversal')");
+  const m = /^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\|(.+)$/.exec(String(x.cursor || ''));
+  if (m) { f.push('(created_at < ? OR (created_at = ? AND k < ?))'); fa.push(m[1], m[1], m[2]); }
+  const size = 20, base = whUnion(w);
+  const rows = (await env.DB.prepare(`SELECT * FROM (${base}) ${f.length ? 'WHERE ' + f.join(' AND ') : ''} ORDER BY created_at DESC, k DESC LIMIT ?`).bind(user.id, user.id, ...fa, size + 1).all()).results;
+  const page = rows.slice(0, size);
+  const out = { items: page.map((r) => {
+    const refunded = r.src === 'T' && r.status === 'failed' && r.dir === 'out';
+    const sp = r.src === 'T' ? txcSplit({ type: r.type, label: r.note }) : null;
+    return { key: r.k, tx_id: r.tx_id || null, type: r.type, kind: WH_NAME[r.type] || TXC_NAME[r.type] || 'Wallet Movement', desc: r.src === 'T' ? sp.desc : (r.note || ''), direction: r.dir === 'in' ? 'in' : 'out', amount: money(r.amount),
+      status: refunded ? 'refunded' : r.status, created_at: r.created_at, balance_before: r.bb == null ? null : money(r.bb), balance_after: r.ba == null ? null : money(r.ba) };
+  }), has_more: rows.length > size, next_cursor: rows.length > size ? `${page[page.length - 1].created_at}|${page[page.length - 1].k}` : null };
+  if (!m) {   // first page: the wallet balance and the totals of money that really moved (successful only)
+    const p = await env.DB.prepare(`SELECT ${WALLET_COL[wallet]} b FROM profiles WHERE id=?`).bind(user.id).first();
+    const s = await env.DB.prepare(`SELECT COALESCE(SUM(CASE WHEN dir='in' THEN amount END),0) cr, COALESCE(SUM(CASE WHEN dir='out' THEN amount END),0) dr, COUNT(*) n FROM (${base}) WHERE status='successful' AND type<>'withdrawal-reversal'`).bind(user.id, user.id).first();
+    out.balance = money(p?.b || 0); out.credits = money(s.cr); out.debits = money(s.dr); out.count = s.n; out.wallet = wallet;
+  }
   return json(out);
 };
 
@@ -1679,7 +1725,7 @@ FUNCTIONS['verify-otp'] = async (x, env, user) => {
   await env.DB.batch([
     env.DB.prepare('UPDATE profiles SET atc_balance=atc_balance+? WHERE id=?').bind(res.credited, user.id),
     env.DB.prepare("INSERT INTO transactions(id,user_id,type,label,amount,direction,status,provider_ref,wallet) VALUES(?,?,'airtime-to-cash',?,?,'in','successful',?,'atc')").bind(aId, user.id, `Airtime to Cash (${net.toUpperCase()} \u20a6${amount})`, res.credited, res.ref || null),
-    env.DB.prepare("INSERT INTO wallet_ledger(id,user_id,wallet,direction,amount,ref,type,note) VALUES(?,?,'atc','in',?,?,'airtime-to-cash',?)").bind(uid(), user.id, res.credited, 'a2c-' + aId, `${net.toUpperCase()} airtime ${amount}`),
+    ledgerIfChanged(env, { userId: user.id, wallet: 'atc', dir: 'in', amount: res.credited, ref: 'a2c-' + aId, type: 'airtime-to-cash', note: `${net.toUpperCase()} airtime ${amount}` }),
   ]);
   await notify(env, user.id, 'Airtime-to-Cash successful', `\u20a6${Number(res.credited).toLocaleString()} has been added to your Airtime-to-Cash Wallet.`);
   return json({ data: { credited: res.credited } });

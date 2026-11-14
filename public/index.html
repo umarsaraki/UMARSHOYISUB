@@ -350,6 +350,43 @@
   .ux-dev{display:flex; align-items:center; gap:10px; padding:11px 0; border-bottom:1px solid var(--line);} .ux-dev:last-child{border-bottom:none;} .ux-dev b{font-size:14px;} .ux-dev small{display:block; color:var(--sub); font-size:11.5px; margin-top:2px;}
   .ux-dev button{margin-left:auto; border:1px solid var(--danger); color:var(--danger); background:transparent; border-radius:10px; padding:7px 11px; font-weight:700; font-size:12px; cursor:pointer;}
   .ux-tag-this{background:#e7f8ef; color:#16a05f; border-radius:8px; font-size:10.5px; font-weight:800; padding:2px 7px; margin-left:6px;}
+
+  /* ===== In-app popup notice (customer) ===== */
+  .nt-back{position:fixed; inset:0; z-index:700; background:rgba(8,16,60,.55); backdrop-filter:blur(3px); display:flex; align-items:center; justify-content:center; padding:16px; animation:ntFade .2s ease;}
+  @keyframes ntFade{from{opacity:0}to{opacity:1}} @keyframes ntPop{from{opacity:0; transform:translateY(14px) scale(.97)}to{opacity:1; transform:none}}
+  .nt-card{width:100%; max-width:410px; max-height:calc(100vh - 32px); overflow:auto; background:#fff; border-radius:28px; border:2px solid #cfdcff; box-shadow:0 24px 60px rgba(8,16,60,.45); position:relative; animation:ntPop .25s ease; color:#0d1b4c;}
+  .nt-head{position:relative; padding:16px 16px 40px; background:radial-gradient(120% 140% at 85% 0%,#3d6dff 0%,#1237c9 50%,#081a78 100%); display:flex; align-items:center; gap:12px; color:#fff;}
+  .nt-logo{display:flex; align-items:center; gap:4px; padding-right:12px; border-right:2px solid rgba(255,255,255,.35);} .nt-logo svg{width:34px; height:22px;} .nt-us{font-size:34px; font-weight:900; font-style:italic; letter-spacing:-1.5px; line-height:1; text-shadow:0 2px 0 #f5b81c;}
+  .nt-brand{font-weight:900; font-size:17px; letter-spacing:.5px; line-height:1.1;} .nt-tag{font-size:12.5px; font-weight:700; font-style:italic; color:#ffd75e; margin-top:2px;}
+  .nt-x{position:absolute; top:12px; right:12px; width:38px; height:38px; border-radius:50%; border:none; background:rgba(255,255,255,.2); color:#fff; font-size:20px; cursor:pointer; display:flex; align-items:center; justify-content:center;}
+  .nt-wave{display:block; width:100%; height:34px; margin-top:-34px; position:relative;}
+  .nt-body{padding:0 18px 16px; margin-top:-6px;}
+  .nt-main{display:flex; align-items:center; gap:12px;} .nt-ill{flex:none; width:104px; height:104px;}
+  .nt-img{width:100%; max-height:170px; object-fit:cover; border-radius:18px; margin-bottom:12px; display:block; border:1px solid #dbe4fb;}
+  .nt-title{font-size:24px; font-weight:900; line-height:1.15; margin:0; color:#0d1b4c;} .nt-title b{color:#1237c9;}
+  .nt-line{height:4px; width:70%; border-radius:4px; margin:7px 0 9px; background:linear-gradient(90deg,#f5b81c,transparent);}
+  .nt-msg{font-size:14.5px; line-height:1.5; color:#27325f; margin:0; white-space:pre-line; word-break:break-word;}
+  .nt-chips{display:flex; margin:14px 0 4px; background:#e6edff; border-radius:18px; padding:10px 4px;}
+  .nt-chips div{flex:1; text-align:center; font-size:11.5px; font-weight:800; color:#0d1b4c; padding:0 3px; border-left:1.5px solid #b9c9f5;} .nt-chips div:first-child{border-left:none;}
+  .nt-chips svg{width:26px; height:26px; color:#1237c9; display:block; margin:0 auto 4px;}
+  .nt-btns{display:flex; gap:10px; margin-top:14px;}
+  .nt-b{flex:1; min-height:52px; border-radius:26px; font-size:15.5px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; padding:0 10px; border:2px solid #1237c9;}
+  .nt-b svg{width:22px; height:22px; flex:none;}
+  .nt-b1{background:linear-gradient(135deg,#2f63ff,#1237c9); color:#fff; box-shadow:0 8px 18px rgba(18,55,201,.3);} .nt-b2{background:#fff; color:#1237c9;}
+  .nt-foot{position:relative; text-align:center; font-size:12.5px; font-style:italic; color:#1237c9; font-weight:600; padding:6px 16px 24px;}
+  .nt-foot::after{content:''; position:absolute; left:0; right:0; bottom:0; height:12px; background:linear-gradient(180deg,#f5b81c 0 3px,#1237c9 3px);}
+  /* ===== Admin: popup + referral managers ===== */
+  .mg-card{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:14px; margin-bottom:12px;}
+  .mg-h{font-weight:800; font-size:15px; margin-bottom:4px;} .mg-s{font-size:12px; color:var(--sub); line-height:1.5;}
+  .mg-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px;} .mg-grid .profit-card{margin:0;}
+  .mg-f{margin-bottom:12px;} .mg-f label{display:block; font-size:12px; font-weight:700; color:var(--sub); margin-bottom:5px;}
+  .mg-f input,.mg-f select,.mg-f textarea{width:100%; padding:11px 12px; border:1px solid var(--line); border-radius:11px; background:var(--card); color:var(--text); font-size:14px; font-family:inherit;}
+  .mg-f textarea{min-height:84px; resize:vertical;} .mg-2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .mg-row{display:flex; align-items:center; justify-content:space-between; gap:10px;}
+  .mg-pill{display:inline-block; padding:2px 9px; border-radius:10px; font-size:11px; font-weight:800;}
+  .mg-acts{display:flex; flex-wrap:wrap; gap:6px; margin-top:10px;} .mg-acts .btn-sm{margin:0;}
+  .mg-st{font-size:12px; color:var(--sub); margin-top:8px; line-height:1.6; background:var(--soft); border-radius:10px; padding:8px 10px;}
+  .mg-img{max-width:100%; max-height:120px; border-radius:10px; display:block; margin-top:8px;}
 </style>
 <style>
 /* ===== SHOYI (added) ===== */
@@ -1229,6 +1266,8 @@ html[data-theme=dark] .pf-wal b{color:#d6e3ff}
     <button class="atab" data-tab="users" onclick="adminSetTab('users')">Users</button>
     <button class="atab" data-tab="tx" onclick="adminSetTab('tx')">Transactions</button>
     <button class="atab" data-tab="rem" onclick="adminSetTab('rem')">Exchange</button>
+    <button class="atab" data-tab="popups" onclick="adminSetTab('popups')">Popups</button>
+    <button class="atab" data-tab="referrals" onclick="adminSetTab('referrals')">Referrals</button>
     <button class="atab" data-tab="settings" onclick="adminSetTab('settings')">Settings</button>
     <button class="atab" data-tab="log" onclick="adminSetTab('log')">Activity</button>
   </div>
@@ -1272,6 +1311,30 @@ html[data-theme=dark] .pf-wal b{color:#d6e3ff}
       <div class="admin-count" id="adminRemCount"></div>
       <div id="adminRemList"></div>
       <button class="btn-primary" id="adminRemMore" style="display:none; background:var(--soft); color:var(--blue-1);" onclick="adminLoadRem(false)">Load more</button>
+    </div>
+    <div id="atab-popups" style="display:none;">
+      <div id="pnList">
+        <div class="mg-card"><div class="mg-row"><div><div class="mg-h">In-App Popup Notices</div><div class="mg-s" id="pnSwState">Loading…</div></div>
+          <label class="toggle-switch"><input type="checkbox" id="pnSwitch" onchange="pnSetEnabled(this.checked)"><span class="toggle-slider"></span></label></div>
+          <div class="mg-acts"><button class="btn-sm" style="background:var(--blue-1);" onclick="pnEdit('')">+ New notice</button><button class="btn-sm" style="background:var(--soft); color:var(--blue-1);" onclick="auditToggle('notice','pnAudit')">Change history</button></div>
+          <div id="pnAudit" style="display:none;"></div></div>
+        <div id="pnItems"></div>
+      </div>
+      <div id="pnEditor" style="display:none;"></div>
+    </div>
+    <div id="atab-referrals" style="display:none;">
+      <div class="mg-grid" id="rfStats"></div>
+      <div class="mg-card"><div class="mg-row"><div><div class="mg-h">Referral Program</div><div class="mg-s" id="rfState">Loading…</div></div>
+        <label class="toggle-switch"><input type="checkbox" id="rfSwitch" onchange="rfSetEnabled(this.checked)"><span class="toggle-slider"></span></label></div>
+        <div id="rfRuleBox"></div></div>
+      <div class="mg-card"><div class="mg-h">Referral records</div>
+        <div class="mg-f" style="margin-top:8px;"><input id="rfQ" placeholder="Search username, name or code" oninput="rfSearchDebounced()"></div>
+        <div class="chips" id="rfChips"><button class="atab on" data-f="" onclick="rfSetStatus('')">All</button><button class="atab" data-f="pending" onclick="rfSetStatus('pending')">Pending</button><button class="atab" data-f="review" onclick="rfSetStatus('review')">Review</button><button class="atab" data-f="earned" onclick="rfSetStatus('earned')">Approved</button><button class="atab" data-f="void" onclick="rfSetStatus('void')">Cancelled</button></div>
+        <div class="mg-f"><select id="rfDep" onchange="rfLoad(true)"><option value="">Any deposit status</option><option value="qualified">Qualifying deposit made</option><option value="none">No qualifying deposit yet</option></select></div>
+        <div class="mg-acts" style="margin:0 0 10px;"><button class="btn-sm" style="background:var(--blue-1);" onclick="rfExport()">Export CSV</button><button class="btn-sm" style="background:var(--soft); color:var(--blue-1);" onclick="rfCodesToggle()">Referral codes</button><button class="btn-sm" style="background:var(--soft); color:var(--blue-1);" onclick="auditToggle('referral','rfAudit')">Change history</button></div>
+        <div id="rfAudit" style="display:none;"></div><div id="rfCodes" style="display:none;"></div>
+        <div class="admin-count" id="rfCount"></div><div id="rfList"></div>
+        <button class="btn-primary" id="rfMore" style="display:none; background:var(--soft); color:var(--blue-1);" onclick="rfLoad(false)">Load more</button></div>
     </div>
     <div id="atab-settings" style="display:none;">
       <div id="adminSettingsBox"></div>
@@ -1329,7 +1392,7 @@ html[data-theme=dark] .pf-wal b{color:#d6e3ff}
     <div id="refOff" class="hint" style="display:none; background:#fff3e0; padding:14px; font-size:13px; margin-bottom:14px; color:#8a5200;">Referral rewards are paused right now. Rewards you have already earned are safe.</div>
     <div class="wcard"><div class="lbl">TOTAL EARNED</div><div class="amt" id="refEarned">₦0.00</div><div style="font-size:12.5px; opacity:.92;">Everything you have earned from referrals. Rewards go to your Main Wallet.</div></div>
     <div class="stat3" style="grid-template-columns:1fr 1fr;">
-      <div class="stat s2"><div class="v" id="refPending">₦0</div><div class="l">PENDING</div><div style="font-size:11px; opacity:.9; margin-top:4px;">Waiting for their first purchase</div></div>
+      <div class="stat s2"><div class="v" id="refPending">₦0</div><div class="l">PENDING</div><div style="font-size:11px; opacity:.9; margin-top:4px;">Waiting for their first qualifying deposit</div></div>
       <div class="stat s3"><div class="v" id="refToday">₦0</div><div class="l">TODAY EARN</div><div style="font-size:11px; opacity:.9; margin-top:4px;">Earned today only</div></div>
     </div>
     <div class="copyrow"><div style="min-width:0;"><div class="cl">REFERRAL CODE</div><div class="cv" id="refCode">—</div></div><button class="copybtn" onclick="copyText(refData.code)"><svg class="ic sm"><use href="#i-copy"/></svg>Copy</button></div>
@@ -2611,11 +2674,13 @@ function adminInit(){ adminSetTab(adminCurTab); }
 function adminSetTab(t){
   adminCurTab = t;
   document.querySelectorAll('#adminTabs .atab').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
-  ['overview','users','tx','rem','settings','log'].forEach(n => document.getElementById('atab-'+n).style.display = n === t ? 'block' : 'none');
+  ['overview','users','tx','rem','popups','referrals','settings','log'].forEach(n => document.getElementById('atab-'+n).style.display = n === t ? 'block' : 'none');
   if(t === 'overview') adminLoadStats();
   if(t === 'users') adminLoadUsers(true);
   if(t === 'tx') adminLoadTx(true);
   if(t === 'rem') adminLoadRem(true);
+  if(t === 'popups') adminLoadPopups();
+  if(t === 'referrals') adminLoadReferrals();
   if(t === 'settings') adminLoadSettings();
   if(t === 'log') adminLoadLog();
 }
@@ -3456,7 +3521,7 @@ async function openReferral() {
   $('refOff').style.display = data.enabled ? 'none' : 'block';
   $('refEarned').textContent = m2(data.total_earned); $('refPending').textContent = naira(data.pending); $('refToday').textContent = naira(data.today);
   $('refCode').textContent = data.code; $('refLink').textContent = data.link;
-  $('refHow').innerHTML = `You earn <b>${naira(data.reward)}</b> when someone you invite makes their first purchase. Pending rewards are waiting for that purchase and are not available yet. Earned rewards go to your <b>Main Wallet</b> and can be used to buy services (they cannot be withdrawn).`;
+  $('refHow').innerHTML = `You earn <b>${esc(data.rule_text || naira(data.reward))}</b> when someone you invite registers and makes a qualifying deposit that our payment provider confirms. Registering alone earns nothing, and pending rewards are not available yet. Earned rewards go to your <b>Main Wallet</b> and can be used to buy services (they cannot be withdrawn).${data.terms ? '<div style="margin-top:10px; font-size:11.5px;"><b>Terms:</b> ' + esc(data.terms) + '</div>' : ''}`;
   $('refList').innerHTML = data.items.length ? data.items.map((i) => `<div class="arow" style="cursor:default;"><div class="top"><span>${esc(i.name)}</span>${badge(i.status)}</div><div class="sub">${esc(dt(i.joined).toLocaleDateString(undefined, { day: '2-digit', month: 'short' }))} · ${naira(i.reward)}</div></div>`).join('') : '<div class="empty-note">No referrals yet. Share your link to start earning.</div>';
 }
 async function shareReferral() {
@@ -4704,6 +4769,238 @@ applyPrefs();
   };
 
   initLogin();
+})();
+</script>
+<script>
+/* ===== POPUP NOTICE MANAGER + REFERRAL MANAGER (added) =====
+   Everything shown here comes from the server (D1). Nothing is faked: counts are what the app really reported,
+   and a reward is only "credited" when the backend says so. */
+(function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const an = (b) => invokeFn('admin-notices', { body: b }), ar = (b) => invokeFn('admin-referrals', { body: b }), call = (n, b) => invokeFn(n, { body: b || {} });
+  const ngn = (n) => '₦' + Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
+  const when = (s) => { try { return dt(s).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }); } catch (e) { return s || ''; } };
+  const epochStr = (e) => (e ? new Date(e * 1000).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : '');
+  const localInput = (e) => (e ? new Date(e * 1000 - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : '');
+  const isoOf = (v) => (v ? new Date(v).toISOString() : '');
+  const pill = (txt, bg, fg) => `<span class="mg-pill" style="background:${bg}; color:${fg};">${esc(txt)}</span>`;
+
+  /* ---------------- customer: the popup itself ---------------- */
+  const SVG = {
+    plane: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"><path d="M21 3 3 10.5l6.5 2.5L12 20l2.5-5.5L21 3Z"/><path d="m9.5 13 5-4"/></svg>',
+    clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+    check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m8 12.5 2.6 2.6L16 9.5"/></svg>',
+    down: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></svg>',
+    info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg>',
+  };
+  const btnIcon = (t) => (/later|remind|not now/i.test(t) ? SVG.clock : /channel|telegram|whatsapp|join|follow/i.test(t) ? SVG.plane : /update|download|install/i.test(t) ? SVG.down : /learn|more|details|read/i.test(t) ? SVG.info : SVG.check);
+  const CHIP_IC = ['ux-bolt', 'ux-gift', 'ux-help', 'ux-pin'];
+  const ILL = '<svg class="nt-ill" viewBox="0 0 120 120"><circle cx="58" cy="56" r="44" fill="#2f63ff"/><circle cx="58" cy="56" r="44" fill="none" stroke="#fff" stroke-opacity=".25" stroke-width="3"/><path d="M58 28c-9 0-16 7-16 16v10l-6 10h44l-6-10V44c0-9-7-16-16-16Z" fill="#fff"/><circle cx="58" cy="76" r="5" fill="#fff"/><g transform="translate(70 62)"><path d="M18 2c-9 0-14 7-14 14v8l-6 9h40l-6-9v-8C32 9 27 2 18 2Z" fill="#f5b81c"/><circle cx="18" cy="42" r="5" fill="#e39b00"/></g></svg>';
+  const titleHtml = (t) => { const w = String(t).split(/\s+/); if (w.length < 4) return esc(t); const k = Math.ceil(w.length / 2); return esc(w.slice(0, k).join(' ')) + ' <b>' + esc(w.slice(k).join(' ')) + '</b>'; };
+  const safeLink = (u) => /^https?:\/\//i.test(u || '');
+  window.showNoticeModal = function (n, opt) {
+    opt = opt || {}; const old = document.getElementById('noticeModal'); if (old) old.remove();
+    const el = document.createElement('div'); el.className = 'nt-back'; el.id = 'noticeModal';
+    const img = safeLink(n.image_url) || /^data:image\//.test(n.image_url || '') ? n.image_url : '';
+    const chips = (n.chips || []).slice(0, 4);
+    el.innerHTML = `<div class="nt-card" role="dialog" aria-modal="true" aria-label="${esc(n.title)}">
+      <div class="nt-head"><div class="nt-logo"><svg viewBox="0 0 64 40"><path d="M5 36 2 11l16 12L32 4l14 19L62 11l-3 25Z" fill="url(#uxGold)"/></svg><div class="nt-us">US</div></div><div><div class="nt-brand">UMARSHOYI-SUB</div><div class="nt-tag">Smart • Fast • Reliable</div></div><button class="nt-x" id="ntX" aria-label="Close">✕</button></div>
+      <svg class="nt-wave" viewBox="0 0 400 34" preserveAspectRatio="none"><path d="M0 34V20C80 4 160 0 250 12s110 6 150-6v28Z" fill="#fff"/></svg>
+      <div class="nt-body">${img ? `<img class="nt-img" src="${esc(img)}" alt="">` : ''}
+        <div class="nt-main">${img ? '' : ILL}<div><h2 class="nt-title">${titleHtml(n.title)}</h2><div class="nt-line"></div><p class="nt-msg">${esc(n.message)}</p></div></div>
+        ${chips.length ? `<div class="nt-chips">${chips.map((c, i) => `<div><svg><use href="#${CHIP_IC[i % 4]}"/></svg>${esc(c)}</div>`).join('')}</div>` : ''}
+        <div class="nt-btns"><button class="nt-b nt-b1" id="ntB1">${btnIcon(n.btn1_text)}<span>${esc(n.btn1_text || 'Okay')}</span></button>${n.btn2_text ? `<button class="nt-b nt-b2" id="ntB2">${btnIcon(n.btn2_text)}<span>${esc(n.btn2_text)}</span></button>` : ''}</div></div>
+      ${n.footer_text ? `<div class="nt-foot">❤️ ${esc(n.footer_text)}</div>` : '<div style="height:12px; background:linear-gradient(180deg,#f5b81c 0 3px,#1237c9 3px);"></div>'}</div>`;
+    document.body.appendChild(el);
+    const close = () => { el.remove(); document.removeEventListener('keydown', esc_); if (opt.onClose) opt.onClose(); };
+    const esc_ = (e) => { if (e.key === 'Escape') { if (opt.onDismiss) opt.onDismiss(); close(); } };
+    document.addEventListener('keydown', esc_);
+    $('ntX').onclick = () => { if (opt.onDismiss) opt.onDismiss(); close(); };
+    [[1, n.btn1_url], [2, n.btn2_url]].forEach(([i, url]) => { const b = $('ntB' + i); if (!b) return; b.onclick = () => {
+      if (opt.onClick) opt.onClick(i, url);
+      if (safeLink(url)) { if (opt.preview) showToast('Preview: this button would open ' + url, 'success'); else window.open(url, '_blank', 'noopener,noreferrer'); }
+      if (!safeLink(url) && i === 2 && opt.onDismiss) opt.onDismiss();
+      close(); }; });
+    if (opt.onShown) opt.onShown();
+  };
+  let noticeChecked = false;
+  async function checkNotice() {
+    if (noticeChecked) return; noticeChecked = true;
+    const { data } = await call('active-notice'); const n = data && data.notice; if (!n) return;
+    showNoticeModal(n, {
+      onShown: () => { call('notice-event', { id: n.id, kind: 'view' }); },
+      onClick: (b) => { call('notice-event', { id: n.id, kind: 'click', btn: b }); },
+      onDismiss: () => { call('notice-event', { id: n.id, kind: 'dismiss' }); },
+    });
+  }
+  const _oa = window.onAuthed;
+  window.onAuthed = async function (s) { await _oa(s); setTimeout(checkNotice, 1200); };
+
+  /* ---------------- admin helpers ---------------- */
+  window.auditToggle = async function (area, boxId) {
+    const box = $(boxId); if (box.style.display === 'block') { box.style.display = 'none'; return; }
+    box.style.display = 'block'; box.innerHTML = '<div class="empty-note">Loading…</div>';
+    const { data, errMsg } = await (area === 'notice' ? an : ar)({ action: 'audit' });
+    if (errMsg) { box.innerHTML = '<div class="empty-note">' + esc(errMsg) + '</div>'; return; }
+    const cut = (s) => esc(String(s || '—').slice(0, 420));
+    box.innerHTML = data.items.length ? data.items.map((a) => `<div class="arow" style="cursor:default;"><div class="top"><span>${esc(String(a.action).replace(/_/g, ' '))}</span><span class="sub" style="margin:0;">${esc(when(a.created_at))}</span></div><div class="sub">By ${esc(a.admin_name || 'admin')}<br>Before: ${cut(a.before_json)}<br>After: ${cut(a.after_json)}</div></div>`).join('') : '<div class="empty-note">No changes recorded yet.</div>';
+  };
+  const dl = (name, text, type) => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: type || 'text/csv;charset=utf-8' })); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); };
+
+  /* ---------------- admin: popup notices ---------------- */
+  let PN = { items: [], groups: {} }, pnImg = '';
+  function pnStatus(n) {
+    const t = Date.now() / 1000;
+    if (n.status === 'draft') return pill('Draft', '#eaf0fb', '#5b6b8c'); if (n.status === 'paused') return pill('Paused', '#fff1e0', '#e98a0c');
+    if (n.end_at && n.end_at < t) return pill('Expired', '#fdeaea', '#e14848'); if (n.start_at && n.start_at > t) return pill('Scheduled', '#eaf0fb', '#1237c9');
+    return pill('Live', '#e7f8ef', '#16a05f');
+  }
+  const audLabel = (n) => (n.audience === 'all' ? 'All customers' : n.audience === 'selected' ? 'Selected customers' : (PN.groups[n.audience_group] || 'Customer group'));
+  const freqLabel = (n) => (n.frequency === 'once' ? 'Shown once' : n.frequency === 'every_login' ? 'Every login' : `Again after ${n.freq_days} day(s)`);
+  window.adminLoadPopups = async function () {
+    $('pnEditor').style.display = 'none'; $('pnList').style.display = 'block';
+    const { data, errMsg } = await an({ action: 'overview' });
+    if (errMsg) { $('pnItems').innerHTML = '<div class="empty-note">' + esc(errMsg) + '</div>'; return; }
+    PN = data; $('pnSwitch').checked = !!data.enabled;
+    $('pnSwState').textContent = data.enabled ? 'Popups are ON. Customers see active notices that match their audience and dates.' : 'Popups are OFF. No customer sees a popup. Your notices and their records are kept.';
+    $('pnItems').innerHTML = data.items.length ? data.items.map((n) => { const s = n.stats; return `<div class="mg-card">
+      <div class="mg-row"><div class="mg-h" style="margin:0;">${esc(n.title)}</div>${pnStatus(n)}</div>
+      <div class="mg-s" style="margin-top:6px;">${esc(audLabel(n))} (${n.audience_size} customer${n.audience_size === 1 ? '' : 's'}) · ${esc(freqLabel(n))}<br>${n.start_at ? 'From ' + esc(epochStr(n.start_at)) : 'Starts immediately'} · ${n.end_at ? 'until ' + esc(epochStr(n.end_at)) : 'no expiry'}</div>
+      <div class="mg-st">Viewed by <b>${s.viewers}</b> customer${s.viewers === 1 ? '' : 's'} (${s.views} view${s.views === 1 ? '' : 's'}) · "${esc(n.btn1_text)}" tapped <b>${s.c1}</b>${n.btn2_text ? ` · "${esc(n.btn2_text)}" tapped <b>${s.c2}</b>` : ''} · closed with ✕ <b>${s.dismissed}</b></div>
+      <div class="mg-acts"><button class="btn-sm" style="background:var(--blue-1);" onclick="pnEdit('${esc(n.id)}')">Edit</button><button class="btn-sm" style="background:var(--soft); color:var(--blue-1);" onclick="pnPreviewId('${esc(n.id)}')">Preview</button>
+        ${n.status === 'active' ? `<button class="btn-sm" style="background:#e98a0c;" onclick="pnStatusSet('${esc(n.id)}','paused')">Pause</button>` : `<button class="btn-sm" style="background:var(--green);" onclick="pnStatusSet('${esc(n.id)}','active')">Publish</button>`}
+        <button class="btn-sm" style="background:var(--danger);" onclick="pnDelete('${esc(n.id)}')">Delete</button></div></div>`; }).join('') : '<div class="empty-note">No notices yet. Tap "+ New notice".</div>';
+  };
+  window.pnSetEnabled = async function (on) {
+    if (!confirm(on ? 'Turn popup notices ON for all customers?' : 'Turn popup notices OFF? Customers will not see any popup until you turn it on again.')) { $('pnSwitch').checked = !on; return; }
+    const { errMsg } = await an({ action: 'set_enabled', enabled: on }); if (errMsg) { showToast(errMsg, 'error'); $('pnSwitch').checked = !on; return; }
+    showToast(on ? 'Popups are ON' : 'Popups are OFF', 'success'); adminLoadPopups();
+  };
+  window.pnStatusSet = async function (id, to) { const { errMsg } = await an({ action: 'set_status', id, status: to }); showToast(errMsg || (to === 'active' ? 'Published' : 'Paused'), errMsg ? 'error' : 'success'); adminLoadPopups(); };
+  window.pnDelete = async function (id) { if (!confirm('Delete this notice? Customers will no longer see it. Its view and click records are kept.')) return; const { errMsg } = await an({ action: 'delete', id }); showToast(errMsg || 'Deleted', errMsg ? 'error' : 'success'); adminLoadPopups(); };
+  window.pnPreviewId = async function (id) { const { data, errMsg } = await an({ action: 'get', id }); if (errMsg) return showToast(errMsg, 'error'); const n = data.notice; showNoticeModal({ ...n, chips: n.chips ? n.chips.split('|') : [] }, { preview: true }); };
+  window.pnEdit = async function (id) {
+    let n = { title: '', message: '', image_url: '', btn1_text: 'Okay', btn1_url: '', btn2_text: '', btn2_url: '', chips: '', footer_text: '', audience: 'all', audience_ids: '[]', audience_group: '', start_at: null, end_at: null, frequency: 'once', freq_days: 7, status: 'draft' };
+    if (id) { const { data, errMsg } = await an({ action: 'get', id }); if (errMsg) return showToast(errMsg, 'error'); n = data.notice; }
+    pnImg = n.image_url || ''; let names = ''; try { names = JSON.parse(n.audience_ids || '[]').join(', '); } catch (e) {}
+    const grp = Object.entries(PN.groups || {}).map(([k, v]) => `<option value="${k}" ${n.audience_group === k ? 'selected' : ''}>${esc(v)}</option>`).join('');
+    $('pnList').style.display = 'none'; const ed = $('pnEditor'); ed.style.display = 'block';
+    ed.innerHTML = `<div class="mg-card"><div class="mg-h">${id ? 'Edit notice' : 'New notice'}</div><div class="mg-s">Write the notice, choose who sees it and when. You can change it any time without touching the website code.</div></div>
+      <div class="mg-card"><input type="hidden" id="pnId" value="${esc(id)}">
+        <div class="mg-f"><label>Title</label><input id="pnTitle" maxlength="80" value="${esc(n.title)}" placeholder="e.g. Join Our Telegram Channel!"></div>
+        <div class="mg-f"><label>Message</label><textarea id="pnMsg" maxlength="700" placeholder="Write the message customers will read">${esc(n.message)}</textarea></div>
+        <div class="mg-f"><label>Image / banner (optional)</label><input type="file" id="pnFile" accept="image/*" onchange="pnPickImg(this)"><input id="pnImgUrl" style="margin-top:6px;" placeholder="or paste an image link (https://…)" value="${esc(/^data:/.test(n.image_url) ? '' : n.image_url)}" oninput="pnSetImgUrl(this.value)"><img class="mg-img" id="pnImgPrev" style="display:none;"><button class="btn-sm" id="pnImgDel" style="display:none; background:var(--danger); margin-top:6px;" onclick="pnSetImgUrl('')">Remove image</button></div>
+        <div class="mg-f"><label>Highlights (optional, up to 4, separated by commas)</label><input id="pnChips" value="${esc((n.chips || '').split('|').filter(Boolean).join(', '))}" placeholder="Latest Updates, Special Offers, Service Alerts, Stay Informed"></div>
+        <div class="mg-f"><label>Thank-you line at the bottom (optional)</label><input id="pnFoot" maxlength="80" value="${esc(n.footer_text)}" placeholder="Thank you for being with UMARSHOYI-SUB"></div></div>
+      <div class="mg-card"><div class="mg-h">Buttons</div><datalist id="pnBtnList"><option value="Join Channel"><option value="Learn More"><option value="Update App"><option value="Okay"><option value="Join Later"></datalist>
+        <div class="mg-2" style="margin-top:8px;"><div class="mg-f"><label>Button 1 text</label><input id="pnB1T" list="pnBtnList" maxlength="24" value="${esc(n.btn1_text)}"></div><div class="mg-f"><label>Button 1 link</label><input id="pnB1U" value="${esc(n.btn1_url)}" placeholder="https://t.me/… (empty = just closes)"></div></div>
+        <div class="mg-2"><div class="mg-f"><label>Button 2 text (optional)</label><input id="pnB2T" list="pnBtnList" maxlength="24" value="${esc(n.btn2_text)}" placeholder="e.g. Join Later"></div><div class="mg-f"><label>Button 2 link</label><input id="pnB2U" value="${esc(n.btn2_url)}" placeholder="empty = just closes"></div></div>
+        <div class="mg-s">For an information-only notice use one button called "Okay" with no link.</div></div>
+      <div class="mg-card"><div class="mg-h">Who sees it, and when</div>
+        <div class="mg-f" style="margin-top:8px;"><label>Audience</label><select id="pnAud" onchange="pnAudShow()"><option value="all" ${n.audience === 'all' ? 'selected' : ''}>All customers</option><option value="selected" ${n.audience === 'selected' ? 'selected' : ''}>Selected customers (by username)</option><option value="group" ${n.audience === 'group' ? 'selected' : ''}>A customer group</option></select></div>
+        <div class="mg-f" id="pnAudSel"><label>Usernames (separated by commas or spaces)</label><textarea id="pnAudIds" placeholder="aisha, musa, ibrahim">${esc(names)}</textarea></div>
+        <div class="mg-f" id="pnAudGrp"><label>Customer group</label><select id="pnGrp"><option value="">Choose…</option>${grp}</select></div>
+        <div class="mg-2"><div class="mg-f"><label>Start (optional)</label><input type="datetime-local" id="pnStart" value="${localInput(n.start_at)}"></div><div class="mg-f"><label>Expiry (optional)</label><input type="datetime-local" id="pnEnd" value="${localInput(n.end_at)}"></div></div>
+        <div class="mg-2"><div class="mg-f"><label>How often</label><select id="pnFreq" onchange="pnAudShow()"><option value="once" ${n.frequency === 'once' ? 'selected' : ''}>Once per customer</option><option value="every_login" ${n.frequency === 'every_login' ? 'selected' : ''}>On every login</option><option value="days" ${n.frequency === 'days' ? 'selected' : ''}>Again after some days</option></select></div><div class="mg-f" id="pnDaysBox"><label>Number of days</label><input type="number" id="pnDays" min="1" max="365" value="${n.freq_days || 7}"></div></div>
+        <div class="mg-s">Times are in your phone's time zone.</div></div>
+      <div class="err-text" id="pnErr"></div>
+      <div class="mg-acts"><button class="btn-sm" style="background:var(--soft); color:var(--blue-1);" onclick="pnPreviewForm()">Preview</button><button class="btn-sm" style="background:var(--blue-1);" id="pnSaveBtn" onclick="pnSave(false)">Save</button><button class="btn-sm" style="background:var(--green);" onclick="pnSave(true)">Save &amp; Publish</button><button class="btn-sm" style="background:var(--soft); color:var(--sub);" onclick="adminLoadPopups()">Cancel</button></div>`;
+    pnAudShow(); pnShowImg(); window.scrollTo(0, 0);
+  };
+  window.pnAudShow = function () { const a = $('pnAud').value; $('pnAudSel').style.display = a === 'selected' ? 'block' : 'none'; $('pnAudGrp').style.display = a === 'group' ? 'block' : 'none'; $('pnDaysBox').style.display = $('pnFreq').value === 'days' ? 'block' : 'none'; };
+  window.pnSetImgUrl = function (v) { pnImg = String(v || '').trim(); if (!v) $('pnImgUrl').value = ''; pnShowImg(); };
+  window.pnShowImg = function () { const i = $('pnImgPrev'); i.style.display = pnImg ? 'block' : 'none'; if (pnImg) i.src = pnImg; $('pnImgDel').style.display = pnImg ? 'inline-block' : 'none'; };
+  window.pnPickImg = function (inp) {
+    const f = inp.files && inp.files[0]; if (!f) return;
+    const im = new Image(), u = URL.createObjectURL(f);
+    im.onload = () => { const s = Math.min(1, 900 / im.width), c = document.createElement('canvas'); c.width = Math.round(im.width * s); c.height = Math.round(im.height * s); c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); URL.revokeObjectURL(u);
+      let q = 0.82, d = c.toDataURL('image/jpeg', q); while (d.length > 420000 && q > 0.3) { q -= 0.1; d = c.toDataURL('image/jpeg', q); }
+      if (d.length > 450000) { showToast('That picture is too big. Choose a smaller one.', 'error'); return; } pnImg = d; $('pnImgUrl').value = ''; pnShowImg(); };
+    im.onerror = () => { URL.revokeObjectURL(u); showToast('Could not read this picture.', 'error'); }; im.src = u;
+  };
+  const pnForm = (publish) => ({ action: 'save', id: $('pnId').value, publish, title: $('pnTitle').value, message: $('pnMsg').value, image_url: pnImg, chips: $('pnChips').value, footer_text: $('pnFoot').value,
+    btn1_text: $('pnB1T').value, btn1_url: $('pnB1U').value, btn2_text: $('pnB2T').value, btn2_url: $('pnB2U').value, audience: $('pnAud').value, audience_ids: $('pnAudIds').value, audience_group: $('pnGrp').value,
+    start_at: isoOf($('pnStart').value), end_at: isoOf($('pnEnd').value), frequency: $('pnFreq').value, freq_days: $('pnDays').value });
+  window.pnPreviewForm = function () {
+    const f = pnForm(false); if (!f.title.trim() || !f.message.trim()) return showToast('Enter a title and message first', 'error');
+    showNoticeModal({ title: f.title.trim(), message: f.message.trim(), image_url: f.image_url, btn1_text: f.btn1_text.trim() || 'Okay', btn1_url: f.btn1_url.trim(), btn2_text: f.btn2_text.trim(), btn2_url: f.btn2_url.trim(), chips: f.chips.split(/[,|\n]/).map((c) => c.trim()).filter(Boolean).slice(0, 4), footer_text: f.footer_text.trim() }, { preview: true });
+  };
+  window.pnSave = async function (publish) {
+    const e = $('pnErr'); e.textContent = ''; const b = $('pnSaveBtn'); b.disabled = true;
+    const { errMsg } = await an(pnForm(publish)); b.disabled = false;
+    if (errMsg) { e.textContent = errMsg; return; }
+    showToast(publish ? 'Saved and published' : 'Saved', 'success'); adminLoadPopups();
+  };
+
+  /* ---------------- admin: referral manager ---------------- */
+  let RF = { status: '', offset: 0, rule: null, timer: null };
+  const RF_ST = { pending: ['Pending', '#fff1e0', '#e98a0c'], review: ['Under review', '#eaf0fb', '#1237c9'], earned: ['Approved & credited', '#e7f8ef', '#16a05f'], void: ['Cancelled', '#fdeaea', '#e14848'] };
+  const ruleLine = (r) => `${r.reward_type === 'percent' ? r.reward_value + '% of the deposit' : ngn(r.reward_value)} · minimum deposit ${ngn(r.min_deposit)} · ${r.first_only ? 'first deposit only' : 'any deposit'}${r.max_per_referral > 0 ? ' · max ' + ngn(r.max_per_referral) + ' each' : ''}${r.max_count_per_referrer > 0 ? ' · max ' + r.max_count_per_referrer + ' rewards per customer' : ''}${r.max_total_per_referrer > 0 ? ' · max ' + ngn(r.max_total_per_referrer) + ' per customer' : ''}`;
+  window.adminLoadReferrals = async function () {
+    const { data, errMsg } = await ar({ action: 'overview' });
+    if (errMsg) { $('rfStats').innerHTML = '<div class="empty-note">' + esc(errMsg) + '</div>'; return; }
+    const s = data.stats, r = data.rule; RF.rule = r;
+    const card = (l, v, x) => `<div class="profit-card"><div class="profit-label">${l}</div><div class="profit-value" style="font-size:18px;">${v}</div>${x ? `<div class="mg-s">${x}</div>` : ''}</div>`;
+    $('rfStats').innerHTML = card('Total Referrals', s.total) + card('Successful Referrals', s.successful) + card('Pending Referrals', s.pending) + card('Qualified Deposits', s.qualified_deposits)
+      + card('Total Rewards Earned', ngn(s.rewards_earned)) + card('Pending Rewards', ngn(s.rewards_pending), s.review + ' under review') + card('Cancelled', s.cancelled, ngn(s.rewards_cancelled) + ' rewards');
+    $('rfSwitch').checked = !!r.enabled;
+    $('rfState').textContent = r.enabled ? 'Referral program is ON.' : 'Referral program is OFF. Customers do not see it and no new rewards are paid. Records are kept.';
+    const up = (data.upcoming || []).map((u) => `<div class="mg-st">Scheduled from ${esc(epochStr(u.effective_from))}: ${esc(ruleLine(u))}${u.enabled ? '' : ' · program OFF'}</div>`).join('');
+    const loc = (v) => (v ? v : '');
+    $('rfRuleBox').innerHTML = `<div class="mg-st">Current rules: ${esc(ruleLine(r))}</div>${up}
+      <div class="mg-h" style="margin-top:14px;">Change the rules</div><div class="mg-s">A change applies to deposits made from the effective date. Rewards already earned are never changed.</div>
+      <div class="mg-2" style="margin-top:10px;"><div class="mg-f"><label>Reward type</label><select id="rfType"><option value="fixed" ${r.reward_type === 'fixed' ? 'selected' : ''}>Fixed amount (₦)</option><option value="percent" ${r.reward_type === 'percent' ? 'selected' : ''}>Percentage of the deposit (%)</option></select></div><div class="mg-f"><label>Reward value</label><input type="number" id="rfVal" min="0" step="any" value="${r.reward_value}"></div></div>
+      <div class="mg-2"><div class="mg-f"><label>Minimum qualifying deposit (₦)</label><input type="number" id="rfMin" min="0" step="any" value="${r.min_deposit}"></div><div class="mg-f"><label>Max reward per referral (₦, 0 = no limit)</label><input type="number" id="rfMaxRef" min="0" step="any" value="${r.max_per_referral}"></div></div>
+      <div class="mg-2"><div class="mg-f"><label>Max rewards per referring customer (0 = no limit)</label><input type="number" id="rfMaxCnt" min="0" step="1" value="${r.max_count_per_referrer}"></div><div class="mg-f"><label>Max total per referring customer (₦, 0 = no limit)</label><input type="number" id="rfMaxTot" min="0" step="any" value="${r.max_total_per_referrer}"></div></div>
+      <label class="ux-chk" style="display:flex; gap:8px; align-items:center; font-size:13px; margin-bottom:12px;"><input type="checkbox" id="rfFirst" style="width:18px;height:18px;" ${r.first_only ? 'checked' : ''}> Reward the first deposit only</label>
+      <div class="mg-f"><label>Referral terms and conditions (shown to customers)</label><textarea id="rfTerms" maxlength="3000" style="min-height:120px;">${esc(r.terms)}</textarea></div>
+      <div class="mg-f"><label>Effective from (optional, empty = now)</label><input type="datetime-local" id="rfEff"></div>
+      <div class="err-text" id="rfErr"></div><button class="btn-primary" id="rfSave" onclick="rfSaveRule()">Save rules</button>`;
+    rfLoad(true);
+  };
+  window.rfSetEnabled = async function (on) {
+    if (!confirm(on ? 'Turn the referral program ON now?' : 'Turn the referral program OFF now? Records are kept.')) { $('rfSwitch').checked = !on; return; }
+    const { errMsg } = await ar({ action: 'set_enabled', enabled: on }); if (errMsg) { showToast(errMsg, 'error'); $('rfSwitch').checked = !on; return; }
+    showToast(on ? 'Referral program ON' : 'Referral program OFF', 'success'); adminLoadReferrals();
+  };
+  window.rfSaveRule = async function () {
+    const e = $('rfErr'); e.textContent = ''; const b = $('rfSave'); b.disabled = true;
+    const { data, errMsg } = await ar({ action: 'save_rule', enabled: $('rfSwitch').checked, reward_type: $('rfType').value, reward_value: $('rfVal').value, min_deposit: $('rfMin').value, first_only: $('rfFirst').checked, max_per_referral: $('rfMaxRef').value, max_count_per_referrer: $('rfMaxCnt').value, max_total_per_referrer: $('rfMaxTot').value, terms: $('rfTerms').value, effective_from: isoOf($('rfEff').value) });
+    b.disabled = false; if (errMsg) { e.textContent = errMsg; return; }
+    showToast(data.scheduled ? 'Saved. It starts on the date you chose.' : 'Saved. New rules apply now.', 'success'); adminLoadReferrals();
+  };
+  window.rfSetStatus = function (s) { RF.status = s; adminChip('rfChips', s); rfLoad(true); };
+  window.rfSearchDebounced = function () { clearTimeout(RF.timer); RF.timer = setTimeout(() => rfLoad(true), 300); };
+  const rfFilters = () => ({ q: $('rfQ').value.trim(), status: RF.status, deposit: $('rfDep').value });
+  window.rfLoad = async function (reset) {
+    if (reset) RF.offset = 0;
+    const { data, errMsg } = await ar({ action: 'list', offset: RF.offset, ...rfFilters() }); const box = $('rfList');
+    if (errMsg) { box.innerHTML = '<div class="empty-note">' + esc(errMsg) + '</div>'; return; }
+    const rows = data.items.map((i) => { const st = RF_ST[i.status] || [i.status, '#eaf0fb', '#5b6b8c'];
+      return `<div class="arow" style="cursor:default;"><div class="top"><span>@${esc(i.referrer)} → @${esc(i.referee)}</span>${pill(st[0], st[1], st[2])}</div>
+      <div class="sub">${esc(i.referee_name || '')} joined ${esc(when(i.created_at))} · code ${esc(i.code)}<br>${i.deposit_at ? 'Qualifying deposit: <b>' + ngn(i.deposit_amount) + '</b> on ' + esc(when(i.deposit_at)) : 'No qualifying deposit yet'}<br>Reward: ${i.status === 'pending' ? '—' : '<b>' + ngn(i.reward_amount) + '</b>'}${i.status === 'earned' ? ' credited ' + esc(when(i.earned_at)) : ''}${i.flag ? '<br><span style="color:var(--danger);">⚠ ' + esc(i.flag) + '</span>' : ''}${i.status === 'void' && i.reason ? '<br>' + esc(i.reason) : ''}</div>
+      <div class="mg-acts"><button class="btn-sm" style="background:var(--soft); color:var(--blue-1);" onclick="rfDetail('${esc(i.id)}')">Details</button>${i.status === 'review' ? `<button class="btn-sm" style="background:var(--green);" onclick="rfApprove('${esc(i.id)}')">Approve &amp; credit</button>` : ''}${i.status === 'pending' || i.status === 'review' ? `<button class="btn-sm" style="background:var(--danger);" onclick="rfCancel('${esc(i.id)}')">Cancel</button>` : ''}</div></div>`; }).join('');
+    box.innerHTML = reset ? (rows || '<div class="empty-note">No referrals match.</div>') : box.innerHTML + rows; RF.offset += data.items.length;
+    $('rfCount').textContent = data.total + ' referral' + (data.total === 1 ? '' : 's'); $('rfMore').style.display = RF.offset < data.total ? 'block' : 'none';
+  };
+  window.rfApprove = async function (id) { if (!confirm('Approve this referral and credit the reward to the referring customer\'s Main Wallet?')) return; const { errMsg } = await ar({ action: 'approve', id }); showToast(errMsg || 'Reward credited', errMsg ? 'error' : 'success'); adminLoadReferrals(); };
+  window.rfCancel = async function (id) { const reason = prompt('Reason for cancelling (the customer is not told):', 'Suspicious referral'); if (reason === null) return; const { errMsg } = await ar({ action: 'cancel', id, reason }); showToast(errMsg || 'Cancelled', errMsg ? 'error' : 'success'); adminLoadReferrals(); };
+  window.rfDetail = async function (id) {
+    const { data, errMsg } = await ar({ action: 'detail', id }); if (errMsg) return showToast(errMsg, 'error');
+    const r = data.referral, st = RF_ST[r.status] || [r.status], kv = (a, b) => `<div class="st-kv"><span>${a}</span><b style="text-align:right; word-break:break-word;">${b}</b></div>`;
+    openSheet(`<div style="font-weight:800; font-size:17px; margin-bottom:8px;">Referral details</div>${kv('Status', esc(st[0]))}${kv('Referring customer', esc((r.referrer_name || '') + ' (@' + r.referrer + ')'))}${kv('Referrer phone', esc(r.referrer_phone || '—'))}${kv('Person who joined', esc((r.referee_name || '') + ' (@' + r.referee + ')'))}${kv('Their phone', esc(r.referee_phone || '—'))}${kv('Code used', esc(r.code))}${kv('Joined', esc(when(r.created_at)))}
+      ${kv('Qualifying deposit', r.deposit_at ? esc(ngn(r.deposit_amount) + ' on ' + when(r.deposit_at)) : 'None yet')}${kv('Payment reference', esc(r.deposit_ref || '—'))}${kv('Reward', r.status === 'pending' ? '—' : esc(ngn(r.reward_amount)))}${r.earned_at ? kv('Credited', esc(when(r.earned_at))) : ''}${data.rule ? kv('Rule used', esc(ruleLine(data.rule))) : ''}${r.flag ? kv('Warning', esc(r.flag)) : ''}${r.reason ? kv('Note', esc(r.reason)) : ''}
+      <button class="btn-outline" style="margin-top:14px;" onclick="closeSheet()">Close</button>`);
+  };
+  window.rfExport = async function () { const { data, errMsg } = await ar({ action: 'export', ...rfFilters() }); if (errMsg) return showToast(errMsg, 'error'); dl(data.filename, '﻿' + data.csv); showToast(data.rows + ' row(s) exported', 'success'); };
+  window.rfCodesToggle = function () {
+    const box = $('rfCodes'); if (box.style.display === 'block') { box.style.display = 'none'; return; }
+    box.style.display = 'block'; box.innerHTML = '<div class="mg-f"><input id="rfCq" placeholder="Search code or username" oninput="rfCodesLoad()"></div><div id="rfCodesList"></div>'; rfCodesLoad();
+  };
+  let cqT; window.rfCodesLoad = function () { clearTimeout(cqT); cqT = setTimeout(async () => {
+    const { data, errMsg } = await ar({ action: 'codes', q: ($('rfCq') || {}).value || '' }); const b = $('rfCodesList'); if (!b) return;
+    b.innerHTML = errMsg ? '<div class="empty-note">' + esc(errMsg) + '</div>' : data.items.length ? data.items.map((c) => `<div class="arow" style="cursor:default;"><div class="top"><span><b>${esc(c.code)}</b> · @${esc(c.username)}</span><span class="sub" style="margin:0;">${c.referred} referred</span></div><div class="sub">${esc(c.full_name || '')} · ${c.successful} successful · ${ngn(c.earned)} earned</div></div>`).join('') : '<div class="empty-note">No codes found.</div>'; }, 250); };
 })();
 </script>
 </body>

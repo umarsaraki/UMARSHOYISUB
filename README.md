@@ -4,7 +4,7 @@
 public/index.html      the app screen
 public/data-plans.js   plan helper
 worker.js              the backend (login, wallet, Flutterwave, purchases, admin)
-provider.js            VTU provider connection (the ONLY file to edit when we add the API)
+provider.js            Legitdataway connection; catalog.js = plans and costs
 catalog.js             server-side prices (generated from index.html)
 wrangler.toml          Cloudflare settings
 ```
@@ -22,7 +22,11 @@ wrangler.toml          Cloudflare settings
    - Secret hash: the same text as FLW_WEBHOOK_HASH
 6. Open `https://YOUR-SITE/api/health` — it shows what is configured.
 
-## Testing without the provider
-Set `TEST_MODE = "1"` in wrangler.toml and deploy: purchases/OTP/airtime-to-cash pretend to succeed
-(OTP code is 123456). Set it back to "0" before real customers use the app.
-With TEST_MODE "0" and no provider connected, purchases are refused and the wallet is never charged.
+## Legitdataway (airtime, data, cable, electricity, exam PINs, cards)
+Files: `catalog.js` (what is sold + YOUR COST), `provider.js` (API calls), `worker.js`.
+1. Deploy, open Admin Panel -> Settings -> Keys -> **Legitdataway API token**, paste the token and save (it is stored encrypted, never in a file).
+2. Admin Panel -> Overview -> **Legitdataway callback address**: copy it into the Legitdataway dashboard. It contains a secret; press *Replace* if it ever leaks.
+3. Admin Panel -> Settings -> **Profit**: set % and/or fixed naira per service. Customer price = cost + profit. When Legitdataway raises a price, raise the profit here (no code change). To change a plan or cost, edit one line in `catalog.js`.
+4. Keep money in your Legitdataway wallet. Cable plans, 9mobile data and most cards are empty in `catalog.js` = shown as "Coming soon". JAMB is `available:false`.
+Pending purchases have no status API: they are settled by the webhook, or by you (Admin -> Transactions -> Confirm / Fail & refund after checking the Legitdataway dashboard).
+Webhook safety: secret URL, constant-time check, rate limit, request-id must be one of your own pending purchases, settles once only.

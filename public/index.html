@@ -940,7 +940,7 @@ html[data-theme=dark] .pf-wal b{color:#d6e3ff}
     </div>
     <div class="bal-actions">
       <button class="btn-white" onclick="showPage('fund')"><svg class="ic"><use href="#i-plus"/></svg>Fund Wallet</button>
-      <button class="btn-glass" onclick="showTab('transactions')"><svg class="ic"><use href="#i-clock"/></svg>History</button>
+      <button class="btn-glass" onclick="openWalletHistory('main')"><svg class="ic"><use href="#i-clock"/></svg>History</button>
     </div>
   </div>
 
@@ -949,7 +949,7 @@ html[data-theme=dark] .pf-wal b{color:#d6e3ff}
     <div class="qa" onclick="showPage('fund')"><svg class="ic"><use href="#i-down"/></svg>Deposit</div>
     <div class="qa" onclick="openWithdraw()"><svg class="ic"><use href="#i-upright"/></svg>Withdraw</div>
     <div class="qa" onclick="showPage('exchange')"><svg class="ic"><use href="#i-swap"/></svg>Exchange</div>
-    <div class="qa" onclick="showTab('transactions')"><svg class="ic"><use href="#i-clock"/></svg>History</div>
+    <div class="qa" onclick="openWalletHistory('main')"><svg class="ic"><use href="#i-clock"/></svg>History</div>
   </div>
 
   <div class="sec-head" id="servicesAnchor"><div><div class="sec-title"><svg class="ic"><use href="#i-bars"/></svg>All Services</div><div class="sec-sub">Data, airtime, bills and other services</div></div></div>
@@ -1638,9 +1638,30 @@ html[data-theme=dark] .pf-wal b{color:#d6e3ff}
       <div class="acts" id="walletActs"></div>
     </div>
     <div class="hint" id="walletNote" style="background:var(--soft); border-radius:16px; padding:13px 14px; font-size:12.5px; color:var(--sub); line-height:1.7; margin:14px 0;"></div>
-    <div class="section-title" style="padding:0; margin:6px 0 10px;">History</div>
-    <div class="txlist" id="walletTx" style="padding:0;"></div>
-    <button class="btn-more" id="walletMore" style="display:none;" onclick="loadWalletTx(false)">Load more</button>
+    <button class="btn-primary" onclick="openWalletHistory(wCur)" style="margin-top:6px;">View this wallet's history</button>
+    <div id="walletTx" style="display:none;"></div><button id="walletMore" style="display:none;"></button>
+  </div>
+</div>
+
+<!-- ===================== WALLET HISTORY ===================== -->
+<div class="page" id="page-wallet-history">
+  <div class="page-head"><button class="back-btn" onclick="closePage('wallet-history')">←</button><div class="page-title">Wallet History</div></div>
+  <div class="page-body" style="padding:14px 14px 40px;">
+    <div class="wh-tabs" id="whTabs"></div>
+    <div class="wh-card" id="whCard"></div>
+    <div class="txc-chips" id="whChips" style="padding-left:0;"></div>
+    <div id="whList"></div>
+    <button class="txc-more" id="whMore" style="display:none;margin-left:0;width:100%;" onclick="whLoad(false)"><span>↻</span> Load more</button>
+  </div>
+</div>
+
+<!-- ===================== SERVICE HISTORY (opens on top of the service page) ===================== -->
+<div class="page" id="page-svc-hist">
+  <div class="page-head"><button class="back-btn" onclick="closePage('svc-hist')">←</button><div class="page-title" id="shTitle">History</div></div>
+  <div class="page-body" style="padding:14px 14px 40px;">
+    <div class="txc-chips" id="shChips" style="padding-left:0;"></div>
+    <div id="shList"></div>
+    <button class="txc-more" id="shMore" data-txc="shMore" style="display:none;margin-left:0;width:100%;"><span>↻</span> Load more</button>
   </div>
 </div>
 
@@ -4007,7 +4028,7 @@ async function checkUnreadNotifications() {
   const IC = (n, c) => `<svg class="ic ${c || ''}"><use href="#i-${n}"/></svg>`;
 
   const SVC = [['', 'All Services', '\u25a6'], ['data', 'Data Bundle', '\ud83d\udcf6'], ['airtime', 'Airtime', '\ud83d\udcde'], ['a2c', 'Airtime to Cash', '\ud83d\udcb5'], ['electricity', 'Electricity', '\u26a1'], ['cable', 'Cable TV', '\ud83d\udcfa'], ['exam', 'Exam PIN', '\ud83d\udcdd'],
-    ['recharge', 'Recharge Card', '\ud83c\udfab'], ['datacard', 'Data Card', '\ud83d\udcb3'], ['bulksms', 'Bulk SMS', '\ud83d\udcac'], ['exchange', 'Exchange', '\u21c4'], ['w_main', 'Main Wallet', '\ud83d\udc5b'], ['w_exchange', 'Exchange Wallet', '\ud83d\udcb1'], ['w_atc', 'Airtime-to-Cash Wallet', '\ud83d\udcb5'], ['referral', 'Referral Earnings', '\ud83c\udf81']];
+    ['recharge', 'Recharge Card', '\ud83c\udfab'], ['datacard', 'Data Card', '\ud83d\udcb3'], ['bulksms', 'Bulk SMS', '\ud83d\udcac'], ['exchange', 'Exchange', '\u21c4'], ['fund', 'Wallet Funding', '\ud83d\udcb0'], ['withdrawal', 'Withdrawals', '\ud83c\udfe6'], ['referral', 'Referral Earnings', '\ud83c\udf81']];
   const svcName = (k) => (SVC.find((s) => s[0] === k) || SVC[0])[1];
   const TI = { data: ['\ud83d\udcf6', 'b'], airtime: ['\ud83d\udcde', 'g'], electricity: ['\u26a1', 'o'], cable: ['\ud83d\udcfa', 'p'], 'bulk-sms': ['\ud83d\udcac', 't'], exam: ['\ud83d\udcdd', 'p'], 'data-card': ['\ud83d\udcb3', 'b'], 'airtime-card': ['\ud83c\udfab', 'g'], 'airtime-to-cash': ['\ud83d\udcb5', 'g'], exchange: ['\u21c4', 'g'], fund: ['\ud83d\udcb0', 'b'], withdrawal: ['\ud83c\udfe6', 'b'], 'referral-bonus': ['\ud83c\udf81', 'r'], adjustment: ['\u2699\ufe0f', 'n'] };
   const ST = { successful: ['Successful', '\u2713', 'ok'], pending: ['Pending', '\ud83d\udd52', 'wait'], failed: ['Failed', '\u2715', 'bad'], refunded: ['Refunded', '\u21ba', 'ref'] };
@@ -4199,6 +4220,27 @@ async function checkUnreadNotifications() {
     downloadPdf();    // this device cannot share: download instead
   }
 
+  /* ================= service history: opens ON TOP of the service page, so the customer never leaves it ================= */
+  const SH = { svc: '', status: '', cursor: null, seq: 0 };
+  function svcHistOpen(k) {
+    SH.svc = k || ''; SH.status = ''; SH.cursor = null;
+    $('shTitle').textContent = svcName(SH.svc) + ' History';
+    showPage('svc-hist'); $('page-svc-hist').scrollTop = 0; shLoad(true);
+  }
+  async function shLoad(reset) {
+    const box = $('shList'), more = $('shMore'), my = ++SH.seq;
+    $('shChips').innerHTML = [['', 'All'], ['successful', 'Successful'], ['pending', 'Pending'], ['failed', 'Failed'], ['refunded', 'Refunded']].map((c) => `<button class="${SH.status === c[0] ? 'on' : ''}" data-txc="shStatus" data-v="${c[0]}">${c[1]}</button>`).join('');
+    if (reset) { SH.cursor = null; box.innerHTML = [1, 2, 3].map(() => '<div class="skel" style="height:84px;border-radius:18px;margin-bottom:12px;"></div>').join(''); more.style.display = 'none'; }
+    else { more.disabled = true; }
+    const r = await call('txc-list', { service: SH.svc, status: SH.status, cursor: reset ? null : SH.cursor });
+    if (my !== SH.seq) return; more.disabled = false;
+    if (r.errMsg) { if (reset) box.innerHTML = `<div class="txc-state"><div class="big">\ud83d\udce1</div><b>Could not load history</b><p>${E(r.errMsg)}</p></div>`; else showToast(r.errMsg, 'error'); return; }
+    const d = r.data; SH.cursor = d.next_cursor;
+    if (reset && !d.items.length) { box.innerHTML = `<div class="txc-state"><div class="big">\ud83e\uddfe</div><b>No ${E(svcName(SH.svc))} history yet</b><p>${SH.status ? 'Try another status.' : 'Your records for this service will appear here.'}</p></div>`; more.style.display = 'none'; return; }
+    const html = d.items.map(row).join(''); if (reset) box.innerHTML = html; else box.insertAdjacentHTML('beforeend', html);
+    more.style.display = d.has_more ? 'flex' : 'none';
+  }
+
   /* ================= actions ================= */
   const ACT = {
     open: (t) => openDetail(t.dataset.id), closeDetail: () => { const p = $('page-txc-detail'); if (p) p.classList.remove('active'); }, retryDetail: (t) => openDetail(t.dataset.id),
@@ -4210,7 +4252,7 @@ async function checkUnreadNotifications() {
     pdf: () => downloadPdf(), share: () => sharePdf(),
     report: () => { const d = cur; if (window.shoyiReportTx) window.shoyiReportTx(d.id, `Issue with ${d.service} transaction ${d.id.slice(0, 8).toUpperCase()}: `); },
     similar: () => { const k = cur.actions.similar_service; ACT.closeDetail(); showService(k); },
-    svcHist: (t) => { try { closePage(t.dataset.page); } catch {} showService(t.dataset.s); },
+    svcHist: (t) => svcHistOpen(t.dataset.s), shStatus: (t) => { SH.status = t.dataset.v; shLoad(true); }, shMore: () => shLoad(false),
   };
   document.addEventListener('click', (e) => { const t = e.target.closest('[data-txc]'); if (!t) return; const f = ACT[t.dataset.txc]; if (f) { e.preventDefault(); f(t, e); } });
   document.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.matches && e.target.matches('.txc-item')) ACT.open(e.target); });
@@ -5298,5 +5340,55 @@ onAuthed = async function(s){ const r = await _onAuthedCat(s); loadCatalog(); re
 .app>.svc-grid .svc{border:1.5px solid #d3e0ff; box-shadow:0 3px 0 #f5b81c33, var(--sh-sm);}
 .app>.banner{border:1.5px solid rgba(245,184,28,.6);}
 </style>
+<style id="whCss">
+.wh-tabs{display:grid; grid-template-columns:repeat(3,1fr); gap:6px; background:#e8eefc; padding:5px; border-radius:18px; margin-bottom:12px;}
+.wh-tabs button{border:none; background:transparent; padding:11px 4px; border-radius:14px; font-weight:800; font-size:12.5px; color:var(--blue-2); cursor:pointer; line-height:1.2;}
+.wh-tabs button.on{background:#fff; color:var(--blue-1); box-shadow:0 4px 12px rgba(24,48,140,.16), 0 2px 0 #f5b81c;}
+.wh-card{border-radius:24px; padding:18px 16px; color:#fff; margin-bottom:12px; background:radial-gradient(120% 140% at 85% 0%,#3d6dff 0%,#1237c9 48%,#081a78 100%); box-shadow:0 12px 28px rgba(20,56,200,.28), 0 3px 0 #f5b81c;}
+.wh-card.ex{background:radial-gradient(120% 140% at 85% 0%,#2fc88a 0%,#0b8a5a 55%,#065a3b 100%);} .wh-card.atc{background:radial-gradient(120% 140% at 85% 0%,#ffb23d 0%,#e07b00 55%,#a95200 100%);}
+.wh-card .l{font-size:12px; font-weight:800; letter-spacing:.5px; opacity:.9;} .wh-card .a{font-size:32px; font-weight:900; margin:4px 0 12px;}
+.wh-card .g{display:grid; grid-template-columns:1fr 1fr; gap:8px;} .wh-card .g div{background:rgba(255,255,255,.15); border-radius:14px; padding:9px 11px;} .wh-card .g span{display:block; font-size:11.5px; opacity:.9;} .wh-card .g b{font-size:15.5px;}
+.wh-bal{font-size:11.5px; color:#5f6f9a; margin-top:3px;}
+.txc-ic.u{background:#e5eeff;}
+</style>
+<script>
+/* ===== WALLET HISTORY: wallet movements only (credits, debits, funding, withdrawals, exchange and airtime-to-cash credits) ===== */
+const WHS = { wallet: 'main', direction: '', kind: '', cursor: null, seq: 0 };
+const WH_IC = { fund: '\ud83d\udcb0', withdrawal: '\ud83c\udfe6', 'withdrawal-reversal': '\u21ba', exchange: '\u21c4', 'airtime-to-cash': '\ud83d\udcb5', transfer: '\u21c5', adjustment: '\u2699\ufe0f', 'referral-bonus': '\ud83c\udf81', data: '\ud83d\udcf6', airtime: '\ud83d\udcde', cable: '\ud83d\udcfa', electricity: '\u26a1', exam: '\ud83d\udcdd', 'bulk-sms': '\ud83d\udcac', 'data-card': '\ud83d\udcb3', 'airtime-card': '\ud83c\udfab' };
+const WH_ST = { successful: ['Successful', 'ok'], pending: ['Pending', 'wait'], failed: ['Failed', 'bad'], refunded: ['Refunded', 'ref'] };
+function openWalletHistory(w) { WHS.wallet = WN[w] ? w : 'main'; WHS.direction = ''; WHS.kind = ''; showPage('wallet-history'); document.getElementById('page-wallet-history').scrollTop = 0; whLoad(true); }
+function whPick(w) { WHS.wallet = w; WHS.direction = ''; WHS.kind = ''; whLoad(true); }
+function whChip(d, k) { WHS.direction = d; WHS.kind = k; whLoad(true); }
+function whPaint(sum) {
+  document.getElementById('whTabs').innerHTML = ['main', 'exchange', 'atc'].map((k) => `<button class="${k === WHS.wallet ? 'on' : ''}" onclick="whPick('${k}')">${WN[k]}</button>`).join('');
+  const card = document.getElementById('whCard'); card.className = 'wh-card' + (WHS.wallet === 'exchange' ? ' ex' : WHS.wallet === 'atc' ? ' atc' : '');
+  card.innerHTML = sum ? `<div class="l">${esc(WN[WHS.wallet]).toUpperCase()} BALANCE</div><div class="a">${balanceVisible ? m2(sum.balance) : '\u20a6\u2022\u2022\u2022\u2022'}</div><div class="g"><div><span>Money in</span><b>${m2(sum.credits)}</b></div><div><span>Money out</span><b>${m2(sum.debits)}</b></div></div>`
+    : '<div class="skel" style="height:96px;border-radius:18px;"></div>';
+  const ch = [['', '', 'All'], ['credit', '', 'Credits'], ['debit', '', 'Debits']].concat(WHS.wallet === 'main' ? [['', 'funding', 'Funding']] : [['', 'withdrawals', 'Withdrawals']]);
+  document.getElementById('whChips').innerHTML = ch.map((c) => `<button class="${WHS.direction === c[0] && WHS.kind === c[1] ? 'on' : ''}" onclick="whChip('${c[0]}','${c[1]}')">${c[2]}</button>`).join('');
+}
+function whRow(t) {
+  const ic = WH_IC[t.type] || '\ud83e\uddfe', st = WH_ST[t.status] || WH_ST.pending, sign = t.direction === 'in' ? '+' : '-';
+  const bal = t.balance_after != null ? `<div class="wh-bal">Balance: ${m2(t.balance_before)} \u2192 ${m2(t.balance_after)}</div>` : '';
+  const d = dt(t.created_at);
+  return `<div class="txc-item" role="button" tabindex="0" onclick="whOpen('${esc(t.tx_id || '')}','${esc(t.kind)}')"><div class="txc-ic ${t.direction === 'in' ? 'g' : 'u'}">${ic}</div>
+    <div class="mid"><b>${esc(t.kind)}</b>${t.desc ? `<div class="d">${esc(t.desc)}</div>` : ''}<div class="t">\ud83d\udcc5 ${esc(d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }))} \u2022 ${esc(d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }))}</div>${bal}</div>
+    <div class="rt"><b class="${t.direction === 'in' ? 'cr' : 'dr'}">${sign}${m2(t.amount)}</b><span class="txc-pill ${st[1]}">${st[0]}</span></div>${t.tx_id ? '<span class="chv">\u203a</span>' : ''}</div>`;
+}
+function whOpen(txId, kind) { if (txId) showTxReceipt(txId); }
+async function whLoad(reset) {
+  const box = document.getElementById('whList'), more = document.getElementById('whMore'), my = ++WHS.seq;
+  if (reset) { WHS.cursor = null; whPaint(null); box.innerHTML = [1, 2, 3].map(() => '<div class="skel" style="height:84px;border-radius:18px;margin-bottom:12px;"></div>').join(''); more.style.display = 'none'; } else more.disabled = true;
+  const { data, errMsg } = await invokeFn('wallet-history', { body: { wallet: WHS.wallet, direction: WHS.direction, kind: WHS.kind, cursor: reset ? null : WHS.cursor } });
+  if (my !== WHS.seq) return; more.disabled = false;
+  if (errMsg) { if (reset) { whPaint(null); box.innerHTML = `<div class="txc-state"><div class="big">\ud83d\udce1</div><b>Could not load wallet history</b><p>${esc(errMsg)}</p><button class="btn-primary" onclick="whLoad(true)">Try again</button></div>`; } else showToast(errMsg, 'error'); return; }
+  if (reset) whPaint(data);
+  WHS.cursor = data.next_cursor;
+  if (reset && !data.items.length) { box.innerHTML = `<div class="txc-state"><div class="big">\ud83d\udc5b</div><b>No wallet movements yet</b><p>Credits, debits, funding and withdrawals of the ${esc(WN[WHS.wallet])} will appear here.</p></div>`; more.style.display = 'none'; return; }
+  const html = data.items.map(whRow).join(''); if (reset) box.innerHTML = html; else box.insertAdjacentHTML('beforeend', html);
+  more.style.display = data.has_more ? 'flex' : 'none';
+}
+loadWalletTx = function () {};   // the single-wallet page no longer repeats a second list: it links here
+</script>
 </body>
 </html>

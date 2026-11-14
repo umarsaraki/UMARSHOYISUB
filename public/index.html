@@ -979,11 +979,13 @@ html[data-theme=dark] .pf-wal b{color:#d6e3ff}
 </div>
 
 <!-- ===================== PURCHASE PAGE ===================== -->
-<div class="page" id="page-purchase">
+<div class="page sv-pg" id="page-purchase" data-sv="purchase">
   <div class="page-head"><button class="back-btn" onclick="closePage('purchase')">←</button><div class="page-title" id="purchaseTitle">Buy Data</div></div>
   <div class="page-body">
-    <div class="field"><label>Phone Number</label><div class="inputwrap"><input id="purchasePhone" placeholder="080XXXXXXXX" oninput="onPhoneInput(); favSync(purchaseMode)"><button type="button" class="star-btn" id="star-purchase" onclick="favToggle(purchaseMode)" aria-label="Save number"><svg class="ic"><use href="#i-star"/></svg></button></div></div>
+    <div class="field"><label>Phone Number</label><div class="inputwrap sv-phone"><input id="purchasePhone" placeholder="080XXXXXXXX" inputmode="tel" oninput="onPhoneInput(); favSync(purchaseMode)"><button type="button" class="star-btn" id="star-purchase" onclick="favToggle(purchaseMode)" aria-label="Save number"><svg class="ic"><use href="#i-star"/></svg></button></div></div>
     <div class="fav-bar" id="fav-purchase"></div>
+    <div class="sv-h">Select Network</div>
+    <div class="network-grid sv-nets" id="svNets"></div>
     <div id="networkBadge" style="display:none; align-items:center; gap:10px; background:var(--soft); border-radius:12px; padding:10px 14px; margin:-6px 0 16px;">
       <div class="net-badge" id="networkBadgeIcon" style="width:26px; height:26px; font-size:10px;"></div>
       <div style="font-size:13px; font-weight:600;" id="networkBadgeText"></div>
@@ -992,19 +994,24 @@ html[data-theme=dark] .pf-wal b{color:#d6e3ff}
     <div id="manualNetworkGrid" class="network-grid" style="display:none;"></div>
 
     <div id="dataOnly">
-      <div class="settings-list" id="viewPlansRow" style="display:none; margin-bottom:16px;">
+      <div class="settings-list sv-viewplans" id="viewPlansRow" style="display:none; margin-bottom:16px;">
         <div class="settings-row" onclick="revealDataPlans()"><span>📶 View Data Plans</span><span>›</span></div>
       </div>
       <div id="planPickerArea" style="display:none;">
+        <div class="sv-h">Choose Data Plan</div>
         <div id="categoryTabs" style="display:flex; gap:8px; margin-bottom:14px; overflow-x:auto;"></div>
+        <div class="sv-search"><svg class="ic"><use href="#i-search"/></svg><input id="svQPlans" data-list="planList" placeholder="Search plan, e.g. 1GB" autocomplete="off"></div>
         <div class="plan-list" id="planList"></div>
       </div>
     </div>
     <div id="airtimeOnly" style="display:none;">
-      <div class="field"><label>Amount (₦)</label><input id="airtimeAmount" type="number" placeholder="500"></div>
+      <div class="sv-h">Choose Amount</div>
+      <div class="sv-chips" data-fill="airtimeAmount" data-amts="100,200,500,1000,2000,5000,10000"></div>
+      <div class="field"><label>Amount (₦50 – ₦100,000)</label><input id="airtimeAmount" type="number" inputmode="numeric" placeholder="500"></div>
     </div>
 
-    <div class="field" style="margin-top:14px;"><label>Transaction PIN</label><input id="purchasePin" type="password" autocomplete="one-time-code" inputmode="numeric" maxlength="4" placeholder="••••"></div>
+    <div class="sv-sum" id="svSum-purchase"><div class="sv-sum-h"><svg class="ic"><use href="#i-receipt"/></svg>Order Summary</div><div class="sv-rows" id="svRows-purchase"></div><div class="sv-total"><span>Total Amount</span><b id="svTot-purchase">₦0</b></div></div>
+    <div class="field sv-pin"><label>Transaction PIN</label><input id="purchasePin" type="password" autocomplete="one-time-code" inputmode="numeric" maxlength="4" placeholder="••••"></div>
     <div class="err-text" id="purchaseErr"></div>
     <button class="btn-primary" id="purchaseBtn" onclick="confirmPurchase()">Confirm Purchase</button>
   </div>
@@ -1072,66 +1079,85 @@ html[data-theme=dark] .pf-wal b{color:#d6e3ff}
 </div>
 
 <!-- ===================== CABLE TV PAGE ===================== -->
-<div class="page" id="page-cable">
+<div class="page sv-pg" id="page-cable" data-sv="cable">
   <div class="page-head"><button class="back-btn" onclick="closePage('cable')">←</button><div class="page-title">Cable TV</div></div>
   <div class="page-body">
+    <div class="sv-h">Select Provider</div>
     <div id="cableProviderTabs" style="display:flex; gap:8px; margin-bottom:14px; overflow-x:auto;"></div>
+    <div class="sv-h">Choose Package</div>
+    <div class="sv-search"><svg class="ic"><use href="#i-search"/></svg><input id="svQCable" data-list="cablePlanList" placeholder="Search package" autocomplete="off"></div>
     <div class="plan-list" id="cablePlanList" style="margin-bottom:16px;"></div>
-    <div class="field"><label>Smartcard / IUC Number</label><div class="inputwrap"><input id="cableSmartcard" placeholder="e.g. 1234567890" oninput="favSync('cable')"><button type="button" class="star-btn" id="star-cable" onclick="favToggle('cable')" aria-label="Save smartcard"><svg class="ic"><use href="#i-star"/></svg></button></div></div>
+    <div class="sv-h">Subscription Details</div>
+    <div class="field"><label>Smartcard / IUC Number</label><div class="inputwrap"><input id="cableSmartcard" placeholder="e.g. 1234567890" inputmode="numeric" oninput="favSync('cable')"><button type="button" class="star-btn" id="star-cable" onclick="favToggle('cable')" aria-label="Save smartcard"><svg class="ic"><use href="#i-star"/></svg></button></div></div>
     <div class="fav-bar" id="fav-cable"></div>
-    <div class="field"><label>Transaction PIN</label><input id="cablePin" type="password" autocomplete="one-time-code" inputmode="numeric" maxlength="4" placeholder="••••"></div>
+    <div class="sv-sum" id="svSum-cable"><div class="sv-sum-h"><svg class="ic"><use href="#i-receipt"/></svg>Order Summary</div><div class="sv-rows" id="svRows-cable"></div><div class="sv-total"><span>Total Amount</span><b id="svTot-cable">₦0</b></div></div>
+    <div class="field sv-pin"><label>Transaction PIN</label><input id="cablePin" type="password" autocomplete="one-time-code" inputmode="numeric" maxlength="4" placeholder="••••"></div>
     <div class="err-text" id="cableErr"></div>
     <button class="btn-primary" id="cableBtn" onclick="confirmCablePurchase()">Confirm Purchase</button>
   </div>
 </div>
 
 <!-- ===================== ELECTRICITY PAGE ===================== -->
-<div class="page" id="page-electricity">
+<div class="page sv-pg" id="page-electricity" data-sv="electricity">
   <div class="page-head"><button class="back-btn" onclick="closePage('electricity')">←</button><div class="page-title">Electricity</div></div>
   <div class="page-body">
-    <div class="field"><label>Distribution Company (DISCO)</label>
+    <div class="sv-h">Select Service Provider</div>
+    <div class="sv-discos" id="svDiscos"></div>
+    <div class="field sv-hide"><label>Distribution Company (DISCO)</label>
       <select id="discoSelect" style="width:100%; padding:14px 16px; background:var(--card); border:1px solid var(--line); border-radius:12px; font-size:15px;"></select>
     </div>
-    <div class="field"><label>Meter Type</label>
+    <div class="sv-h">Meter Type</div>
+    <div class="sv-seg" id="svMeter"></div>
+    <div class="field sv-hide"><label>Meter Type</label>
       <select id="meterTypeSelect" style="width:100%; padding:14px 16px; background:var(--card); border:1px solid var(--line); border-radius:12px; font-size:15px;">
         <option value="prepaid">Prepaid</option>
         <option value="postpaid">Postpaid</option>
       </select>
     </div>
-    <div class="field"><label>Meter Number</label><div class="inputwrap"><input id="meterNumber" placeholder="e.g. 04012345678" oninput="favSync('electricity')"><button type="button" class="star-btn" id="star-electricity" onclick="favToggle('electricity')" aria-label="Save meter"><svg class="ic"><use href="#i-star"/></svg></button></div></div>
+    <div class="field"><label>Meter Number</label><div class="inputwrap"><input id="meterNumber" placeholder="e.g. 04012345678" inputmode="numeric" oninput="favSync('electricity')"><button type="button" class="star-btn" id="star-electricity" onclick="favToggle('electricity')" aria-label="Save meter"><svg class="ic"><use href="#i-star"/></svg></button></div></div>
     <div class="fav-bar" id="fav-electricity"></div>
-    <div class="field"><label>Amount (₦1,000 – ₦200,000)</label><input id="electricityAmount" type="number" placeholder="5000" oninput="updateElectricityFee()"></div>
+    <div class="sv-h">Choose Amount</div>
+    <div class="sv-chips" data-fill="electricityAmount" data-amts="1000,2000,5000,10000,20000"></div>
+    <div class="field"><label>Amount (₦1,000 – ₦200,000)</label><input id="electricityAmount" type="number" inputmode="numeric" placeholder="5000" oninput="updateElectricityFee()"></div>
     <div id="electricityFeeRow" style="display:none; background:var(--soft); border-radius:12px; padding:12px 14px; font-size:13px; margin-bottom:14px;">
       <div style="display:flex; justify-content:space-between;"><span style="color:var(--sub);">Service Fee</span><span id="electricityFeeAmt" style="font-weight:700;">₦0</span></div>
       <div style="display:flex; justify-content:space-between; margin-top:4px;"><span style="color:var(--sub);">Total to Pay</span><span id="electricityTotalAmt" style="font-weight:700; color:var(--blue-1);">₦0</span></div>
     </div>
-    <div class="field"><label>Transaction PIN</label><input id="electricityPin" type="password" autocomplete="one-time-code" inputmode="numeric" maxlength="4" placeholder="••••"></div>
+    <div class="sv-sum" id="svSum-electricity"><div class="sv-sum-h"><svg class="ic"><use href="#i-receipt"/></svg>Order Summary</div><div class="sv-rows" id="svRows-electricity"></div><div class="sv-total"><span>Total Amount</span><b id="svTot-electricity">₦0</b></div></div>
+    <div class="field sv-pin"><label>Transaction PIN</label><input id="electricityPin" type="password" autocomplete="one-time-code" inputmode="numeric" maxlength="4" placeholder="••••"></div>
     <div class="err-text" id="electricityErr"></div>
     <button class="btn-primary" id="electricityBtn" onclick="confirmElectricityPurchase()">Confirm Purchase</button>
   </div>
 </div>
 
 <!-- ===================== DATA/AIRTIME CARD (ePIN) PAGE ===================== -->
-<div class="page" id="page-card-purchase">
+<div class="page sv-pg" id="page-card-purchase" data-sv="card">
   <div class="page-head"><button class="back-btn" onclick="closePage('card-purchase')">←</button><div class="page-title" id="cardPurchaseTitle">Recharge Card</div></div>
   <div class="page-body">
+    <div class="sv-h">Select Network</div>
     <div class="network-grid" id="cardNetworkGrid"></div>
     <div id="cardDataOnly">
+      <div class="sv-h">Choose Plan</div>
       <div id="cardCategoryTabs" style="display:flex; gap:8px; margin-bottom:14px; overflow-x:auto;"></div>
+      <div class="sv-search"><svg class="ic"><use href="#i-search"/></svg><input id="svQCard" data-list="cardPlanList" placeholder="Search plan, e.g. 1GB" autocomplete="off"></div>
       <div class="plan-list" id="cardPlanList"></div>
     </div>
     <div id="cardAirtimeOnly" style="display:none;">
-      <div class="field"><label>Amount per PIN (₦)</label><input id="cardAirtimeAmount" type="number" placeholder="100"></div>
+      <div class="sv-h">Choose Amount</div>
+      <div class="sv-chips" data-fill="cardAirtimeAmount" data-amts="100,200,500,1000,2000,5000,10000"></div>
+      <div class="field"><label>Amount per PIN (₦)</label><input id="cardAirtimeAmount" type="number" inputmode="numeric" placeholder="100"></div>
     </div>
-    <div class="field" style="margin-top:14px;"><label>Quantity (1 – 100 PINs)</label><input id="cardQuantity" type="number" min="1" max="100" value="1"></div>
-    <div class="field"><label>Transaction PIN</label><input id="cardPin" type="password" autocomplete="one-time-code" inputmode="numeric" maxlength="4" placeholder="••••"></div>
+    <div class="sv-h">Quantity</div>
+    <div class="field"><label>Quantity (1 – 100 PINs)</label><div class="sv-qty"><button type="button" class="sv-qb" data-q="-1" data-for="cardQuantity" aria-label="Less">−</button><input id="cardQuantity" type="number" inputmode="numeric" min="1" max="100" value="1"><button type="button" class="sv-qb" data-q="1" data-for="cardQuantity" aria-label="More">+</button></div></div>
+    <div class="sv-sum" id="svSum-card"><div class="sv-sum-h"><svg class="ic"><use href="#i-receipt"/></svg>Order Summary</div><div class="sv-rows" id="svRows-card"></div><div class="sv-total"><span>Total Amount</span><b id="svTot-card">₦0</b></div></div>
+    <div class="field sv-pin"><label>Transaction PIN</label><input id="cardPin" type="password" autocomplete="one-time-code" inputmode="numeric" maxlength="4" placeholder="••••"></div>
     <div class="err-text" id="cardErr"></div>
     <button class="btn-primary" id="cardBtn" onclick="confirmCardPurchase()">Generate PINs</button>
   </div>
 </div>
 
 <!-- ===================== AIRTIME TO CASH PAGE ===================== -->
-<div class="page" id="page-a2c">
+<div class="page sv-pg" id="page-a2c" data-sv="a2c">
   <div class="page-head"><button class="back-btn" onclick="closePage('a2c')">←</button><div class="page-title">Airtime to Cash</div></div>
   <div class="page-body">
 
@@ -1141,12 +1167,13 @@ html[data-theme=dark] .pf-wal b{color:#d6e3ff}
       <div class="acts"><button onclick="openWallet('atc')">History</button><button class="g" onclick="openWithdraw('atc')">Withdraw</button></div>
     </div>
 
-    <div class="section-title" style="padding:0; margin:0 0 14px;">Convert Airtime</div>
+    <div class="sv-steps" id="svSteps"><div data-s="1"><i>1</i><span>Network &amp; number</span></div><div data-s="2"><i>2</i><span>Verify code</span></div><div data-s="3"><i>3</i><span>Amount &amp; PIN</span></div></div>
 
     <!-- Step 1: phone number + network -->
     <div id="a2cStep1">
+      <div class="sv-h">Select Network</div>
       <div class="network-grid" id="a2cNetworkGrid"></div>
-      <div class="field"><label>Phone Number Sending Airtime</label><div class="inputwrap"><input id="a2cPhone" placeholder="080XXXXXXXX" oninput="favSync('a2c')"><button type="button" class="star-btn" id="star-a2c" onclick="favToggle('a2c')" aria-label="Save number"><svg class="ic"><use href="#i-star"/></svg></button></div></div>
+      <div class="field"><label>Phone Number Sending Airtime</label><div class="inputwrap sv-phone"><input id="a2cPhone" placeholder="080XXXXXXXX" inputmode="tel" oninput="favSync('a2c')"><button type="button" class="star-btn" id="star-a2c" onclick="favToggle('a2c')" aria-label="Save number"><svg class="ic"><use href="#i-star"/></svg></button></div></div>
       <div class="fav-bar" id="fav-a2c"></div>
       <div class="err-text" id="a2cStep1Err"></div>
       <button class="btn-primary" id="a2cSendOtpBtn" onclick="a2cSendOtp()">Send OTP to Confirm</button>
@@ -1154,23 +1181,26 @@ html[data-theme=dark] .pf-wal b{color:#d6e3ff}
 
     <!-- Step 2: enter OTP -->
     <div id="a2cStep2" style="display:none;">
-      <div class="hint" style="background:var(--soft); border-radius:12px; padding:14px; font-size:12px; color:var(--sub); line-height:1.6; margin-bottom:16px;">
+      <div class="hint sv-note" style="background:var(--soft); border-radius:12px; padding:14px; font-size:12px; color:var(--sub); line-height:1.6; margin-bottom:16px;">
         We sent a 6-digit code via SMS to <span id="a2cPhoneDisplay"></span>. Enter it below to confirm this number is yours.
       </div>
-      <div class="field"><label>OTP Code</label><input id="a2cOtpCode" inputmode="numeric" maxlength="6" placeholder="123456"></div>
+      <div class="field"><label>OTP Code</label><input id="a2cOtpCode" inputmode="numeric" maxlength="6" placeholder="123456" class="sv-otp"></div>
       <div class="err-text" id="a2cStep2Err"></div>
       <button class="btn-primary" id="a2cVerifyBtn" onclick="a2cVerifyOtp()">Verify Code</button>
     </div>
 
     <!-- Step 3: amount + pin -->
     <div id="a2cStep3" style="display:none;">
-      <div class="field"><label>Amount of Airtime Sent (₦, min ₦500)</label><input id="a2cAmount" type="number" placeholder="1000"></div>
-      <div class="field"><label>Transaction PIN</label><input id="a2cPin" type="password" autocomplete="one-time-code" inputmode="numeric" maxlength="4" placeholder="••••"></div>
-      <div class="err-text" id="a2cStep3Err"></div>
-      <button class="btn-primary" id="a2cConvertBtn" onclick="a2cConvert()">Convert to Cash</button>
-      <div class="hint" style="background:var(--soft); border-radius:12px; padding:14px; font-size:12px; color:var(--sub); line-height:1.6; margin-top:16px;">
+      <div class="sv-h">Amount to Convert</div>
+      <div class="sv-chips" data-fill="a2cAmount" data-amts="500,1000,2000,5000,10000"></div>
+      <div class="field"><label>Amount of Airtime Sent (₦, min ₦500)</label><input id="a2cAmount" type="number" inputmode="numeric" placeholder="1000"></div>
+      <div class="hint sv-note" style="background:var(--soft); border-radius:12px; padding:14px; font-size:12px; color:var(--sub); line-height:1.6; margin:0 0 14px;">
         A ₦30 fee applies for every ₦100 converted. Your balance stays in your Airtime-to-Cash Wallet until you choose to withdraw it to your bank.
       </div>
+      <div class="sv-sum" id="svSum-a2c"><div class="sv-sum-h"><svg class="ic"><use href="#i-receipt"/></svg>Order Summary</div><div class="sv-rows" id="svRows-a2c"></div></div>
+      <div class="field sv-pin"><label>Transaction PIN</label><input id="a2cPin" type="password" autocomplete="one-time-code" inputmode="numeric" maxlength="4" placeholder="••••"></div>
+      <div class="err-text" id="a2cStep3Err"></div>
+      <button class="btn-primary" id="a2cConvertBtn" onclick="a2cConvert()">Convert to Cash</button>
     </div>
 
   </div>
@@ -1185,20 +1215,20 @@ html[data-theme=dark] .pf-wal b{color:#d6e3ff}
 </div>
 
 <!-- ===================== EXAM PIN PAGE ===================== -->
-<div class="page" id="page-exam">
+<div class="page sv-pg" id="page-exam" data-sv="exam">
   <div class="page-head"><button class="back-btn" onclick="closePage('exam')">←</button><div class="page-title">Exam PIN</div></div>
   <div class="page-body">
-    <div class="section-title" style="padding:0 0 10px;">Choose Exam Type</div>
-    <div class="network-grid" style="grid-template-columns:repeat(2,1fr);" id="examTypeGrid"></div>
-    <div class="field"><label>Quantity (1–10)</label><input id="examQuantity" type="number" min="1" max="10" value="1" oninput="updateExamTotal()"></div>
-    <div class="plan-row" style="cursor:default; margin-bottom:16px;">
-      <div class="plan-valid">Total</div>
-      <div class="plan-price" id="examTotal">₦0</div>
-    </div>
-    <div class="field"><label>Transaction PIN</label><input id="examPin" type="password" autocomplete="one-time-code" inputmode="numeric" maxlength="4" placeholder="••••"></div>
+    <div class="sv-h">Select Exam Type</div>
+    <div class="network-grid sv-exams" id="examTypeGrid"></div>
+    <div class="sv-h">Quantity</div>
+    <div class="field"><label>Quantity (1–10)</label><div class="sv-qty"><button type="button" class="sv-qb" data-q="-1" data-for="examQuantity" aria-label="Less">−</button><input id="examQuantity" type="number" inputmode="numeric" min="1" max="10" value="1" oninput="updateExamTotal()"><button type="button" class="sv-qb" data-q="1" data-for="examQuantity" aria-label="More">+</button></div></div>
+    <div class="sv-sum" id="svSum-exam"><div class="sv-sum-h"><svg class="ic"><use href="#i-receipt"/></svg>Order Summary</div>
+      <div class="sv-rows" id="svRows-exam"></div>
+      <div class="sv-total"><span>Total Amount</span><b id="examTotal">₦0</b></div></div>
+    <div class="field sv-pin"><label>Transaction PIN</label><input id="examPin" type="password" autocomplete="one-time-code" inputmode="numeric" maxlength="4" placeholder="••••"></div>
     <div class="err-text" id="examErr"></div>
     <button class="btn-primary" id="examBtn" onclick="confirmExamPurchase()">Generate PIN(s)</button>
-    <div class="hint" style="background:var(--soft); border-radius:12px; padding:14px; font-size:12px; color:var(--sub); line-height:1.6; margin-top:16px;">
+    <div class="hint sv-note" style="background:var(--soft); border-radius:12px; padding:14px; font-size:12px; color:var(--sub); line-height:1.6; margin-top:16px;">
       Prices shown are placeholders — update EXAM_TYPES in the code to match your real ClubKonnect WAEC/JAMB e-PIN prices.
     </div>
   </div>
@@ -1221,38 +1251,52 @@ html[data-theme=dark] .pf-wal b{color:#d6e3ff}
 </div>
 
 <!-- ===================== EXCHANGE PAGE ===================== -->
-<div class="page" id="page-exchange">
+<div class="page sv-pg" id="page-exchange" data-sv="exchange">
   <div class="page-head"><button class="back-btn" onclick="closePage('exchange')">←</button><div class="page-title">Exchange</div></div>
   <div class="page-body">
-    <div id="xInfo" style="display:none; background:var(--soft); border-radius:16px; padding:14px; font-size:13px; line-height:1.6; margin-bottom:16px;"></div>
+    <div id="xInfo" class="sv-note" style="display:none; background:var(--soft); border-radius:16px; padding:14px; font-size:13px; line-height:1.6; margin-bottom:16px;"></div>
     <div id="xForm" style="display:none;">
+      <div class="sv-h">Select Currency <small>(you pay in)</small></div>
+      <div class="sv-cur" id="svCur"></div>
       <div class="field"><label>You pay</label>
-        <div style="display:flex; gap:8px;">
-          <select id="xCurrency" style="flex:0 0 54%;" onchange="xQuoteUpdate()"></select>
-          <input id="xAmount" type="number" inputmode="decimal" placeholder="Amount" oninput="xQuoteDebounced()">
-        </div></div>
+        <div class="sv-amtwrap">
+          <span class="sv-cs" id="svCurSym">$</span>
+          <input id="xAmount" type="number" inputmode="decimal" placeholder="Enter Amount" oninput="xQuoteDebounced()">
+          <span class="sv-cc" id="svCurCode">USD</span>
+        </div>
+        <select id="xCurrency" class="sv-hide" onchange="xQuoteUpdate()"></select>
+      </div>
       <div id="xPreview" class="sumbox" style="display:none;"></div>
-      <div class="field"><label>Transaction PIN</label><input id="xPin" type="password" inputmode="numeric" maxlength="4" autocomplete="one-time-code" placeholder="••••"></div>
+      <div class="sv-sum" id="svSum-exchange"><div class="sv-sum-h"><svg class="ic"><use href="#i-swap"/></svg>Payment Summary</div><div class="sv-rows" id="svRows-exchange"></div>
+        <div class="sv-total"><span>Naira credited to Exchange Wallet</span><b id="svTot-exchange">₦0.00</b></div></div>
+      <div class="field sv-pin"><label>Transaction PIN</label><input id="xPin" type="password" inputmode="numeric" maxlength="4" autocomplete="one-time-code" placeholder="••••"></div>
       <div class="err-text" id="xErr"></div>
-      <button class="btn-primary" id="xBtn" onclick="xConfirm()">I Agree &amp; Pay</button>
-      <div style="font-size:11.5px; color:var(--sub); line-height:1.6; margin-top:12px;">You pay online. After your payment is confirmed, the naira is added to your Exchange Wallet, where you can keep it and withdraw whenever you choose. The rate is fixed when you start the payment.</div>
+      <button class="btn-primary" id="xBtn" onclick="xConfirm()">Pay with Flutterwave</button>
+      <div class="sv-fine">You pay online. After your payment is confirmed, the naira is added to your Exchange Wallet, where you can keep it and withdraw whenever you choose. The rate is fixed when you start the payment.</div>
     </div>
-    <div class="section-title" style="padding:0; margin:24px 0 10px;">My Exchanges</div>
+    <div class="sv-h">My Exchanges</div>
     <div class="txlist" id="xHistory" style="padding:0;"></div>
   </div>
 </div>
 
 <!-- ===================== BULK SMS PAGE ===================== -->
-<div class="page" id="page-bulksms">
+<div class="page sv-pg" id="page-bulksms" data-sv="bulksms">
   <div class="page-head"><button class="back-btn" onclick="closePage('bulksms')">←</button><div class="page-title">Bulk SMS</div></div>
   <div class="page-body">
+    <div class="sv-price" id="svSmsPrice"><div><small>Price per SMS segment</small><b id="svSmsPriceV">—</b></div><p>You pay for every segment sent to every valid number. GSM-7: 160 characters (153 per part). Unicode: 70 characters (67 per part).</p></div>
     <div class="field"><label>Sender name (3-11 letters or numbers)</label><input id="smsSender" maxlength="11" autocapitalize="none" placeholder="e.g. MyShop" oninput="bulkSmsUpdate()"></div>
-    <div class="field"><label>Message</label><textarea id="smsMessage" rows="5" placeholder="Type your message here" oninput="bulkSmsUpdate()"></textarea></div>
-    <div class="field"><label>Phone numbers (separate with commas, spaces or new lines)</label><textarea id="smsRecipients" rows="5" placeholder="08031234567, 08129876543&#10;2348051112222" oninput="bulkSmsUpdate(); favSync('sms')"></textarea></div>
-    <div style="display:flex; align-items:center; gap:10px; margin:-6px 0 12px;"><button type="button" class="chip" id="star-sms" onclick="favToggle('sms')" style="display:flex; align-items:center; gap:6px;"><svg class="ic sm"><use href="#i-star"/></svg>Save this list</button></div>
+    <div class="sv-h">Send Numbers</div>
+    <div class="field"><label>Phone numbers (separate with commas, spaces or new lines)</label><textarea id="smsRecipients" rows="4" placeholder="08031234567, 08129876543&#10;2348051112222" oninput="bulkSmsUpdate(); favSync('sms')"></textarea></div>
+    <div class="sv-rc" id="svRc"></div>
+    <div style="display:flex; align-items:center; gap:10px; margin:0 0 12px;"><button type="button" class="chip" id="star-sms" onclick="favToggle('sms')" style="display:flex; align-items:center; gap:6px;"><svg class="ic sm"><use href="#i-star"/></svg>Save this list</button></div>
     <div class="fav-bar" id="fav-sms"></div>
-    <div class="hint" id="smsSummary" style="background:var(--soft); border-radius:12px; padding:14px; font-size:13px; line-height:1.7; margin-bottom:14px;"></div>
-    <div class="field"><label>Transaction PIN</label><input id="smsPin" type="password" inputmode="numeric" maxlength="4" autocomplete="one-time-code" placeholder="••••"></div>
+    <div class="sv-h">Message Content</div>
+    <div class="field sv-composer"><textarea id="smsMessage" rows="5" placeholder="Type your message here..." oninput="bulkSmsUpdate()"></textarea>
+      <div class="sv-cbar"><span id="svEnc">—</span><span id="svCount">0/160</span><button type="button" class="sv-clear" id="svClear"><svg class="ic sm"><use href="#i-trash"/></svg>Clear</button></div></div>
+    <div class="hint sv-hide" id="smsSummary" style="background:var(--soft); border-radius:12px; padding:14px; font-size:13px; line-height:1.7; margin-bottom:14px;"></div>
+    <div class="sv-sum" id="svSum-bulksms"><div class="sv-sum-h"><svg class="ic"><use href="#i-receipt"/></svg>Cost Summary</div><div class="sv-rows" id="svRows-bulksms"></div>
+      <div class="sv-total"><span>Total estimated amount</span><b id="svTot-bulksms">₦0</b></div></div>
+    <div class="field sv-pin"><label>Transaction PIN</label><input id="smsPin" type="password" inputmode="numeric" maxlength="4" autocomplete="one-time-code" placeholder="••••"></div>
     <div class="err-text" id="smsErr"></div>
     <button class="btn-primary" id="smsBtn" onclick="confirmBulkSms()">Send Messages</button>
   </div>
@@ -5001,6 +5045,325 @@ applyPrefs();
   let cqT; window.rfCodesLoad = function () { clearTimeout(cqT); cqT = setTimeout(async () => {
     const { data, errMsg } = await ar({ action: 'codes', q: ($('rfCq') || {}).value || '' }); const b = $('rfCodesList'); if (!b) return;
     b.innerHTML = errMsg ? '<div class="empty-note">' + esc(errMsg) + '</div>' : data.items.length ? data.items.map((c) => `<div class="arow" style="cursor:default;"><div class="top"><span><b>${esc(c.code)}</b> · @${esc(c.username)}</span><span class="sub" style="margin:0;">${c.referred} referred</span></div><div class="sub">${esc(c.full_name || '')} · ${c.successful} successful · ${ngn(c.earned)} earned</div></div>`).join('') : '<div class="empty-note">No codes found.</div>'; }, 250); };
+})();
+</script>
+<style id="sv-css">
+/* ===== SERVICE PAGES REDESIGN (presentation only) ===== */
+.sv-pg{--svb1:#1237c9; --svb2:#081a78; --svb3:#3d6dff; --svg:#f5b81c;}
+.sv-pg .page-head{position:sticky; top:0; height:0; padding:0; background:none; border:0; backdrop-filter:none; overflow:visible; z-index:30; display:block;}
+.sv-pg .back-btn{position:absolute; top:14px; left:14px; width:42px; height:42px; border-radius:50%; background:rgba(18,55,201,.94); color:#fff; border:1.5px solid rgba(255,255,255,.7); box-shadow:0 4px 14px rgba(8,26,120,.4); font-size:20px; display:flex; align-items:center; justify-content:center; cursor:pointer;}
+.sv-pg .page-title{position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap;}
+.sv-pg .page-body{padding:0 0 28px;}
+/* hero */
+.sv-hero{position:relative; min-height:232px; padding:66px 18px 58px; color:#fff; overflow:hidden; background:radial-gradient(120% 140% at 85% 0%,#3d6dff 0%,#1237c9 48%,#081a78 100%);}
+.sv-hero::before{content:''; position:absolute; right:-60px; top:-40px; width:260px; height:260px; border-radius:50%; background:radial-gradient(circle,rgba(255,255,255,.22),transparent 65%);}
+.sv-brand{position:absolute; top:16px; left:66px; right:118px; display:flex; align-items:center; justify-content:flex-start; gap:7px; z-index:1;}
+.sv-brand svg{width:30px; height:19px; flex:none;} .sv-brand b{font-size:26px; font-weight:900; font-style:italic; letter-spacing:-1px; line-height:1; text-shadow:0 2px 0 #f5b81c;}
+.sv-brand div{display:flex; flex-direction:column; line-height:1.15;} .sv-brand span{font-weight:900; font-size:12px; letter-spacing:.3px; color:#ffd75e;} .sv-brand small{font-size:9.5px; font-weight:700; opacity:.9;}
+.sv-tt{position:relative; z-index:1; max-width:62%;}
+.sv-ic{width:46px; height:46px; border-radius:14px; background:rgba(255,255,255,.16); border:1.5px solid rgba(255,255,255,.4); display:flex; align-items:center; justify-content:center; margin-bottom:8px;}
+.sv-ic svg{width:26px; height:26px; color:#fff;}
+.sv-tt h2{margin:0; font-size:27px; font-weight:900; line-height:1.05; color:#fff;}
+.sv-tt p{margin:4px 0 0; font-size:13.5px; font-weight:700; font-style:italic; color:#ffd75e;}
+.sv-av{position:absolute; right:16px; bottom:50px; width:112px; height:112px; border-radius:50%; background:#dbe6ff center/cover no-repeat; border:4px solid #f5b81c; box-shadow:0 10px 28px rgba(0,10,80,.5), 0 0 0 7px rgba(255,255,255,.14); z-index:1; display:flex; align-items:center; justify-content:center; font-size:44px; font-weight:900; color:#1237c9; overflow:hidden;}
+.sv-av.has-img{color:transparent;}
+/* sheet */
+.sv-sheet{position:relative; margin-top:-34px; padding:18px 16px 24px; border-radius:30px 30px 0 0; background:var(--bg); box-shadow:0 -3px 0 #f5b81c; z-index:2;}
+.sv-h{display:flex; align-items:center; gap:8px; font-size:15.5px; font-weight:800; color:var(--blue-2); margin:20px 2px 10px;}
+.sv-h:first-child{margin-top:4px;}
+.sv-h::before{content:''; width:5px; height:17px; border-radius:3px; background:linear-gradient(#f5b81c,#f08a00); flex:none;}
+.sv-h small{font-weight:600; color:var(--sub); font-size:12px;}
+.sv-pg .field label{font-size:13px; font-weight:800; color:var(--blue-2);}
+.sv-pg .field input,.sv-pg .field select,.sv-pg .field textarea{border:1.5px solid var(--line); border-radius:16px; font-size:16px; min-height:52px; box-shadow:var(--sh-sm);}
+.sv-pg .sv-phone input{font-size:20px; font-weight:800; letter-spacing:.6px; padding-left:52px; min-height:60px; border-radius:18px;}
+.sv-pg .sv-phone::before{content:''; position:absolute; left:15px; top:50%; width:26px; height:26px; transform:translateY(-50%); background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%231237c9'%3E%3Ccircle cx='12' cy='8' r='4.2'/%3E%3Cpath d='M3.5 21c.6-4.6 4-7 8.5-7s7.9 2.4 8.5 7z'/%3E%3C/svg%3E") center/contain no-repeat; z-index:1; pointer-events:none;}
+.sv-pg .star-btn.on,.sv-pg .star-btn.on .ic{color:#f5b81c;}
+.sv-pg .sv-pin input{text-align:center; letter-spacing:10px; font-size:22px; font-weight:800;}
+.sv-pg .sv-otp{text-align:center; letter-spacing:8px; font-size:22px; font-weight:800;}
+.sv-pg .err-text{font-size:13px; font-weight:700; margin:0 0 10px; min-height:0;}
+.sv-hide{display:none !important;}
+.sv-nf{display:none !important;}
+/* networks + tiles */
+.sv-pg .network-grid{gap:10px; margin-bottom:14px;}
+.sv-pg .net-item{position:relative; background:var(--card); border:2px solid transparent; border-radius:18px; padding:12px 4px 10px; box-shadow:var(--sh-sm); transition:transform .12s, border-color .15s;}
+.sv-pg .net-item:active{transform:scale(.96);}
+.sv-pg .net-item.selected{border-color:var(--svb1); background:#eaf0ff;}
+.sv-pg .net-item.selected::after{content:'✓'; position:absolute; top:-7px; right:-5px; width:22px; height:22px; border-radius:50%; background:var(--svb1); color:#fff; font-size:13px; font-weight:900; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 6px rgba(18,55,201,.4);}
+.sv-pg .net-badge{width:46px; height:46px; border-radius:50%; font-size:13px; font-weight:900; box-shadow:inset 0 0 0 3px rgba(255,255,255,.35), 0 3px 8px rgba(0,0,0,.15);}
+.sv-pg .net-badge[style*="#ffcc00"]{color:#1a1a1a;}
+.sv-pg .net-name{font-size:12px; font-weight:800; color:var(--text);}
+.sv-pg .sv-exams{grid-template-columns:repeat(2,1fr);}
+.sv-pg .sv-exams .net-item{padding:16px 8px;}
+.sv-pg .sv-exams .net-badge{border-radius:14px; width:50px; height:50px; font-size:20px;}
+/* category / provider tabs (existing inline-styled pills) */
+.sv-pg #categoryTabs,.sv-pg #cardCategoryTabs{scrollbar-width:none; padding:2px 2px 6px;} .sv-pg #categoryTabs::-webkit-scrollbar,.sv-pg #cardCategoryTabs::-webkit-scrollbar{display:none;}
+.sv-pg #categoryTabs>div,.sv-pg #cardCategoryTabs>div{padding:10px 20px !important; font-size:13px !important; border-radius:22px !important; box-shadow:var(--sh-sm); flex:none;}
+.sv-pg #categoryTabs>div[style*="background:var(--blue-1)"],.sv-pg #cardCategoryTabs>div[style*="background:var(--blue-1)"],.sv-pg #cableProviderTabs>div[style*="background:var(--blue-1)"]{background:linear-gradient(135deg,#3d6dff,#1237c9) !important; box-shadow:0 6px 14px rgba(18,55,201,.32);}
+.sv-pg #cableProviderTabs{display:grid !important; grid-template-columns:repeat(auto-fit,minmax(96px,1fr)); overflow:visible !important; gap:10px !important;}
+.sv-pg #cableProviderTabs>div{padding:20px 8px !important; text-align:center; font-size:15px !important; font-weight:900 !important; letter-spacing:.5px; text-transform:uppercase; border-radius:18px !important; background-color:var(--card); box-shadow:var(--sh-sm); border:2px solid transparent;}
+.sv-pg #cableProviderTabs>div[style*="background:var(--blue-1)"]{border-color:#f5b81c;}
+/* plan rows */
+.sv-pg .plan-row{position:relative; padding:13px 14px 13px 62px; min-height:66px; border-radius:18px; background:var(--card); border:2px solid transparent; transition:transform .12s;}
+.sv-pg .plan-row:active{transform:scale(.985);}
+.sv-pg .plan-row::before{content:''; position:absolute; left:14px; top:50%; width:36px; height:36px; transform:translateY(-50%); border-radius:12px; background:#eaf0ff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231237c9' stroke-width='2.2' stroke-linecap='round'%3E%3Cpath d='M2.5 9a14 14 0 0 1 19 0M5.7 12.4a9.5 9.5 0 0 1 12.6 0M9 15.8a4.8 4.8 0 0 1 6 0'/%3E%3Ccircle cx='12' cy='19.4' r='1.2' fill='%231237c9'/%3E%3C/svg%3E") center/21px no-repeat;}
+.sv-pg #cablePlanList .plan-row::before{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231237c9' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='6' width='18' height='12' rx='2.5'/%3E%3Cpath d='m9 3 3 3 3-3M10.5 10.3v3.4l3-1.7z'/%3E%3C/svg%3E");}
+.sv-pg .plan-row::after{content:''; flex:none; width:24px; height:24px; margin-left:12px; border-radius:50%; border:2px solid #b9c9f5; background:transparent center/14px no-repeat;}
+.sv-pg .plan-row.selected{border-color:var(--svb1); background:#f2f6ff;}
+.sv-pg .plan-row.selected::after{background-color:var(--svb1); border-color:var(--svb1); background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12.5 4.5 4.5L19 7.5'/%3E%3C/svg%3E");}
+.sv-pg .plan-row > div:first-child{flex:1; min-width:0;}
+.sv-pg .plan-price{font-weight:900; color:var(--green); white-space:nowrap; font-size:15px;}
+.sv-pg .plan-size{font-size:15.5px;}
+.sv-pg .sv-viewplans{border-radius:18px; overflow:hidden; background:linear-gradient(135deg,#3d6dff,#1237c9); box-shadow:0 8px 20px rgba(18,55,201,.28);}
+.sv-pg .sv-viewplans .settings-row{color:#fff; font-weight:800; font-size:15.5px; padding:17px 18px; background:none;}
+/* search */
+.sv-search{position:relative; margin:0 0 12px;} .sv-search .ic{position:absolute; left:14px; top:50%; transform:translateY(-50%); width:18px; height:18px; color:var(--sub); pointer-events:none;}
+.sv-search input{width:100%; padding:12px 14px 12px 42px; border:1.5px solid var(--line); border-radius:16px; background:var(--card); color:var(--text); font-size:14.5px; min-height:46px;}
+.sv-search input:focus{outline:none; border-color:var(--svb3); box-shadow:0 0 0 4px rgba(59,130,255,.14);}
+/* chips */
+.sv-chips{display:flex; flex-wrap:wrap; gap:9px; margin:0 0 14px;}
+.sv-chip{flex:1 0 21%; min-width:68px; padding:12px 6px; border:0; border-radius:22px; background:linear-gradient(180deg,#3d6dff,#1237c9); color:#fff; font-weight:800; font-size:14px; box-shadow:0 6px 14px rgba(18,55,201,.26); cursor:pointer; transition:transform .12s;}
+.sv-chip:active{transform:scale(.95);} .sv-chip.on{box-shadow:0 0 0 3px #f5b81c, 0 6px 14px rgba(18,55,201,.3);}
+.sv-chip.o{background:#e6edff; color:var(--svb1); box-shadow:none;}
+/* quantity */
+.sv-qty{display:flex; align-items:stretch; gap:8px; background:var(--card); border:1.5px solid var(--line); border-radius:18px; padding:6px; box-shadow:var(--sh-sm);}
+.sv-qty input{flex:1; min-width:0; text-align:center; font-size:22px !important; font-weight:900; border:0 !important; box-shadow:none !important; background:transparent !important; min-height:46px !important; padding:0 !important;}
+.sv-qb{width:54px; border:0; border-radius:14px; background:linear-gradient(180deg,#3d6dff,#1237c9); color:#fff; font-size:26px; font-weight:800; cursor:pointer; line-height:1;}
+.sv-qb:active{transform:scale(.94);}
+/* disco tiles + segmented */
+.sv-discos{display:grid; grid-template-columns:repeat(auto-fit,minmax(104px,1fr)); gap:10px; margin-bottom:6px;}
+.sv-disco{border:2px solid transparent; background:var(--card); border-radius:18px; padding:14px 6px; text-align:center; box-shadow:var(--sh-sm); cursor:pointer; color:var(--text); font-weight:800; font-size:12.5px; line-height:1.25; display:flex; flex-direction:column; align-items:center; gap:6px; min-height:84px; justify-content:center;}
+.sv-disco i{font-style:normal; width:38px; height:38px; border-radius:12px; background:#eaf0ff; color:var(--svb1); display:flex; align-items:center; justify-content:center; font-weight:900; font-size:12px;}
+.sv-disco.on{border-color:var(--svb1); background:#f2f6ff;} .sv-disco.on i{background:var(--svb1); color:#fff;}
+.sv-seg{display:flex; background:#e6edff; border-radius:18px; padding:5px; gap:5px; margin-bottom:14px;}
+.sv-seg button{flex:1; border:0; border-radius:14px; padding:13px 6px; font-weight:800; font-size:14px; background:transparent; color:var(--svb1); cursor:pointer;}
+.sv-seg button.on{background:linear-gradient(135deg,#3d6dff,#1237c9); color:#fff; box-shadow:0 5px 12px rgba(18,55,201,.3);}
+/* summary */
+.sv-sum{background:linear-gradient(180deg,var(--card),var(--soft)); border:1.5px solid var(--line); border-radius:22px; padding:14px 16px; margin:18px 0 16px; box-shadow:var(--sh-sm);}
+.sv-sum-h{display:flex; align-items:center; gap:8px; font-weight:900; font-size:16px; color:var(--blue-2); margin-bottom:8px;} .sv-sum-h .ic{width:20px; height:20px; color:var(--svb1);}
+.sv-r{display:flex; justify-content:space-between; gap:14px; padding:7px 0; font-size:14px; border-bottom:1px dashed var(--line);}
+.sv-r span{color:var(--sub); font-weight:600;} .sv-r b{font-weight:800; text-align:right; word-break:break-word; color:var(--text);} .sv-r.mu b{font-weight:600; color:var(--sub); font-size:12.5px;}
+.sv-total{display:flex; justify-content:space-between; align-items:center; gap:12px; padding-top:11px;} .sv-total span{font-weight:900; color:var(--blue-2); font-size:14.5px;} .sv-total b{font-size:23px; font-weight:900; color:var(--green); text-align:right;}
+.sv-sum:not(:has(.sv-total)) .sv-r:last-child{border-bottom:0;}
+/* sticky action */
+.sv-sheet .btn-primary{position:sticky; bottom:14px; z-index:8; border-radius:28px; min-height:56px; font-size:16.5px; font-weight:800; letter-spacing:.2px; background:linear-gradient(135deg,#3d6dff,#1237c9 55%,#081a78); box-shadow:0 10px 24px rgba(18,55,201,.4), 0 0 0 4px var(--bg);}
+.sv-sheet .btn-primary:not(:disabled)::after{content:'→'; margin-left:9px; font-weight:900;}
+.sv-pg .btn-sm{border-radius:14px;}
+.sv-note,.sv-pg .hint{border-radius:16px !important;}
+.sv-fine{font-size:11.5px; color:var(--sub); line-height:1.6; margin-top:12px;}
+/* A2C steps */
+.sv-steps{display:flex; gap:6px; margin:0 0 6px;} .sv-steps div{flex:1; text-align:center; font-size:11px; font-weight:700; color:var(--sub); opacity:.7;}
+.sv-steps i{display:flex; width:30px; height:30px; margin:0 auto 4px; border-radius:50%; background:#dbe6ff; color:var(--svb1); font-style:normal; font-weight:900; align-items:center; justify-content:center;}
+.sv-steps div.on{opacity:1; color:var(--blue-2);} .sv-steps div.on i{background:var(--svb1); color:#fff; box-shadow:0 0 0 4px rgba(18,55,201,.15);} .sv-steps div.done i{background:var(--green); color:#fff;}
+/* exchange */
+.sv-cur{display:grid; grid-template-columns:repeat(4,1fr); gap:9px; margin-bottom:12px;}
+.sv-cu{position:relative; border:2px solid transparent; background:var(--card); border-radius:16px; padding:10px 2px 8px; text-align:center; box-shadow:var(--sh-sm); cursor:pointer; color:var(--text);}
+.sv-cu em{display:block; font-style:normal; font-size:26px; line-height:1.1;} .sv-cu b{display:block; font-size:13px; font-weight:900; margin-top:3px;} .sv-cu small{display:block; font-size:10px; color:var(--sub); font-weight:600; padding:0 2px; line-height:1.2;}
+.sv-cu.on{border-color:var(--svb1); background:#f2f6ff;} .sv-cu.on::after{content:'✓'; position:absolute; top:-7px; right:-5px; width:21px; height:21px; border-radius:50%; background:var(--svb1); color:#fff; font-size:12px; font-weight:900; display:flex; align-items:center; justify-content:center;}
+.sv-amtwrap{display:flex; align-items:center; background:var(--card); border:1.5px solid var(--line); border-radius:18px; box-shadow:var(--sh-sm); overflow:hidden;}
+.sv-amtwrap input{flex:1; min-width:0; border:0 !important; box-shadow:none !important; font-size:20px !important; font-weight:800; min-height:58px !important; background:transparent !important;}
+.sv-cs{padding:0 6px 0 16px; font-weight:900; font-size:20px; color:var(--svb1);} .sv-cc{padding:0 16px; align-self:stretch; display:flex; align-items:center; background:#e6edff; color:var(--svb1); font-weight:900;}
+.sv-pg #xPreview.sv-hide{display:none !important;}
+/* bulk sms */
+.sv-price{background:linear-gradient(135deg,#fff7de,#ffe9a8); border:1.5px solid #f5d27a; border-radius:20px; padding:14px 16px; margin:0 0 16px; color:#5a4300;}
+.sv-price div{display:flex; justify-content:space-between; align-items:center; gap:10px;} .sv-price small{font-weight:800; font-size:13px;} .sv-price b{font-size:24px; font-weight:900; color:#1237c9;}
+.sv-price p{margin:6px 0 0; font-size:11.5px; line-height:1.5; color:#6b5200;}
+.sv-rc{display:flex; flex-wrap:wrap; gap:8px; margin:-4px 0 12px;} .sv-rc span{font-size:12.5px; font-weight:800; padding:6px 12px; border-radius:14px; background:#e3f6ec; color:#0b7a42;} .sv-rc span.bad{background:#ffe9ea; color:#c4262e;} .sv-rc span.mu{background:#e6edff; color:var(--svb1);}
+.sv-composer textarea{min-height:130px; border-radius:18px 18px 0 0 !important; margin-bottom:0;}
+.sv-cbar{display:flex; align-items:center; gap:10px; background:var(--card); border:1.5px solid var(--line); border-top:0; border-radius:0 0 18px 18px; padding:8px 12px; font-size:12.5px; font-weight:800; color:var(--svb1);}
+.sv-cbar #svCount{margin-left:auto; color:var(--sub);} .sv-clear{border:0; background:#eef2ff; color:var(--svb1); border-radius:12px; padding:6px 11px; font-weight:800; font-size:12px; display:flex; align-items:center; gap:5px; cursor:pointer;}
+/* dark + small + wide */
+html[data-theme=dark] .sv-pg .net-item.selected,html[data-theme=dark] .sv-pg .plan-row.selected,html[data-theme=dark] .sv-cu.on,html[data-theme=dark] .sv-disco.on{background:#16244f;}
+html[data-theme=dark] .sv-pg .plan-row::before,html[data-theme=dark] .sv-disco i{background-color:#1b2748;}
+html[data-theme=dark] .sv-price{background:#2b2412; border-color:#6d5518; color:#f1d98a;} html[data-theme=dark] .sv-price p{color:#d9c37a;}
+html[data-theme=dark] .sv-h,html[data-theme=dark] .sv-pg .field label,html[data-theme=dark] .sv-sum-h,html[data-theme=dark] .sv-total span{color:#c9d8ff;}
+@media(max-width:360px){ .sv-tt h2{font-size:23px;} .sv-av{width:92px; height:92px; font-size:36px;} .sv-chip{flex-basis:30%;} .sv-cur{grid-template-columns:repeat(3,1fr);} .sv-brand span{font-size:11px;} }
+@media(min-width:720px){ .sv-pg .page-head,.sv-pg .page-body{max-width:600px;} .sv-hero{border-radius:0 0 0 0;} }
+@media (prefers-reduced-motion:reduce){ .sv-pg *{transition:none !important;} }
+
+.sv-pg .txc-hist{position:absolute; top:16px; right:14px; margin:0; background:rgba(18,55,201,.94); color:#fff; border:1.5px solid rgba(255,255,255,.7); box-shadow:0 4px 14px rgba(8,26,120,.4); padding:8px 12px; z-index:2;}
+
+#page-purchase #networkBadge,#page-purchase #manualNetworkGrid{display:none !important;}
+</style>
+<script>
+/* ===== SERVICE PAGES REDESIGN — display only. It reads the app's existing state and calls existing functions
+   (setNetwork, updateElectricityFee, xQuoteUpdate...). It never calls the backend and never changes prices. ===== */
+(function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const E = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const N = (n) => '₦' + Number(n || 0).toLocaleString();
+  const g = (f, d) => { try { const v = f(); return v == null ? d : v; } catch (e) { return d; } };
+  const put = (el, html) => { if (el && el.__sv !== html) { el.__sv = html; el.innerHTML = html; } };
+  const txt = (el, t) => { if (el && el.textContent !== t) el.textContent = t; };
+  const row = (l, v, mu) => '<div class="sv-r' + (mu ? ' mu' : '') + '"><span>' + E(l) + '</span><b>' + (v === '' || v == null ? '—' : E(v)) + '</b></div>';
+  const CROWN = '<svg viewBox="0 0 64 40"><path d="M5 36 2 11l16 12L32 4l14 19L62 11l-3 25Z" fill="#f5b81c"/><circle cx="2" cy="10" r="3" fill="#ffe48a"/><circle cx="32" cy="4" r="3" fill="#ffe48a"/><circle cx="62" cy="10" r="3" fill="#ffe48a"/></svg>';
+  const META = {
+    data: ['Stay Connected Always', 'i-bars'], airtime: ['Top Up Anytime, Anywhere', 'i-phone'], electricity: ['Power Your Life', 'i-bolt'],
+    cable: ['Enjoy Your Favourite Channels', 'i-tv'], exam: ['Pass Your Exam with Ease', 'i-cap'], recharge: ['Top-Up Made Easy', 'i-card'],
+    datacard: ['Internet at Your Fingertips', 'i-ticket'], a2c: ['Convert Airtime to Cash', 'i-cash'], exchange: ['Convert Foreign Currency to Naira', 'i-swap'],
+    bulksms: ['Send Messages to Many People at Once', 'i-mail']
+  };
+  const key = (pg) => {
+    const k = pg.dataset.sv;
+    if (k === 'purchase') return g(() => purchaseMode, 'data') === 'airtime' ? 'airtime' : 'data';
+    if (k === 'card') return g(() => cardMode, 'data-card') === 'airtime-card' ? 'recharge' : 'datacard';
+    return k;
+  };
+  const pages = Array.from(document.querySelectorAll('.sv-pg'));
+
+  /* wrap the existing content (moved, not rebuilt: every id and handler is kept) and add the hero */
+  pages.forEach((pg) => {
+    const body = pg.querySelector('.page-body'); if (!body || body.querySelector('.sv-sheet')) return;
+    const sheet = document.createElement('div'); sheet.className = 'sv-sheet';
+    while (body.firstChild) sheet.appendChild(body.firstChild);
+    const hero = document.createElement('div'); hero.className = 'sv-hero';
+    hero.innerHTML = '<div class="sv-brand">' + CROWN + '<b>US</b><div><span>UMARSHOYI-SUB</span><small>Smart • Fast • Reliable</small></div></div>'
+      + '<div class="sv-tt"><div class="sv-ic"><svg class="ic"><use href="#i-bars"/></svg></div><h2></h2><p></p></div><div class="sv-av"></div>';
+    body.appendChild(hero); body.appendChild(sheet);
+  });
+
+  /* quick-amount chips (fill the existing amount box; the existing handlers do the rest) */
+  document.querySelectorAll('.sv-chips[data-fill]').forEach((box) => {
+    const inp = $(box.dataset.fill);
+    box.innerHTML = box.dataset.amts.split(',').map((a) => '<button type="button" class="sv-chip" data-v="' + a + '">' + N(a) + '</button>').join('') + '<button type="button" class="sv-chip o" data-o="1">Others</button>';
+    box.addEventListener('click', (e) => {
+      const b = e.target.closest('button'); if (!b || !inp) return;
+      if (b.dataset.o) { inp.focus(); return; }
+      inp.value = b.dataset.v; inp.dispatchEvent(new Event('input', { bubbles: true })); inp.focus();
+    });
+  });
+  /* quantity − / + */
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest && e.target.closest('.sv-qb'); if (!b) return;
+    const inp = $(b.dataset.for); if (!inp) return;
+    const mn = +inp.min || 1, mx = +inp.max || 100;
+    inp.value = Math.max(mn, Math.min(mx, (parseInt(inp.value, 10) || mn) + (+b.dataset.q))); inp.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  /* plan search */
+  document.querySelectorAll('.sv-search input[data-list]').forEach((i) => i.addEventListener('input', () => filt(i)));
+  function filt(i) {
+    const q = i.value.trim().toLowerCase(), list = $(i.dataset.list); if (!list) return;
+    list.querySelectorAll('.plan-row').forEach((r) => r.classList.toggle('sv-nf', !!q && r.textContent.toLowerCase().indexOf(q) < 0));
+  }
+  /* purchase: tappable networks (calls the existing setNetwork) */
+  const nets = $('svNets');
+  if (nets) nets.addEventListener('click', (e) => { const t = e.target.closest('[data-net]'); if (t) g(() => setNetwork(t.dataset.net)); });
+  /* electricity: provider tiles + meter type (drive the existing selects) */
+  const disc = $('svDiscos');
+  if (disc) disc.addEventListener('click', (e) => { const t = e.target.closest('[data-d]'); if (!t) return; $('discoSelect').value = t.dataset.d; $('discoSelect').dispatchEvent(new Event('change', { bubbles: true })); sync(); });
+  const seg = $('svMeter');
+  if (seg) seg.addEventListener('click', (e) => { const t = e.target.closest('[data-m]'); if (!t) return; $('meterTypeSelect').value = t.dataset.m; $('meterTypeSelect').dispatchEvent(new Event('change', { bubbles: true })); sync(); });
+  /* exchange: currency tiles (drive the existing select, whose onchange fetches the quote) */
+  const cur = $('svCur');
+  if (cur) cur.addEventListener('click', (e) => { const t = e.target.closest('[data-c]'); if (!t) return; const s = $('xCurrency'); s.value = t.dataset.c; s.dispatchEvent(new Event('change', { bubbles: true })); sync(); });
+  const clr = $('svClear'); if (clr) clr.addEventListener('click', () => { const m = $('smsMessage'); m.value = ''; m.dispatchEvent(new Event('input', { bubbles: true })); });
+  /* the payment button keeps its own loading logic; only its resting label is set */
+  const xb = $('xBtn');
+  if (xb) new MutationObserver(() => { if (xb.textContent === 'I Agree & Pay') xb.textContent = 'Pay with Flutterwave'; }).observe(xb, { childList: true });
+
+  const FLAG = { USD: '🇺🇸', GBP: '🇬🇧', EUR: '🇪🇺', GHS: '🇬🇭', KES: '🇰🇪', ZAR: '🇿🇦', UGX: '🇺🇬', TZS: '🇹🇿', RWF: '🇷🇼', MWK: '🇲🇼', CAD: '🇨🇦', AED: '🇦🇪' };
+  const cname = (c) => { try { return new Intl.DisplayNames(['en'], { type: 'currency' }).of(c) || c; } catch (e) { return c; } };
+  const csym = (c) => { try { const p = new Intl.NumberFormat('en', { style: 'currency', currency: c, currencyDisplay: 'narrowSymbol' }).formatToParts(0).find((x) => x.type === 'currency'); return p ? p.value : c; } catch (e) { return c; } };
+  const NETS = () => g(() => NETWORKS, []);
+  const netName = (id) => { const n = NETS().find((x) => x.id === id); return n ? n.name : ''; };
+
+  function hero(pg) {
+    const k = key(pg), m = META[k] || ['', 'i-bars'], h = pg.querySelector('.sv-hero'); if (!h) return;
+    txt(h.querySelector('h2'), (pg.querySelector('.page-title') || {}).textContent || '');
+    txt(h.querySelector('p'), m[0]);
+    const u = h.querySelector('.sv-ic use'); if (u && u.getAttribute('href') !== '#' + m[1]) u.setAttribute('href', '#' + m[1]);
+    const av = h.querySelector('.sv-av'), img = g(() => AVATAR, '');
+    const bg = img ? 'url(' + img + ')' : '';
+    if (av.__bg !== bg) { av.__bg = bg; av.style.backgroundImage = bg; }
+    av.classList.toggle('has-img', !!img);
+    const ini = (g(() => profile.full_name, '') || g(() => profile.username, '') || 'U').trim().charAt(0).toUpperCase();
+    if (!img && av.textContent !== ini) av.textContent = ini; else if (img && av.textContent) av.textContent = '';
+  }
+  function sum(k, rows, total) { put($('svRows-' + k), rows.join('')); if (total != null) txt($('svTot-' + k), total); }
+
+  const S = {
+    purchase() {
+      const data = g(() => purchaseMode, 'data') === 'data', ph = ($('purchasePhone').value || '').trim(), nid = g(() => selectedNetwork, null);
+      put(nets, NETS().map((n) => '<div class="net-item ' + (n.id === nid ? 'selected' : '') + '" data-net="' + n.id + '"><div class="net-badge" style="background:' + n.color + '">' + E(n.name.slice(0, 2).toUpperCase()) + '</div><div class="net-name">' + E(n.name) + '</div></div>').join(''));
+      if (data) {
+        const plan = g(() => getPlansForCurrentNetwork().filter((p) => p.category === selectedCategory)[selectedPlan], null);
+        sum('purchase', [row('Phone number', ph), row('Network', netName(nid)), row('Data category', g(() => selectedCategory, '')), row('Selected plan', plan ? plan.size + ' · ' + plan.valid : '')], plan ? N(plan.price) : '₦0');
+      } else {
+        const a = parseFloat($('airtimeAmount').value) || 0;
+        sum('purchase', [row('Phone number', ph), row('Network', netName(nid)), row('Airtime amount', a ? N(a) : ''), row('Service fee', N(0))], N(a));
+      }
+    },
+    cable() {
+      const pv = g(() => selectedCableProvider, ''), plan = g(() => CABLE_PLANS[pv][selectedCablePlan], null);
+      sum('cable', [row('Provider', pv.toUpperCase()), row('Customer name', 'Shown for you to confirm before payment', 1), row('Smartcard / IUC', $('cableSmartcard').value.trim()), row('Package', plan ? plan.name : '')], plan ? N(plan.price) : '₦0');
+    },
+    electricity() {
+      const ds = $('discoSelect'), dv = ds.value;
+      put(disc, g(() => ELECTRICITY_DISCOS, []).map((d) => '<div class="sv-disco ' + (d.code === dv ? 'on' : '') + '" data-d="' + E(d.code) + '"><i>' + E(String(d.name).replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase()) + '</i>' + E(d.name) + '</div>').join(''));
+      const mv = $('meterTypeSelect').value;
+      put(seg, '<button type="button" data-m="prepaid" class="' + (mv === 'prepaid' ? 'on' : '') + '">Prepaid</button><button type="button" data-m="postpaid" class="' + (mv === 'postpaid' ? 'on' : '') + '">Postpaid</button>');
+      const a = parseFloat($('electricityAmount').value) || 0, feeOn = $('electricityFeeRow').style.display !== 'none' && a > 0;
+      const opt = ds.options[ds.selectedIndex];
+      sum('electricity', [row('Provider', opt ? opt.text : ''), row('Meter number', $('meterNumber').value.trim()), row('Meter type', mv === 'postpaid' ? 'Postpaid' : 'Prepaid'), row('Meter owner', 'Shown for you to confirm before payment', 1), row('Amount', a ? N(a) : ''), row('Service fee', feeOn ? $('electricityFeeAmt').textContent : '')], feeOn ? $('electricityTotalAmt').textContent : '₦0');
+    },
+    exam() {
+      const id = g(() => selectedExamType, ''), t = g(() => EXAM_TYPES[id], null), q = Math.max(1, Math.min(10, parseInt($('examQuantity').value, 10) || 1));
+      sum('exam', [row('Examination', t ? t.name : ''), row('Quantity', q), row('Unit price', t ? N(t.price) : '')], null);
+    },
+    card() {
+      const dm = g(() => cardMode, 'data-card') === 'data-card', nid = g(() => selectedCardNetwork, ''), q = parseInt($('cardQuantity').value, 10) || 0;
+      if (dm) {
+        const plan = g(() => DATA_PLANS[nid][selectedCardCategory][selectedCardPlan], null);
+        sum('card', [row('Network', netName(nid)), row('Selected plan', plan ? plan.size + ' · ' + plan.valid : ''), row('Unit price', plan ? N(plan.price) : ''), row('Quantity', q || '')], plan && q ? N(plan.price * q) : '₦0');
+      } else {
+        const a = parseFloat($('cardAirtimeAmount').value) || 0;
+        sum('card', [row('Network', netName(nid)), row('Denomination', a ? N(a) : ''), row('Quantity', q || '')], a && q ? N(a * q) : '₦0');
+      }
+    },
+    a2c() {
+      const st = (i) => $('a2cStep' + i).style.display !== 'none', cur = st(3) ? 3 : st(2) ? 2 : 1;
+      document.querySelectorAll('#svSteps div').forEach((d) => { const s = +d.dataset.s; d.classList.toggle('on', s === cur); d.classList.toggle('done', s < cur); });
+      const a = parseFloat($('a2cAmount').value) || 0;
+      put($('svRows-a2c'), [row('Network', netName(g(() => selectedA2CNetwork, ''))), row('Phone number', g(() => a2cVerifiedPhone, '') || ''), row('Airtime amount', a ? N(a) : ''), row('Service fee', '₦30 for every ₦100 converted'), row('You receive', 'Credited to your Airtime-to-Cash wallet after conversion', 1)].join(''));
+    },
+    exchange() {
+      const xi = g(() => xInfo, null), sel = $('xCurrency'), cv = sel.value;
+      const list = g(() => xInfo.currencies, []).filter((c) => c.code !== 'NGN');
+      put(cur, list.map((c) => '<div class="sv-cu ' + (c.code === cv ? 'on' : '') + '" data-c="' + E(c.code) + '"><em>' + (FLAG[c.code] || '🌐') + '</em><b>' + E(c.code) + '</b><small>' + E(cname(c.code)) + '</small></div>').join(''));
+      txt($('svCurCode'), cv || ''); txt($('svCurSym'), cv ? csym(cv) : '');
+      const q = g(() => xQuote, null), pv = $('xPreview');
+      pv.classList.toggle('sv-hide', !!q);
+      if (q) sum('exchange', [row('From currency', q.currency + ' · ' + cname(q.currency)), row('To currency', 'Nigerian Naira (NGN)'), row('Exchange rate', '1 ' + q.currency + ' = ' + N(q.rate)), row('Amount to pay', q.amount + ' ' + q.currency), row('Service fee (' + q.fee_percent + '%)', q.fee_amount + ' ' + q.currency)], N(q.receive_ngn));
+      else sum('exchange', [row('From currency', cv ? cv + ' · ' + cname(cv) : ''), row('To currency', 'Nigerian Naira (NGN)'), row('Exchange rate', 'Enter an amount to see the rate', 1)], '₦0.00');
+    },
+    bulksms() {
+      const info = g(() => smsInfoData, null), ok = !info || info.available !== false;
+      $('smsSummary').classList.toggle('sv-hide', ok);
+      const c = g(() => bulkSmsCalc(), { message: '', pages: 0, r: { count: 0, invalid: 0, dup: 0 }, total: 0, price: 0 }), m = c.message || '';
+      txt($('svSmsPriceV'), c.price ? N(c.price) : '—');
+      put($('svRc'), '<span>' + c.r.count + ' valid number' + (c.r.count === 1 ? '' : 's') + '</span>' + (c.r.invalid ? '<span class="bad">' + c.r.invalid + ' invalid (skipped)</span>' : '') + (c.r.dup ? '<span class="mu">' + c.r.dup + ' repeated (counted once)</span>' : ''));
+      let gsm = true, units = 0;
+      for (const ch of m) { if (g(() => GSM7, '').includes(ch)) units += 1; else if (g(() => GSM7_EXT, '').includes(ch)) units += 2; else { gsm = false; break; } }
+      const used = gsm ? units : m.length, cap = !m ? (gsm ? 160 : 70) : gsm ? (units <= 160 ? 160 : Math.ceil(units / 153) * 153) : (m.length <= 70 ? 70 : Math.ceil(m.length / 67) * 67);
+      txt($('svEnc'), m ? (gsm ? 'GSM-7' : 'Unicode (UCS-2)') : 'GSM-7 / Unicode');
+      txt($('svCount'), used + '/' + cap + ' · ' + m.length + ' character' + (m.length === 1 ? '' : 's'));
+      sum('bulksms', [row('Valid recipients', c.r.count), row('Invalid recipients', c.r.invalid), row('Segments per recipient', c.pages), row('Total SMS segments', c.r.count * c.pages), row('Price per segment', c.price ? N(c.price) : '')], N(c.total));
+    }
+  };
+
+  function sync() {
+    pages.forEach((pg) => {
+      if (!pg.classList.contains('active')) return;
+      hero(pg); g(() => S[pg.dataset.sv]());
+      pg.querySelectorAll('.sv-search input[data-list]').forEach(filt);
+      /* chip highlight */
+      pg.querySelectorAll('.sv-chips[data-fill]').forEach((b) => { const v = ($(b.dataset.fill) || {}).value; b.querySelectorAll('.sv-chip[data-v]').forEach((c) => c.classList.toggle('on', String(v) === c.dataset.v)); });
+    });
+  }
+  let queued = false, obs;
+  const kick = () => { if (queued) return; queued = true; requestAnimationFrame(() => { queued = false; sync(); if (obs) obs.takeRecords(); }); };
+  obs = new MutationObserver(kick);
+  pages.forEach((pg) => { obs.observe(pg, { subtree: true, childList: true, attributes: true, characterData: true }); pg.addEventListener('input', kick); pg.addEventListener('change', kick); pg.addEventListener('click', () => setTimeout(kick, 0)); });
 })();
 </script>
 </body>

@@ -5281,5 +5281,22 @@ async function loadCatalog(){
 const _onAuthedCat = onAuthed;
 onAuthed = async function(s){ const r = await _onAuthedCat(s); loadCatalog(); return r; };
 </script>
+<style id="homeSkin">
+/* HOME: same blue hero, gold line and gold-bar headings as the service pages */
+.app>.hd{position:relative; overflow:hidden; padding:22px 18px 62px; gap:14px; border-radius:0 0 30px 30px; background:radial-gradient(120% 140% at 85% 0%,#3d6dff 0%,#1237c9 48%,#081a78 100%); box-shadow:0 4px 0 #f5b81c;}
+.app>.hd::before{content:''; position:absolute; right:-60px; top:-50px; width:260px; height:260px; border-radius:50%; background:radial-gradient(circle,rgba(255,255,255,.22),transparent 65%); pointer-events:none;}
+.app>.hd>*{position:relative; z-index:1;}
+.app>.hd .hd-greet{color:#ffd75e; font-weight:800; font-style:italic;}
+.app>.hd .hd-name{color:#fff;}
+.app>.hd .hd-sub{color:#fff; opacity:.9;}
+.app>.hd .avatar{border:3px solid #f5b81c; box-shadow:0 8px 22px rgba(0,10,80,.45), 0 0 0 5px rgba(255,255,255,.14);}
+.app>.hd .bell2{background:rgba(255,255,255,.16); border:1.5px solid rgba(255,255,255,.45); color:#fff; box-shadow:none;}
+.app>.bal-card{margin-top:-30px; position:relative; z-index:2; border:1.5px solid rgba(245,184,28,.55);}
+.app>.sec-head .sec-title::before{content:''; width:5px; height:20px; border-radius:3px; background:linear-gradient(#f5b81c,#f08a00); flex:none;}
+.app>.sec-head .sec-link{color:#c77700; font-weight:800;}
+.app>.qa-grid .qa{border:1.5px solid #cfdcff; box-shadow:0 3px 0 #f5b81c33, var(--sh-sm);}
+.app>.svc-grid .svc{border:1.5px solid #d3e0ff; box-shadow:0 3px 0 #f5b81c33, var(--sh-sm);}
+.app>.banner{border:1.5px solid rgba(245,184,28,.6);}
+</style>
 </body>
 </html>

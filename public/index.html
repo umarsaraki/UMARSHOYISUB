@@ -1319,6 +1319,7 @@ html[data-theme=dark] .pf-wal b{color:#d6e3ff}
   </div>
   <div class="page-body">
     <div id="atab-overview">
+      <div id="aPriceAlerts"></div>
       <div class="profit-grid" id="aStats"><div class="empty-note">Loading…</div></div>
       <div class="mg-card" style="margin-top:18px;"><div class="mg-h">Legitdataway callback address</div><div class="mg-s">Paste this in the Legitdataway dashboard (callback / webhook box). It contains a secret: do not share it. If it ever leaks, press Replace and paste the new one.</div><div id="lgwUrl" style="font-size:11px; word-break:break-all; background:var(--soft); border-radius:10px; padding:10px; margin-top:10px;">Loading…</div><div class="mg-acts"><button class="btn-sm" style="background:var(--blue-1);" onclick="adminCopyWebhook()">Copy</button><button class="btn-sm" style="background:var(--danger);" onclick="adminRegenWebhook()">Replace with a new secret</button></div></div>
       <div class="hint" style="background:var(--soft); border-radius:12px; padding:14px; font-size:12px; color:var(--sub); line-height:1.6; margin-top:18px;">
@@ -1338,6 +1339,7 @@ html[data-theme=dark] .pf-wal b{color:#d6e3ff}
       <button class="btn-primary" id="adminUserMore" style="display:none; background:var(--soft); color:var(--blue-1);" onclick="adminLoadUsers(false)">Load more</button>
     </div>
     <div id="atab-tx" style="display:none;">
+      <div class="field" style="margin-bottom:10px; position:relative;"><input id="adminTxQ" placeholder="Search: Transaction ID, username, phone, email, reference…" autocomplete="off" autocapitalize="none" oninput="adminTxSearchSoon()" onkeydown="if(event.key==='Enter'){adminTxEnter()}"></div>
       <div class="chips" id="adminTxChips">
         <button class="atab on" data-f="pending" onclick="adminSetTxFilter('pending')">Pending</button>
         <button class="atab" data-f="all" onclick="adminSetTxFilter('all')">All</button>
@@ -1391,12 +1393,30 @@ html[data-theme=dark] .pf-wal b{color:#d6e3ff}
   </div>
 </div>
 
+<!-- ===================== ADMIN: ONE TRANSACTION ===================== -->
+<div class="page" id="page-admin-tx">
+  <div class="page-head"><button class="back-btn" onclick="closePage('admin-tx')">←</button><div class="page-title">Transaction</div></div>
+  <div class="page-body" id="atxBody" style="padding:14px 14px 40px;"></div>
+</div>
+
 <!-- ===================== ADMIN USER DETAIL PAGE ===================== -->
 <div class="page" id="page-admin-user">
   <div class="page-head"><button class="back-btn" onclick="closePage('admin-user')">←</button><div class="page-title">Manage User</div></div>
   <div class="page-body">
     <div id="auHeader" style="margin-bottom:16px;"></div>
     <div class="profit-grid" id="auStats" style="margin-bottom:8px;"></div>
+    <div class="section-title" style="padding:0; margin:20px 0 10px;">Wallet History</div>
+    <div class="chips" id="auWhTabs"><button class="atab on" data-f="main" onclick="adminUserWh('main')">Main</button><button class="atab" data-f="exchange" onclick="adminUserWh('exchange')">Exchange</button><button class="atab" data-f="atc" onclick="adminUserWh('atc')">Airtime-to-Cash</button></div>
+    <div class="admin-count" id="auWhSum"></div>
+    <div id="auWhList"></div>
+    <button class="btn-primary" id="auWhMore" style="display:none; background:var(--soft); color:var(--blue-1);" onclick="adminUserWhLoad(false)">Load more</button>
+
+    <div class="section-title" style="padding:0; margin:20px 0 10px;">Transaction History</div>
+    <div class="field" style="margin-bottom:10px;"><input id="auTxQ" placeholder="Search this customer's transactions…" autocomplete="off" oninput="adminUserTxSoon()"></div>
+    <div class="chips" id="auTxChips"><button class="atab on" data-f="all" onclick="adminUserTxFilter('all')">All</button><button class="atab" data-f="pending" onclick="adminUserTxFilter('pending')">Pending</button><button class="atab" data-f="failed" onclick="adminUserTxFilter('failed')">Failed</button><button class="atab" data-f="successful" onclick="adminUserTxFilter('successful')">Successful</button></div>
+    <div class="admin-count" id="auTxCount"></div>
+    <div id="auTxList"></div>
+    <button class="btn-primary" id="auTxMore" style="display:none; background:var(--soft); color:var(--blue-1);" onclick="adminLoadUserTx(false)">Load more</button>
 
     <div class="section-title" style="padding:0; margin:22px 0 10px;">Adjust Balance</div>
     <div class="field"><label>Wallet</label><select id="auWallet"><option value="main">Main wallet</option><option value="atc">Airtime-to-Cash wallet</option></select></div>
@@ -1426,8 +1446,7 @@ html[data-theme=dark] .pf-wal b{color:#d6e3ff}
     <div class="err-text" id="auPassErr"></div>
     <button class="btn-primary" id="auResetPassBtn" onclick="adminResetPassword()">Reset Password</button>
 
-    <div class="section-title" style="padding:0; margin:26px 0 10px;">Transaction History</div>
-    <div id="auTxList"></div>
+
   </div>
 </div>
 
@@ -2618,7 +2637,7 @@ function adminSetTab(t){
   adminCurTab = t;
   document.querySelectorAll('#adminTabs .atab').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
   ['overview','users','tx','rem','popups','referrals','settings','log'].forEach(n => document.getElementById('atab-'+n).style.display = n === t ? 'block' : 'none');
-  if(t === 'overview'){ adminLoadStats(); setTimeout(adminLoadWebhook, 0); }
+  if(t === 'overview'){ adminLoadStats(); setTimeout(adminLoadWebhook, 0); adminLoadPriceAlerts(); }
   if(t === 'users') adminLoadUsers(true);
   if(t === 'tx') adminLoadTx(true);
   if(t === 'rem') adminLoadRem(true);
@@ -2664,24 +2683,25 @@ async function adminLoadUsers(reset){
 
 function adminTxRow(t, showUser){
   const who = showUser ? `<div class="sub">${esc(t.full_name || '')} @${esc(t.username || '')}</div>` : '';
-  const buttons = t.status === 'pending' ? `
-    <div style="display:flex; gap:8px; margin-top:10px;">
-      <button class="btn-sm" style="background:var(--green);" onclick="adminResolve('${esc(t.id)}','success')">✓ Confirm</button>
-      <button class="btn-sm" style="background:var(--danger);" onclick="adminResolve('${esc(t.id)}','failed')">✗ Fail & refund</button>
-      ${['data','airtime','cable','electricity'].includes(t.type) ? `<button class="btn-sm" style="background:var(--blue-1);" onclick="adminCheckTx('${esc(t.id)}')">🔍 How to check</button>` : ''}
+  const stop = 'event.stopPropagation();';
+  const buttons = t.status === 'pending' && !['withdrawal','exchange'].includes(t.type) ? `
+    <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;">
+      <button class="btn-sm" style="background:var(--green);" onclick="${stop}adminResolve('${esc(t.id)}','success')">✓ Confirm</button>
+      <button class="btn-sm" style="background:var(--danger);" onclick="${stop}adminResolve('${esc(t.id)}','failed')">✗ Fail & refund</button>
     </div>` : '';
-  return `<div class="arow" style="cursor:default;">
+  return `<div class="arow" role="button" tabindex="0" onclick="adminOpenTx('${esc(t.id)}')">
     <div class="top"><span>${txIcon(t.type)} ${esc(t.label)}</span><span class="tx-amt ${esc(t.direction)}">${t.direction === 'in' ? '+' : '-'}${naira(t.amount)}</span></div>
-    ${who}<div class="sub">${esc(t.status)} · ${esc(new Date(t.created_at + 'Z').toLocaleString())}</div>${buttons}</div>`;
+    ${who}<div class="sub">${esc(t.status)} · ${esc(new Date(t.created_at + 'Z').toLocaleString())} · ID ${esc(String(t.id).slice(0, 8).toUpperCase())}</div>${buttons}</div>`;
 }
 function adminSetTxFilter(f){ adminTxFilter = f; adminChip('adminTxChips', f); if(adminCurTab === 'tx') adminLoadTx(true); }
 async function adminLoadTx(reset){
   if(reset) adminTxOffset = 0;
-  const { data, errMsg } = await adminCall({ action: 'list_transactions', status: adminTxFilter, offset: adminTxOffset });
+  const q = (document.getElementById('adminTxQ') || {}).value || '';
+  const { data, errMsg } = await adminCall({ action: 'list_transactions', status: q.trim() ? 'all' : adminTxFilter, q: q.trim(), offset: adminTxOffset });
   const list = document.getElementById('adminTxList');
   if(errMsg){ list.innerHTML = '<div class="empty-note">'+esc(errMsg)+'</div>'; return; }
   const rows = data.transactions.map(t => adminTxRow(t, true)).join('');
-  list.innerHTML = reset ? (rows || '<div class="empty-note">Nothing here.</div>') : list.innerHTML + rows;
+  list.innerHTML = reset ? (rows || '<div class="empty-note">' + (q.trim() ? 'No transaction matches "' + esc(q.trim()) + '".' : 'Nothing here.') + '</div>') : list.innerHTML + rows;
   adminTxOffset += data.transactions.length;
   document.getElementById('adminTxCount').textContent = data.total + ' transaction' + (data.total === 1 ? '' : 's');
   document.getElementById('adminTxMore').style.display = adminTxOffset < data.total ? 'block' : 'none';
@@ -2714,7 +2734,8 @@ async function adminResolve(txId, resolution){
   if(errMsg){ showToast(errMsg, 'error'); return; }
   showToast('Done', 'success');
   adminLoadTx(true);
-  if(adminU) adminLoadUserTx();
+  if(adminU) adminLoadUserTx(true);
+  if(document.getElementById('page-admin-tx').classList.contains('active') && adminTxCur) adminOpenTxQuiet(adminTxCur.detail.id);
 }
 
 async function adminLoadLog(){
@@ -2819,7 +2840,7 @@ async function adminOpenUser(id){
   document.getElementById('auStats').innerHTML = '';
   const { data, errMsg } = await adminCall({ action: 'get_user', userId: id });
   if(errMsg){ document.getElementById('auHeader').innerHTML = '<div class="empty-note">'+esc(errMsg)+'</div>'; return; }
-  adminU = data.user; adminRenderUser(); adminLoadUserTx();
+  adminU = data.user; adminRenderUser(); adminUserTxReset(); adminUserWh('main');
 }
 function adminRenderUser(){
   const u = adminU;
@@ -2837,13 +2858,35 @@ function adminRenderUser(){
   ban.textContent = u.is_banned ? 'Unban User' : 'Ban User'; ban.style.background = u.is_banned ? 'var(--green)' : 'var(--danger)';
   document.getElementById('auAdminBtn').textContent = u.is_admin ? 'Remove Admin Rights' : 'Make Admin';
 }
-async function adminLoadUserTx(){
-  const box = document.getElementById('auTxList');
-  box.innerHTML = '<div class="empty-note">Loading…</div>';
-  const { data, errMsg } = await adminCall({ action: 'get_transactions', userId: adminU.id });
+let auTxOffset = 0, auTxStatus = 'all', auWhWallet = 'main', auWhCursor = null, auTxTimer = null;
+function adminUserTxReset(){ auTxStatus = 'all'; const q = document.getElementById('auTxQ'); if(q) q.value = ''; adminChip('auTxChips', 'all'); adminLoadUserTx(true); }
+function adminUserTxFilter(f){ auTxStatus = f; adminChip('auTxChips', f); adminLoadUserTx(true); }
+function adminUserTxSoon(){ clearTimeout(auTxTimer); auTxTimer = setTimeout(() => adminLoadUserTx(true), 350); }
+async function adminLoadUserTx(reset){
+  const box = document.getElementById('auTxList'), more = document.getElementById('auTxMore');
+  if(reset){ auTxOffset = 0; box.innerHTML = '<div class="empty-note">Loading…</div>'; }
+  const q = (document.getElementById('auTxQ') || {}).value || '';
+  const { data, errMsg } = await adminCall({ action: 'get_transactions', userId: adminU.id, status: auTxStatus, q: q.trim(), offset: auTxOffset });
   if(errMsg){ box.innerHTML = '<div class="empty-note">Could not load transactions.</div>'; return; }
-  box.innerHTML = data.transactions.length ? data.transactions.map(t => adminTxRow(t, false)).join('') : '<div class="empty-note">No transactions yet.</div>';
+  const rows = data.transactions.map(t => adminTxRow(t, false)).join('');
+  box.innerHTML = reset ? (rows || '<div class="empty-note">No transactions found.</div>') : box.innerHTML + rows;
+  auTxOffset += data.transactions.length;
+  document.getElementById('auTxCount').textContent = data.total + ' transaction' + (data.total === 1 ? '' : 's');
+  more.style.display = auTxOffset < data.total ? 'block' : 'none';
 }
+function adminUserWh(w){ auWhWallet = w; adminChip('auWhTabs', w); adminUserWhLoad(true); }
+async function adminUserWhLoad(reset){
+  const box = document.getElementById('auWhList'), more = document.getElementById('auWhMore'), sum = document.getElementById('auWhSum');
+  if(reset){ auWhCursor = null; box.innerHTML = '<div class="empty-note">Loading…</div>'; sum.textContent = ''; }
+  const { data, errMsg } = await adminCall({ action: 'user_wallet_history', userId: adminU.id, wallet: auWhWallet, cursor: reset ? null : auWhCursor });
+  if(errMsg){ box.innerHTML = '<div class="empty-note">' + esc(errMsg) + '</div>'; return; }
+  if(reset) sum.textContent = 'Balance ' + naira(data.balance) + ' · in ' + naira(data.credits) + ' · out ' + naira(data.debits);
+  auWhCursor = data.next_cursor;
+  const rows = data.items.map(t => whRow(t, 'adminWhOpen')).join('');
+  box.innerHTML = reset ? (rows || '<div class="empty-note">No movements in this wallet yet.</div>') : box.innerHTML + rows;
+  more.style.display = data.has_more ? 'block' : 'none';
+}
+function adminWhOpen(txId){ if(txId) adminOpenTx(txId); }
 async function adminRefreshUser(){ const { data } = await adminCall({ action: 'get_user', userId: adminU.id }); if(data){ adminU = data.user; adminRenderUser(); } }
 
 async function adminAdjust(direction){
@@ -5367,11 +5410,11 @@ function whPaint(sum) {
   const ch = [['', '', 'All'], ['credit', '', 'Credits'], ['debit', '', 'Debits']].concat(WHS.wallet === 'main' ? [['', 'funding', 'Funding']] : [['', 'withdrawals', 'Withdrawals']]);
   document.getElementById('whChips').innerHTML = ch.map((c) => `<button class="${WHS.direction === c[0] && WHS.kind === c[1] ? 'on' : ''}" onclick="whChip('${c[0]}','${c[1]}')">${c[2]}</button>`).join('');
 }
-function whRow(t) {
+function whRow(t, op) {
   const ic = WH_IC[t.type] || '\ud83e\uddfe', st = WH_ST[t.status] || WH_ST.pending, sign = t.direction === 'in' ? '+' : '-';
   const bal = t.balance_after != null ? `<div class="wh-bal">Balance: ${m2(t.balance_before)} \u2192 ${m2(t.balance_after)}</div>` : '';
   const d = dt(t.created_at);
-  return `<div class="txc-item" role="button" tabindex="0" onclick="whOpen('${esc(t.tx_id || '')}','${esc(t.kind)}')"><div class="txc-ic ${t.direction === 'in' ? 'g' : 'u'}">${ic}</div>
+  return `<div class="txc-item" role="button" tabindex="0" onclick="${op || 'whOpen'}('${esc(t.tx_id || '')}','${esc(t.kind)}')"><div class="txc-ic ${t.direction === 'in' ? 'g' : 'u'}">${ic}</div>
     <div class="mid"><b>${esc(t.kind)}</b>${t.desc ? `<div class="d">${esc(t.desc)}</div>` : ''}<div class="t">\ud83d\udcc5 ${esc(d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }))} \u2022 ${esc(d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }))}</div>${bal}</div>
     <div class="rt"><b class="${t.direction === 'in' ? 'cr' : 'dr'}">${sign}${m2(t.amount)}</b><span class="txc-pill ${st[1]}">${st[0]}</span></div>${t.tx_id ? '<span class="chv">\u203a</span>' : ''}</div>`;
 }
@@ -5389,6 +5432,67 @@ async function whLoad(reset) {
   more.style.display = data.has_more ? 'flex' : 'none';
 }
 loadWalletTx = function () {};   // the single-wallet page no longer repeats a second list: it links here
+</script>
+<script>
+/* ---------------- Admin: find a transaction by its ID and open everything about it ---------------- */
+let adminTxTimer = null, adminTxCur = null;
+function adminTxSearchSoon(){ clearTimeout(adminTxTimer); adminTxTimer = setTimeout(() => adminLoadTx(true), 350); }
+function adminTxEnter(){ const q = (document.getElementById('adminTxQ').value || '').trim(); if(q.length >= 6 && /^[0-9a-fA-F-]+$/.test(q)) adminOpenTx(q); else adminLoadTx(true); }
+async function adminOpenTx(id){
+  showPage('admin-tx');
+  const box = document.getElementById('atxBody'); box.innerHTML = '<div class="empty-note">Loading…</div>';
+  const { data, errMsg } = await adminCall({ action: 'admin_tx_detail', txId: id });
+  if(errMsg){ box.innerHTML = '<div class="empty-note">' + esc(errMsg) + '</div>'; return; }
+  adminTxCur = data; adminRenderTx();
+}
+function adminRenderTx(){
+  const { detail: d, user: u, admin: a } = adminTxCur, box = document.getElementById('atxBody');
+  const kv = (k, v, copy) => `<div class="kv" style="align-items:center;"><span>${esc(k)}</span><b style="text-align:right; word-break:break-all;">${v}${copy ? ` <button class="btn-sm" style="background:var(--soft); color:var(--blue-1); padding:3px 9px; margin-left:6px; white-space:nowrap; flex:none;" onclick="adminCopy('${esc(copy)}')">Copy</button>` : ''}</b></div>`;
+  const when = (s) => s ? esc(new Date(String(s).replace(' ', 'T') + 'Z').toLocaleString()) : '—';
+  const stCol = { successful: 'var(--green)', pending: '#d98200', failed: 'var(--danger)', refunded: '#6b5bd6' }[d.status] || 'var(--sub)';
+  const sign = d.direction === 'in' ? '+' : '-';
+  const card = (title, inner) => inner ? `<div class="mg-card" style="margin-bottom:12px;"><div class="mg-h">${title}</div>${inner}</div>` : '';
+  const tl = (d.timeline || []).map(e => `<div class="sub" style="margin:6px 0;">• <b>${esc(e.label)}</b> — ${e.at ? when(e.at) : esc(e.note || '')}</div>`).join('');
+  const brk = (d.breakdown || []).map(x => kv(x[0], x[2] === 'raw' ? esc(Number(x[1]).toLocaleString('en-US', { maximumFractionDigits: 6 })) : naira(x[1]))).join('');
+  const pins = Array.isArray(d.pins) ? d.pins.map(p => `<div class="sub">${esc(typeof p === 'object' ? ((p.pin ? 'PIN: ' + p.pin : '') + (p.serial ? '  Serial: ' + p.serial : '')) : p)}</div>`).join('') : '';
+  const ev = a.events.map(e => `<div class="sub">• ${esc(e.provider)} · ${esc(e.status || '')} · ${when(e.created_at)}</div>`).join('');
+  const lg = a.ledger.map(l => `<div class="sub">• ${esc(l.wallet)} ${l.direction === 'in' ? '+' : '-'}${naira(l.amount)} · ${esc(l.type)}${l.balance_after != null ? ' · balance ' + naira(l.balance_before) + ' → ' + naira(l.balance_after) : ''} · ${when(l.created_at)}</div>`).join('');
+  const acts = a.can_resolve ? `<div style="display:flex; gap:8px; margin:12px 0; flex-wrap:wrap;">
+      <button class="btn-sm" style="background:var(--green);" onclick="adminResolve('${esc(d.id)}','success')">✓ Confirm (mark successful)</button>
+      <button class="btn-sm" style="background:var(--danger);" onclick="adminResolve('${esc(d.id)}','failed')">✗ Fail & refund customer</button></div>
+      <div class="sub" style="margin-bottom:12px;">Before you press anything, search this ID in the Legitdataway dashboard and see what they say.</div>` : (a.resolve_hint ? `<div class="sub" style="margin:10px 0; color:#b86e00;">${esc(a.resolve_hint)}</div>` : '');
+  box.innerHTML = `<div class="mg-card" style="margin-bottom:12px; text-align:center;">
+      <div style="font-size:13px; color:var(--sub); font-weight:700;">${esc(d.service)}</div>
+      <div style="font-size:28px; font-weight:900; margin:4px 0; color:${d.direction === 'in' ? 'var(--green)' : 'var(--text)'};">${sign}${naira(d.amount)}</div>
+      <div style="display:inline-block; padding:4px 14px; border-radius:999px; font-weight:800; font-size:12px; color:#fff; background:${stCol};">${esc(String(d.status).toUpperCase())}</div>
+      <div class="sub">${when(d.created_at)}</div></div>
+    ${acts}
+    ${card('Transaction', kv('Transaction ID', esc(d.id), d.id) + kv('Type', esc(d.type)) + kv('Wallet', esc(a.wallet || '')) + kv('Raw status', esc(a.raw_status)) + (a.provider_ref ? kv('Provider reference', esc(a.provider_ref), a.provider_ref) : '') + (d.token ? kv('Token', esc(d.token), d.token) : '') + (d.description ? kv('Description', esc(d.description)) : ''))}
+    ${card('Customer', `<div style="font-weight:800;">${esc(u.full_name || '')} <span class="sub" style="display:inline;">@${esc(u.username)}${u.is_banned ? ' · BANNED' : ''}</span></div><div class="sub">${esc(u.email)} · ${esc(u.phone || '')}</div><div class="sub">Main ${naira(u.balance_ngn)} · Exchange ${naira(u.exchange_balance)} · Airtime-to-Cash ${naira(u.atc_balance)}</div><div style="margin-top:10px;"><button class="btn-sm" style="background:var(--blue-1);" onclick="closePage('admin-tx'); adminOpenUser('${esc(u.id)}')">Open this customer</button></div>`)}
+    ${card('Money', brk + (a.cost != null ? kv('Your cost (provider)', naira(a.cost)) : '') + (a.profit != null ? kv('Your profit', naira(a.profit)) : ''))}
+    ${card('PINs / cards', pins)}
+    ${card('What happened', tl)}
+    ${card('Provider callbacks', ev)}
+    ${card('Wallet ledger lines', lg)}`;
+}
+async function adminCopy(t){ try{ await navigator.clipboard.writeText(t); showToast('Copied', 'success'); }catch(e){ showToast('Select and copy it', 'error'); } }
+async function adminOpenTxQuiet(id){ const { data } = await adminCall({ action: 'admin_tx_detail', txId: id }); if(data){ adminTxCur = data; adminRenderTx(); } }
+</script>
+<script>
+/* ---------- Admin: tells you when Legitdataway changed a price (real cost differs from catalog.js) ---------- */
+async function adminLoadPriceAlerts(){
+  const box = document.getElementById('aPriceAlerts'); if(!box) return;
+  const { data, errMsg } = await adminCall({ action: 'price_alerts' });
+  if(errMsg || !data || !data.alerts.length){ box.innerHTML = ''; return; }
+  const loss = data.alerts.some(a => a.losses > 0);
+  box.innerHTML = `<div class="mg-card" style="margin-bottom:16px; border:2px solid ${loss ? 'var(--danger)' : '#f5b81c'};">
+    <div class="mg-h" style="color:${loss ? 'var(--danger)' : '#b86e00'};">\u26a0\ufe0f Provider price changed (last 30 days)</div>
+    <div class="mg-s">Legitdataway took more (or less) from your wallet than the cost in catalog.js. Your customers still pay the old price.</div>
+    ${data.alerts.map(a => `<div class="arow" style="cursor:default; margin-top:10px;"><div class="top"><span>${esc(a.item)}</span><span class="tx-amt ${a.diff > 0 ? 'out' : 'in'}">${a.diff > 0 ? '+' : '-'}${naira(Math.abs(a.diff))}</span></div>
+      <div class="sub">catalog says ${naira(a.catalog_cost)} \u2192 Legitdataway charged ${naira(a.real_cost)} \u00b7 sold ${a.count} time${a.count === 1 ? '' : 's'}</div>
+      <div class="sub" style="color:${a.profit_now <= 0 ? 'var(--danger)' : 'inherit'}; font-weight:700;">Customer price ${naira(a.sell_price)} \u2192 your profit now ${naira(a.profit_now)} per sale${a.losses ? ' \u00b7 ' + a.losses + ' sold at a LOSS' : ''}</div></div>`).join('')}
+    <div class="mg-s" style="margin-top:12px;"><b>How to fix:</b> 1) Open Settings \u2192 Profit and raise the profit for that service so the customer price covers the new cost. 2) Send the new cost to your developer (or change that one line in catalog.js) so the catalog matches. (This warning keeps showing for 30 days after the last such sale; the sale rows stay in the history.)</div></div>`;
+}
 </script>
 </body>
 </html>

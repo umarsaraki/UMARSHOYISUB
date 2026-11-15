@@ -33,6 +33,8 @@ const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS sn_notifications (id TEXT PRIMARY KEY, title TEXT NOT NULL, message TEXT NOT NULL, category TEXT NOT NULL, language TEXT NOT NULL DEFAULT 'en', priority TEXT NOT NULL DEFAULT 'normal', sound TEXT NOT NULL DEFAULT 'hii', target TEXT NOT NULL DEFAULT 'all', channels TEXT NOT NULL DEFAULT '["in_app"]', action_label TEXT, action_target TEXT, status TEXT NOT NULL DEFAULT 'draft', scheduled_at TEXT, sent_at TEXT, intended INTEGER NOT NULL DEFAULT 0, delivered INTEGER NOT NULL DEFAULT 0, skipped INTEGER NOT NULL DEFAULT 0, failed INTEGER NOT NULL DEFAULT 0, error TEXT, created_by TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
   `CREATE INDEX IF NOT EXISTS idx_sn_status ON sn_notifications(status, scheduled_at)`,
   `CREATE INDEX IF NOT EXISTS idx_sn_created ON sn_notifications(created_at)`,
+  `CREATE TABLE IF NOT EXISTS sn_sound_settings (k TEXT PRIMARY KEY, v TEXT)`,
+  `CREATE TABLE IF NOT EXISTS sn_sound_files (slot TEXT PRIMARY KEY, mime TEXT NOT NULL, size INTEGER NOT NULL, b64 TEXT NOT NULL, updated_by TEXT, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
   `CREATE TABLE IF NOT EXISTS support_tickets (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), tx_id TEXT, message TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'open', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
   `CREATE TABLE IF NOT EXISTS admin_log (id TEXT PRIMARY KEY, admin_id TEXT NOT NULL, action TEXT NOT NULL, target_id TEXT, detail TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
   `CREATE TABLE IF NOT EXISTS referral_rules (id TEXT PRIMARY KEY, enabled INTEGER NOT NULL DEFAULT 1, reward_type TEXT NOT NULL DEFAULT 'fixed', reward_value REAL NOT NULL DEFAULT 0, min_deposit REAL NOT NULL DEFAULT 0, first_only INTEGER NOT NULL DEFAULT 1, max_per_referral REAL NOT NULL DEFAULT 0, max_count_per_referrer INTEGER NOT NULL DEFAULT 0, max_total_per_referrer REAL NOT NULL DEFAULT 0, terms TEXT NOT NULL DEFAULT '', effective_from INTEGER NOT NULL DEFAULT 0, created_by TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
@@ -71,6 +73,8 @@ const MIGRATIONS = [
   `ALTER TABLE user_notifications ADD COLUMN event_id TEXT`,
   `ALTER TABLE user_notifications ADD COLUMN action_label TEXT`,
   `ALTER TABLE user_notifications ADD COLUMN action_target TEXT`,
+  `ALTER TABLE user_notifications ADD COLUMN played_at TEXT`,
+  `ALTER TABLE user_prefs ADD COLUMN sound_prefs TEXT`,
   `CREATE UNIQUE INDEX IF NOT EXISTS uq_un_sn ON user_notifications(user_id, sn_id) WHERE sn_id IS NOT NULL`,
   `CREATE UNIQUE INDEX IF NOT EXISTS uq_un_event ON user_notifications(user_id, event_id) WHERE event_id IS NOT NULL`,
   `CREATE INDEX IF NOT EXISTS idx_un_sn ON user_notifications(sn_id)`,
@@ -358,7 +362,7 @@ async function forgotPassword(req, env) {
   const salt = uid();
   await env.DB.prepare('UPDATE users SET password_hash=?, password_salt=? WHERE id=?').bind(await passwordHash(password, salt), salt, u.id).run();
   await rateClear(env, idKey); await rateClear(env, 'login:id:' + id);
-  await notify(env, u.id, 'Password changed', 'Your password was reset. If this was not you, contact support immediately.');
+  await notify(env, u.id, 'Password changed', 'Your password was reset. If this was not you, contact support immediately.', { sound: 'hii', category: 'security_alert' });
   return json({ ok: true });
 }
 
@@ -373,7 +377,7 @@ async function securityRoutes(req, env, user) {
       const bl = x.bio_login === undefined ? cur.bio_login : !!x.bio_login, bt = x.bio_tx === undefined ? cur.bio_tx : !!x.bio_tx;
       if ((bl || bt) && !list.length) return fail('Register this device first.');
       await env.DB.prepare('INSERT INTO user_security(user_id,bio_login,bio_tx) VALUES(?,?,?) ON CONFLICT(user_id) DO UPDATE SET bio_login=excluded.bio_login, bio_tx=excluded.bio_tx').bind(user.id, bl ? 1 : 0, bt ? 1 : 0).run();
-      await notify(env, user.id, 'Security settings changed', `Fingerprint login is now ${bl ? 'on' : 'off'} and fingerprint transaction confirmation is ${bt ? 'on' : 'off'}.`);
+      await notify(env, user.id, 'Security settings changed', `Fingerprint login is now ${bl ? 'on' : 'off'} and fingerprint transaction confirmation is ${bt ? 'on' : 'off'}.`, { sound: 'hii', category: 'security_alert' });
     }
     return json({ ...(await getSec(env, user.id)), devices: await devices(), pin_set: !!(await env.DB.prepare('SELECT transaction_pin_hash h FROM profiles WHERE id=?').bind(user.id).first())?.h });
   }
@@ -405,7 +409,7 @@ async function securityRoutes(req, env, user) {
     if (exists && exists.user_id !== user.id) return fail('This device is already registered to another account.');
     await env.DB.prepare('INSERT INTO passkeys(id,user_id,public_key,alg,counter,device_name) VALUES(?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET public_key=excluded.public_key, alg=excluded.alg, revoked=0, device_name=excluded.device_name')
       .bind(id, user.id, String(x.publicKey), alg, ((ad[33] << 24) | (ad[34] << 16) | (ad[35] << 8) | ad[36]) >>> 0, name).run();
-    await notify(env, user.id, 'New device added', `"${name}" can now be used for fingerprint login. If this was not you, remove it in Profile > Security & Privacy.`);
+    await notify(env, user.id, 'New device added', `"${name}" can now be used for fingerprint login. If this was not you, remove it in Profile > Security & Privacy.`, { sound: 'hii', category: 'security_alert' });
     return json({ ok: true, devices: await devices() });
   }
   if (path === '/api/auth/passkey/revoke' && req.method === 'POST') {
@@ -413,7 +417,7 @@ async function securityRoutes(req, env, user) {
     const c = await env.DB.prepare('UPDATE passkeys SET revoked=1 WHERE id=? AND user_id=? AND revoked=0').bind(String(x.id || ''), user.id).run();
     if (c.meta.changes !== 1) return fail('Device not found.', 404);
     if (!(await devices()).length) await env.DB.prepare('UPDATE user_security SET bio_login=0, bio_tx=0 WHERE user_id=?').bind(user.id).run();
-    await notify(env, user.id, 'Device removed', 'A device was removed from your fingerprint login.');
+    await notify(env, user.id, 'Device removed', 'A device was removed from your fingerprint login.', { sound: 'hii', category: 'security_alert' });
     return json({ ok: true, ...(await getSec(env, user.id)), devices: await devices() });
   }
   if (path === '/api/auth/passkey/tx-options' && req.method === 'POST') {
@@ -475,7 +479,7 @@ async function settleFlutterwave(env, flwId) {
       env.DB.prepare("UPDATE profiles SET balance_ngn=balance_ngn+? WHERE id=? AND EXISTS(SELECT 1 FROM transactions WHERE id=? AND status='pending')").bind(pending.amount, pending.user_id, pending.id),
       env.DB.prepare("UPDATE transactions SET updated_at=CURRENT_TIMESTAMP, status='successful' WHERE id=? AND status='pending'").bind(pending.id),
     ]);
-    if (r[1].meta.changes === 1) { await notify(env, pending.user_id, 'Wallet funded', `\u20a6${Number(pending.amount).toLocaleString()} was added to your Main Wallet.`); await referralDeposit(env, pending.user_id, pending.amount, d.tx_ref); }
+    if (r[1].meta.changes === 1) { await notify(env, pending.user_id, 'Wallet funded', `\u20a6${Number(pending.amount).toLocaleString()} was added to your Main Wallet.`, { sound: 'wow', category: 'wallet_funding', ref_type: 'tx', ref_id: pending.id, event_id: 'fund:' + pending.id }); await referralDeposit(env, pending.user_id, pending.amount, d.tx_ref); }
     return { ok: true, credited: r[1].meta.changes === 1 };
   }
   // bank transfer into a user's virtual account
@@ -488,7 +492,7 @@ async function settleFlutterwave(env, flwId) {
     env.DB.prepare('UPDATE profiles SET balance_ngn=balance_ngn+? WHERE id=? AND EXISTS(SELECT 1 FROM payment_events WHERE id=?)').bind(paid, userId, evId),
     env.DB.prepare("INSERT INTO transactions(id,user_id,type,label,amount,direction,status,provider_ref,metadata) SELECT ?,?,'fund','Bank transfer funding',?,'in','successful',?,? WHERE EXISTS(SELECT 1 FROM payment_events WHERE id=?)").bind(uid(), userId, paid, 'flw-' + d.id, JSON.stringify({ provider: 'flutterwave', via: 'virtual-account' }), evId),
   ]);
-  if (r[0].meta.changes === 1) { await notify(env, userId, 'Wallet funded', `\u20a6${Number(paid).toLocaleString()} was added to your Main Wallet.`); await referralDeposit(env, userId, paid, 'flw-' + d.id); }
+  if (r[0].meta.changes === 1) { await notify(env, userId, 'Wallet funded', `\u20a6${Number(paid).toLocaleString()} was added to your Main Wallet.`, { sound: 'wow', category: 'wallet_funding', event_id: 'fund:flw' + d.id }); await referralDeposit(env, userId, paid, 'flw-' + d.id); }
   return { ok: true, credited: r[0].meta.changes === 1 };
 }
 
@@ -612,7 +616,7 @@ async function creditReferral(env, r, from, amount, by, dep) {
     env.DB.prepare("INSERT INTO transactions(id,user_id,type,label,amount,direction,status,provider_ref,wallet) SELECT ?,?,'referral-bonus','Referral bonus',?,'in','successful',?,'main' WHERE changes() > 0").bind(uid(), r.referrer_id, amt, 'refbonus-' + r.id),
   ]);
   if (res[0].meta.changes !== 1) return false;
-  await notify(env, r.referrer_id, 'Referral reward', `You earned ₦${amt.toLocaleString()} because a friend you invited made a qualifying deposit.`);
+  await notify(env, r.referrer_id, 'Referral reward', `You earned ₦${amt.toLocaleString()} because a friend you invited made a qualifying deposit.`, { sound: 'hii', category: 'referral_announcement', pref: 'promo' });
   return true;
 }
 // Called ONLY after a deposit was verified with the payment provider and credited.
@@ -651,14 +655,15 @@ async function settlePurchase(env, txId, outcome, extra = {}) {
   if (!t) return false;                                   // already settled: nothing to do (safe to call twice)
   if (outcome === 'success') {
     const r = await env.DB.prepare("UPDATE transactions SET updated_at=CURRENT_TIMESTAMP, status='successful', provider_ref=COALESCE(?,provider_ref) WHERE id=? AND status='pending'").bind(extra.ref ?? null, txId).run();
-    if (r.meta.changes === 1) return true;
+    if (r.meta.changes === 1) { await txEvent(env, txId, 'success'); return true; }
     return false;
   }
   const r = await env.DB.batch([
     env.DB.prepare("UPDATE profiles SET balance_ngn=balance_ngn+? WHERE id=? AND EXISTS(SELECT 1 FROM transactions WHERE id=? AND status='pending')").bind(t.amount, t.user_id, txId),
     env.DB.prepare("UPDATE transactions SET updated_at=CURRENT_TIMESTAMP, status='failed' WHERE id=? AND status='pending'").bind(txId),
   ]);
-  return r[1].meta.changes === 1;
+  if (r[1].meta.changes === 1) { await txEvent(env, txId, 'fail'); return true; }
+  return false;
 }
 // After a successful purchase, keep what the provider REALLY took from our wallet, so "My Profit" is exact.
 async function recordRealCost(env, txId, cost) {
@@ -857,7 +862,7 @@ async function settleTransfer(env, reference, status) {
     const c = await env.DB.prepare("UPDATE withdrawals SET status='successful', updated_at=CURRENT_TIMESTAMP WHERE id=? AND status IN ('pending','processing')").bind(wd.id).run();
     if (c.meta.changes === 1) {
       await env.DB.prepare("UPDATE transactions SET updated_at=CURRENT_TIMESTAMP, status='successful' WHERE id=?").bind(wd.id).run();
-      await notify(env, wd.user_id, 'Withdrawal successful', `\u20a6${Number(wd.net).toLocaleString()} has been sent to your bank account.`);
+      await notify(env, wd.user_id, 'Withdrawal successful', `\u20a6${Number(wd.net).toLocaleString()} has been sent to your bank account.`, { sound: 'wow', category: 'withdrawal_update', ref_type: 'tx', ref_id: wd.id, event_id: 'wd:' + wd.id + ':ok' });
     }
   } else if (status === 'FAILED') await reverseWithdrawal(env, wd.id, 'The bank transfer failed');
 }
@@ -952,7 +957,7 @@ async function settleRemittance(env, d) {
     env.DB.prepare("UPDATE transactions SET updated_at=CURRENT_TIMESTAMP, status='successful' WHERE id=? AND status='pending'").bind(r.id),
   ]);
   const credited = res[0].meta.changes === 1;
-  if (credited) await notify(env, r.user_id, 'Exchange successful', `\u20a6${Number(r.receive_ngn).toLocaleString()} has been added to your Exchange Wallet.`);
+  if (credited) await notify(env, r.user_id, 'Exchange successful', `\u20a6${Number(r.receive_ngn).toLocaleString()} has been added to your Exchange Wallet.`, { sound: 'wow', category: 'exchange_update', ref_type: 'tx', ref_id: r.id, event_id: 'ex:' + r.id + ':ok' });
   return { ok: true, credited };
 }
 
@@ -1024,7 +1029,7 @@ async function getPrefs(env, userId) {
 }
 async function notify(env, userId, title, message, opts = {}) {   // a personal notification (shows under the bell)
   try {
-    const cat = notifCat(title);
+    const cat = opts.pref || notifCat(title);
     if (cat !== 'security' && (await getPrefs(env, userId)).notif[cat] === false) return;   // the customer switched this type off
     await env.DB.prepare('INSERT OR IGNORE INTO user_notifications(id,user_id,title,message,category,sound,priority,ref_type,ref_id,event_id) VALUES(?,?,?,?,?,?,?,?,?,?)').bind(uid(), userId, String(title).slice(0, 80), String(message).slice(0, 300), opts.category || null, opts.sound || null, opts.priority || null, opts.ref_type || null, opts.ref_id || null, opts.event_id || null).run();
   }
@@ -1354,6 +1359,103 @@ FUNCTIONS['notification-delete'] = async (x, env, user) => {
 };
 FUNCTIONS['notifications-seen'] = async (x, env, user) => { await env.DB.prepare('UPDATE profiles SET notif_seen_at=CURRENT_TIMESTAMP WHERE id=?').bind(user.id).run(); return json({ ok: true }); };
 
+/* ===================== SOUND & VOICE ===================== */
+// Default spoken sentences. Short, and never include amounts, names or numbers. The admin can edit them.
+const SND_KINDS = ['wow', 'ahh', 'hii'], SND_LANGS = ['en', 'ha', 'yo'];
+const SND_PHRASES = {
+  wow: { en: 'Wow! Your transaction was successful.', ha: 'Madalla! An kammala transaction ɗinka cikin nasara.', yo: 'Ẹ kú iṣẹ́! Transaction rẹ ti yọrí sí rere.' },
+  ahh: { en: 'Sorry, your transaction was not successful. Please check your transaction details.', ha: 'Yi haƙuri, transaction ɗinka bai yi nasara ba. Da fatan za ka duba bayanansa.', yo: 'Má bínú, transaction rẹ kò yọrí sí rere. Jọ̀wọ́ ṣàyẹ̀wò àlàyé rẹ̀.' },
+  hii: { en: 'Hi! You have a new notification from UMARSHOYI-SUB.', ha: 'Sannu! Kana da sabon saƙo daga UMARSHOYI-SUB.', yo: 'Báwo! O ní ìfitónilétí tuntun láti UMARSHOYI-SUB.' },
+};
+const SND_MAX = 1000000;   // 1 MB per uploaded clip
+async function sndSettings(env) {
+  const rows = (await env.DB.prepare('SELECT k,v FROM sn_sound_settings').all()).results, m = Object.fromEntries(rows.map((r) => [r.k, r.v]));
+  let ph = {}; try { ph = JSON.parse(m.phrases || '{}') || {}; } catch { ph = {}; }
+  const phrases = {}; for (const k of SND_KINDS) { phrases[k] = {}; for (const l of SND_LANGS) phrases[k][l] = snClip(ph?.[k]?.[l], 160).trim() || SND_PHRASES[k][l]; }
+  return { voice_enabled: m.voice_enabled !== '0', chime: { wow: m.chime_wow !== '0', ahh: m.chime_ahh !== '0', hii: m.chime_hii !== '0' }, voice_hint: m.voice_hint || '', phrases };
+}
+async function sndClips(env) { return (await env.DB.prepare('SELECT slot,mime,size,updated_at FROM sn_sound_files').all()).results; }
+const SND_DEF_PREFS = { voice: true, wow: true, ahh: true, hii: true };
+async function sndPrefs(env, userId) {
+  const r = await env.DB.prepare('SELECT sound_prefs s FROM user_prefs WHERE user_id=?').bind(userId).first(); let p = {}; try { p = JSON.parse(r?.s || '{}') || {}; } catch { p = {}; }
+  const out = {}; for (const k of Object.keys(SND_DEF_PREFS)) out[k] = p[k] === undefined ? SND_DEF_PREFS[k] : p[k] !== false; return out;
+}
+// the real file type, from its first bytes (the file name and the browser's claim are not trusted)
+function sndSniff(b) {
+  const s4 = String.fromCharCode(...b.slice(0, 4));
+  if (s4 === 'RIFF' && String.fromCharCode(...b.slice(8, 12)) === 'WAVE') return 'audio/wav';
+  if (s4 === 'OggS') return 'audio/ogg';
+  if (s4.startsWith('ID3') || (b[0] === 0xff && (b[1] & 0xe0) === 0xe0)) return 'audio/mpeg';
+  return '';
+}
+
+FUNCTIONS['admin-sound'] = async (x, env, user) => {
+  if (!user.is_admin) return fail('Admin permission required.', 403);
+  const db = env.DB, log = (a, t, d) => db.prepare('INSERT INTO admin_log(id,admin_id,action,target_id,detail) VALUES(?,?,?,?,?)').bind(uid(), user.id, a, t || null, d ? String(d).slice(0, 300) : null).run();
+  const put = (k, v) => db.prepare('INSERT INTO sn_sound_settings(k,v) VALUES(?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v').bind(k, v).run();
+  switch (x.action) {
+    case 'get': return json({ settings: await sndSettings(env), clips: await sndClips(env), defaults: SND_PHRASES });
+    case 'save_settings': {
+      await put('voice_enabled', x.voice_enabled === false ? '0' : '1');
+      for (const k of SND_KINDS) await put('chime_' + k, x.chime?.[k] === false ? '0' : '1');
+      await put('voice_hint', snClip(x.voice_hint, 60).trim());
+      await log('snd_settings', null, `voice ${x.voice_enabled === false ? 'off' : 'on'}`); return json({ ok: true });
+    }
+    case 'save_phrases': {
+      const out = {}; for (const k of SND_KINDS) { out[k] = {}; for (const l of SND_LANGS) out[k][l] = snClip(x.phrases?.[k]?.[l], 160).trim(); }
+      await put('phrases', JSON.stringify(out)); await log('snd_phrases', null, 'edited'); return json({ ok: true });
+    }
+    case 'upload': {
+      const slot = String(x.slot || ''); if (!/^(wow|ahh|hii):(en|ha|yo|chime)$/.test(slot)) return fail('Unknown sound slot.');
+      const b64 = String(x.b64 || '').replace(/^data:[^,]*,/, ''); if (!b64 || b64.length > 1400000) return fail('The file is too big. Use an audio file under 1 MB.');
+      let bytes; try { bytes = unb64(b64); } catch { return fail('The file could not be read.'); }
+      if (bytes.length > SND_MAX) return fail('The file is too big. Use an audio file under 1 MB.');
+      if (bytes.length < 200) return fail('The file is too small to be a sound.');
+      const mime = sndSniff(bytes); if (!mime) return fail('Only MP3, WAV or OGG audio files are accepted.');
+      const since = snDate(new Date(Date.now() - 3600000));
+      if ((await db.prepare("SELECT COUNT(*) n FROM admin_log WHERE admin_id=? AND action='snd_upload' AND created_at>=?").bind(user.id, since).first()).n >= 20) return fail('Too many uploads in the last hour. Please wait.', 429);
+      await db.prepare('INSERT INTO sn_sound_files(slot,mime,size,b64,updated_by) VALUES(?,?,?,?,?) ON CONFLICT(slot) DO UPDATE SET mime=excluded.mime,size=excluded.size,b64=excluded.b64,updated_by=excluded.updated_by,updated_at=CURRENT_TIMESTAMP').bind(slot, mime, bytes.length, b64, user.id).run();
+      await log('snd_upload', null, `${slot} ${mime} ${bytes.length}B`); return json({ ok: true, mime, size: bytes.length });
+    }
+    case 'remove': {
+      const c = await db.prepare('DELETE FROM sn_sound_files WHERE slot=?').bind(String(x.slot || '')).run();
+      if (!c.meta.changes) return fail('Nothing to remove.'); await log('snd_remove', null, x.slot); return json({ ok: true });
+    }
+    default: return fail('Unknown action.');
+  }
+};
+// customers: everything the app needs to play sounds, and their own switches
+FUNCTIONS['sound-config'] = async (x, env, user) => json({ settings: await sndSettings(env), clips: await sndClips(env), prefs: await sndPrefs(env, user.id) });
+FUNCTIONS['sound-file'] = async (x, env, user) => {
+  const slot = String(x.slot || ''); if (!/^(wow|ahh|hii):(en|ha|yo|chime)$/.test(slot)) return fail('Unknown sound.');
+  const r = await env.DB.prepare('SELECT mime,b64,updated_at FROM sn_sound_files WHERE slot=?').bind(slot).first();
+  return r ? json(r) : fail('No file.', 404);
+};
+FUNCTIONS['sound-prefs-save'] = async (x, env, user) => {
+  const cur = await sndPrefs(env, user.id), n = { ...cur };
+  for (const k of Object.keys(SND_DEF_PREFS)) if (typeof x[k] === 'boolean') n[k] = x[k];
+  await env.DB.prepare('INSERT INTO user_prefs(user_id,sound_prefs) VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET sound_prefs=excluded.sound_prefs').bind(user.id, JSON.stringify(n)).run();
+  return json({ ok: true, prefs: n });
+};
+// The app asks "is there something new to play?". Only notifications written by a verified backend event or an admin send are
+// returned, each once, and only if they are recent (nothing old is replayed after the app was closed for a while).
+FUNCTIONS['notif-poll'] = async (x, env, user) => {
+  const rows = (await env.DB.prepare("SELECT id,sound,category,title FROM user_notifications WHERE user_id=? AND played_at IS NULL AND deleted_at IS NULL AND sound IN ('wow','ahh','hii') AND created_at >= datetime('now','-10 minutes') ORDER BY created_at LIMIT 20").bind(user.id).all()).results;
+  if (rows.length) await env.DB.prepare(`UPDATE user_notifications SET played_at=CURRENT_TIMESTAMP WHERE user_id=? AND id IN (${rows.map(() => '?').join(',')})`).bind(user.id, ...rows.map((r) => r.id)).run();
+  const unread = (await env.DB.prepare("SELECT COUNT(*) n FROM user_notifications WHERE user_id=? AND read_at IS NULL AND deleted_at IS NULL AND created_at >= (SELECT notif_seen_at FROM profiles WHERE id=?)").bind(user.id, user.id).first()).n;
+  return json({ items: rows.map((r) => ({ id: r.id, sound: r.sound, title: r.title })), unread });
+};
+
+// A verified transaction result -> a notification with the right sound. Safe to call twice (one per transaction and result).
+async function txEvent(env, txId, outcome) {
+  try {
+    const t = await env.DB.prepare('SELECT id,user_id,type,label,amount FROM transactions WHERE id=?').bind(txId).first(); if (!t) return;
+    const nm = String(t.label || t.type || 'Transaction').slice(0, 40), amt = '₦' + Number(t.amount).toLocaleString();
+    if (outcome === 'success') await notify(env, t.user_id, `${nm} successful`, `${amt} - ${nm} was completed.`, { sound: 'wow', category: 'transaction_update', pref: 'transaction', ref_type: 'tx', ref_id: t.id, event_id: 'tx:' + t.id + ':ok' });
+    else await notify(env, t.user_id, `${nm} failed`, `${nm} did not go through. ${amt} was returned to your wallet.`, { sound: 'ahh', category: 'transaction_update', pref: 'transaction', ref_type: 'tx', ref_id: t.id, event_id: 'tx:' + t.id + ':fail' });
+  } catch (e) { console.error('txEvent failed', e); }
+}
+
 /* ----- transactions ----- */
 FUNCTIONS['tx-list'] = async (x, env, user) => {
   const where = ['user_id=?'], args = [user.id];
@@ -1623,7 +1725,7 @@ FUNCTIONS['withdraw-create'] = async (x, env, user) => {
       ledgerIfChanged(env, { userId: user.id, wallet: 'main', dir: 'in', amount: q.amount, ref: 'wtm-in-' + idIn, type: 'transfer', note: 'From ' + from }),
     ]);
     if (b[0].meta.changes !== 1) return fail('Your balance changed. Please check it and try again.');
-    await notify(env, user.id, 'Moved to Main Wallet', `\u20a6${q.amount.toLocaleString()} moved from your ${from} to your Main Wallet.`);
+    await notify(env, user.id, 'Moved to Main Wallet', `\u20a6${q.amount.toLocaleString()} moved from your ${from} to your Main Wallet.`, { sound: 'none', category: 'transaction_update' });
     return json({ data: { id: idOut, status: 'successful', message: `\u20a6${q.amount.toLocaleString()} is now in your Main Wallet.` } });
   }
   const bank = await env.DB.prepare('SELECT * FROM bank_accounts WHERE id=? AND user_id=?').bind(String(x.bankAccountId || ''), user.id).first();
@@ -1640,7 +1742,7 @@ FUNCTIONS['withdraw-create'] = async (x, env, user) => {
     ledgerIfChanged(env, { userId: user.id, wallet: q.wallet, dir: 'out', amount: q.amount, ref: 'withdraw-' + id, type: 'withdrawal', note: `To ${bank.bank_name} ${maskAcct(bank.account_number)}` }),
   ]);
   if (b[0].meta.changes !== 1) return fail('Your balance changed. Please check it and try again.');
-  await notify(env, user.id, 'Withdrawal submitted', `Your withdrawal of \u20a6${q.amount.toLocaleString()} is being processed.`);
+  await notify(env, user.id, 'Withdrawal submitted', `Your withdrawal of \u20a6${q.amount.toLocaleString()} is being processed.`, { sound: 'none', category: 'withdrawal_update' });
   let t;
   try { t = await flw(env, 'POST', '/transfers', { account_bank: bank.bank_code, account_number: bank.account_number, amount: q.net, currency: 'NGN', reference, narration: (env.APP_NAME || 'Withdrawal').slice(0, 40), debit_currency: 'NGN' }); }
   catch (e) { console.error('transfer error', e); return json({ data: { id, status: 'pending', message: 'Your withdrawal is being processed. Check your history for the result.' } }); } // stays pending; the webhook or admin settles it
@@ -1659,7 +1761,7 @@ async function reverseWithdrawal(env, id, reason) {   // gives the money back ex
     env.DB.prepare("UPDATE transactions SET updated_at=CURRENT_TIMESTAMP, status='failed' WHERE id=?").bind(id),
   ]);
   if (r[0].meta.changes !== 1) return false;
-  await notify(env, wd.user_id, 'Withdrawal failed', `Your withdrawal of \u20a6${Number(wd.amount).toLocaleString()} did not go through. The money is back in your ${WALLET_NAME[wd.wallet]}.`);
+  await notify(env, wd.user_id, 'Withdrawal failed', `Your withdrawal of \u20a6${Number(wd.amount).toLocaleString()} did not go through. The money is back in your ${WALLET_NAME[wd.wallet]}.`, { sound: 'ahh', category: 'withdrawal_update', ref_type: 'tx', ref_id: wd.id, event_id: 'wd:' + wd.id + ':fail' });
   return true;
 }
 FUNCTIONS['withdraw-history'] = async (x, env, user) => {
@@ -2023,7 +2125,7 @@ FUNCTIONS['verify-otp'] = async (x, env, user) => {
     env.DB.prepare("INSERT INTO transactions(id,user_id,type,label,amount,direction,status,provider_ref,wallet) VALUES(?,?,'airtime-to-cash',?,?,'in','successful',?,'atc')").bind(aId, user.id, `Airtime to Cash (${net.toUpperCase()} \u20a6${amount})`, res.credited, res.ref || null),
     ledgerIfChanged(env, { userId: user.id, wallet: 'atc', dir: 'in', amount: res.credited, ref: 'a2c-' + aId, type: 'airtime-to-cash', note: `${net.toUpperCase()} airtime ${amount}` }),
   ]);
-  await notify(env, user.id, 'Airtime-to-Cash successful', `\u20a6${Number(res.credited).toLocaleString()} has been added to your Airtime-to-Cash Wallet.`);
+  await notify(env, user.id, 'Airtime-to-Cash successful', `\u20a6${Number(res.credited).toLocaleString()} has been added to your Airtime-to-Cash Wallet.`, { sound: 'wow', category: 'atc_update' });
   return json({ data: { credited: res.credited } });
 };
 
@@ -2192,6 +2294,7 @@ FUNCTIONS['admin-manage-users'] = async (x, env, user) => {
       ops.push(db.prepare("UPDATE transactions SET updated_at=CURRENT_TIMESTAMP, status=? WHERE id=? AND status='pending'").bind(ok ? 'successful' : 'failed', t.id));
       ops.push(log('resolve_transaction', t.user_id, `${t.id} -> ${ok ? 'successful' : 'failed (refunded)'}`));
       await db.batch(ops);
+      if (t.direction === 'out') await txEvent(env, t.id, ok ? 'success' : 'fail');
       return json({ ok: true });
     }
     case 'price_alerts': {   // purchases of the last 30 days where Legitdataway charged a different price from catalog.js
@@ -2267,7 +2370,7 @@ FUNCTIONS['admin-manage-users'] = async (x, env, user) => {
       const c = await db.prepare("UPDATE withdrawals SET status='successful', updated_at=CURRENT_TIMESTAMP WHERE id=? AND status IN ('pending','processing')").bind(id).run();
       if (c.meta.changes !== 1) return fail('This withdrawal is no longer pending.', 404);
       await db.prepare("UPDATE transactions SET updated_at=CURRENT_TIMESTAMP, status='successful' WHERE id=?").bind(id).run();
-      await notify(env, wd.user_id, 'Withdrawal successful', `\u20a6${Number(wd.net).toLocaleString()} has been sent to your bank account.`);
+      await notify(env, wd.user_id, 'Withdrawal successful', `\u20a6${Number(wd.net).toLocaleString()} has been sent to your bank account.`, { sound: 'wow', category: 'withdrawal_update', ref_type: 'tx', ref_id: wd.id, event_id: 'wd:' + wd.id + ':ok' });
       await log('confirm_withdrawal', null, id).run();
       return json({ ok: true });
     }

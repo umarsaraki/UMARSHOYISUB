@@ -29,6 +29,10 @@ const SCHEMA = [
   `CREATE INDEX IF NOT EXISTS idx_ref_referrer ON referrals(referrer_id, created_at)`,
   `CREATE TABLE IF NOT EXISTS user_notifications (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), title TEXT NOT NULL, message TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
   `CREATE INDEX IF NOT EXISTS idx_un_user ON user_notifications(user_id, created_at)`,
+  `CREATE TABLE IF NOT EXISTS sn_categories (id TEXT PRIMARY KEY, name TEXT NOT NULL, icon TEXT NOT NULL DEFAULT '🔔', color TEXT NOT NULL DEFAULT '#1d4ed8', sound TEXT NOT NULL DEFAULT 'hii', pref TEXT NOT NULL DEFAULT 'service', builtin INTEGER NOT NULL DEFAULT 0, active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+  `CREATE TABLE IF NOT EXISTS sn_notifications (id TEXT PRIMARY KEY, title TEXT NOT NULL, message TEXT NOT NULL, category TEXT NOT NULL, language TEXT NOT NULL DEFAULT 'en', priority TEXT NOT NULL DEFAULT 'normal', sound TEXT NOT NULL DEFAULT 'hii', target TEXT NOT NULL DEFAULT 'all', channels TEXT NOT NULL DEFAULT '["in_app"]', action_label TEXT, action_target TEXT, status TEXT NOT NULL DEFAULT 'draft', scheduled_at TEXT, sent_at TEXT, intended INTEGER NOT NULL DEFAULT 0, delivered INTEGER NOT NULL DEFAULT 0, skipped INTEGER NOT NULL DEFAULT 0, failed INTEGER NOT NULL DEFAULT 0, error TEXT, created_by TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+  `CREATE INDEX IF NOT EXISTS idx_sn_status ON sn_notifications(status, scheduled_at)`,
+  `CREATE INDEX IF NOT EXISTS idx_sn_created ON sn_notifications(created_at)`,
   `CREATE TABLE IF NOT EXISTS support_tickets (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), tx_id TEXT, message TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'open', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
   `CREATE TABLE IF NOT EXISTS admin_log (id TEXT PRIMARY KEY, admin_id TEXT NOT NULL, action TEXT NOT NULL, target_id TEXT, detail TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
   `CREATE TABLE IF NOT EXISTS referral_rules (id TEXT PRIMARY KEY, enabled INTEGER NOT NULL DEFAULT 1, reward_type TEXT NOT NULL DEFAULT 'fixed', reward_value REAL NOT NULL DEFAULT 0, min_deposit REAL NOT NULL DEFAULT 0, first_only INTEGER NOT NULL DEFAULT 1, max_per_referral REAL NOT NULL DEFAULT 0, max_count_per_referrer INTEGER NOT NULL DEFAULT 0, max_total_per_referrer REAL NOT NULL DEFAULT 0, terms TEXT NOT NULL DEFAULT '', effective_from INTEGER NOT NULL DEFAULT 0, created_by TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
@@ -56,6 +60,20 @@ const MIGRATIONS = [
   `ALTER TABLE profiles ADD COLUMN pin_locked_until INTEGER NOT NULL DEFAULT 0`,
   `ALTER TABLE profiles ADD COLUMN exchange_balance REAL NOT NULL DEFAULT 0`,
   `ALTER TABLE profiles ADD COLUMN notif_seen_at TEXT NOT NULL DEFAULT '1970-01-01 00:00:00'`,
+  `ALTER TABLE user_notifications ADD COLUMN category TEXT`,
+  `ALTER TABLE user_notifications ADD COLUMN sound TEXT`,
+  `ALTER TABLE user_notifications ADD COLUMN priority TEXT`,
+  `ALTER TABLE user_notifications ADD COLUMN sn_id TEXT`,
+  `ALTER TABLE user_notifications ADD COLUMN ref_type TEXT`,
+  `ALTER TABLE user_notifications ADD COLUMN ref_id TEXT`,
+  `ALTER TABLE user_notifications ADD COLUMN read_at TEXT`,
+  `ALTER TABLE user_notifications ADD COLUMN deleted_at TEXT`,
+  `ALTER TABLE user_notifications ADD COLUMN event_id TEXT`,
+  `ALTER TABLE user_notifications ADD COLUMN action_label TEXT`,
+  `ALTER TABLE user_notifications ADD COLUMN action_target TEXT`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS uq_un_sn ON user_notifications(user_id, sn_id) WHERE sn_id IS NOT NULL`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS uq_un_event ON user_notifications(user_id, event_id) WHERE event_id IS NOT NULL`,
+  `CREATE INDEX IF NOT EXISTS idx_un_sn ON user_notifications(sn_id)`,
   `ALTER TABLE transactions ADD COLUMN wallet TEXT NOT NULL DEFAULT 'main'`,
   `ALTER TABLE transactions ADD COLUMN updated_at TEXT`,
   `ALTER TABLE wallet_ledger ADD COLUMN balance_before REAL`, `ALTER TABLE wallet_ledger ADD COLUMN balance_after REAL`,
@@ -1004,11 +1022,11 @@ async function getPrefs(env, userId) {
   const notif = {}; for (const k of NOTIF_KEYS) notif[k] = k === 'security' ? true : n[k] !== false;
   return { theme: r?.theme || 'light', language: r?.language || 'en', text_size: r?.text_size || 'normal', reduce_motion: !!r?.reduce_motion, notif, avatar: r?.avatar || null, updated_at: r?.updated_at || null };
 }
-async function notify(env, userId, title, message) {   // a personal notification (shows under the bell)
+async function notify(env, userId, title, message, opts = {}) {   // a personal notification (shows under the bell)
   try {
     const cat = notifCat(title);
     if (cat !== 'security' && (await getPrefs(env, userId)).notif[cat] === false) return;   // the customer switched this type off
-    await env.DB.prepare('INSERT INTO user_notifications(id,user_id,title,message) VALUES(?,?,?,?)').bind(uid(), userId, String(title).slice(0, 80), String(message).slice(0, 300)).run();
+    await env.DB.prepare('INSERT OR IGNORE INTO user_notifications(id,user_id,title,message,category,sound,priority,ref_type,ref_id,event_id) VALUES(?,?,?,?,?,?,?,?,?,?)').bind(uid(), userId, String(title).slice(0, 80), String(message).slice(0, 300), opts.category || null, opts.sound || null, opts.priority || null, opts.ref_type || null, opts.ref_id || null, opts.event_id || null).run();
   }
   catch (e) { console.error('notify failed', e); }
 }
@@ -1050,13 +1068,289 @@ FUNCTIONS['app-config'] = async (x, env, user, req) => json({
 });
 
 /* ----- notifications (personal ones + messages from the admin) ----- */
+/* ===================== SMART NOTIFICATIONS (admin manager + customer center) ===================== */
+// id, name, icon, colour, default sound (wow | ahh | hii | none), customer preference key it follows
+const SN_CATS = [
+  ['general', 'General Announcement', '📢', '#1d4ed8', 'hii', 'service'],
+  ['transaction_update', 'Transaction Update', '🔁', '#16a05f', 'hii', 'transaction'],
+  ['wallet_funding', 'Wallet Funding Notice', '💳', '#16a05f', 'hii', 'funding'],
+  ['withdrawal_update', 'Withdrawal Update', '🏦', '#e98a0c', 'hii', 'withdrawal'],
+  ['exchange_update', 'Exchange Update', '🔄', '#7c3aed', 'hii', 'transaction'],
+  ['atc_update', 'Airtime-to-Cash Update', '📲', '#0e9aa7', 'hii', 'transaction'],
+  ['data_announcement', 'Data Bundle Announcement', '📶', '#1d4ed8', 'hii', 'service'],
+  ['airtime_announcement', 'Airtime Announcement', '📱', '#d9467a', 'hii', 'service'],
+  ['electricity_notice', 'Electricity Service Notice', '💡', '#e98a0c', 'hii', 'service'],
+  ['cable_notice', 'Cable TV Service Notice', '📺', '#1d4ed8', 'hii', 'service'],
+  ['exam_notice', 'Exam PIN Service Notice', '🎓', '#1d4ed8', 'hii', 'service'],
+  ['datacard_announcement', 'Data Card Announcement', '🗂️', '#1d4ed8', 'hii', 'service'],
+  ['rechargecard_announcement', 'Recharge Card Announcement', '🎫', '#1d4ed8', 'hii', 'service'],
+  ['sms_announcement', 'Bulk SMS Announcement', '✉️', '#1d4ed8', 'hii', 'service'],
+  ['maintenance', 'Maintenance Notice', '🛠️', '#ea6a0c', 'hii', 'service'],
+  ['service_downtime', 'Service Downtime Alert', '⚠️', '#d97706', 'ahh', 'service'],
+  ['service_restored', 'Service Restored Notice', '✅', '#16a05f', 'wow', 'service'],
+  ['new_feature', 'New Feature Announcement', '✨', '#1d4ed8', 'hii', 'service'],
+  ['security_alert', 'Security Alert', '🛡️', '#dc2626', 'ahh', 'security'],
+  ['promo_offer', 'Promotional Offer', '🎁', '#7c3aed', 'hii', 'promo'],
+  ['referral_announcement', 'Referral Announcement', '🤝', '#7c3aed', 'hii', 'promo'],
+  ['support_update', 'Support Ticket Update', '🎧', '#0e9aa7', 'hii', 'support'],
+  ['important_notice', 'Important Application Notice', '❗', '#1d4ed8', 'hii', 'service'],
+];
+const snClip = (s, n) => String(s ?? '').slice(0, n);
+const SN_TX_CATS = ['transaction_update', 'wallet_funding', 'withdrawal_update', 'exchange_update', 'atc_update'];
+const SN_IMPORTANT = ['security_alert', 'important_notice', 'service_downtime', 'maintenance'];
+const SN_SOUNDS = ['wow', 'ahh', 'hii', 'none'];
+const SN_PRIO = ['normal', 'high'];
+const SN_PREF_KEYS = ['transaction', 'funding', 'withdrawal', 'service', 'security', 'support', 'promo'];
+const snDate = (d) => d.toISOString().slice(0, 19).replace('T', ' ');   // the format SQLite's datetime() uses
+async function snSeed(env) {
+  const n = (await env.DB.prepare('SELECT COUNT(*) n FROM sn_categories').first()).n;
+  if (n) return;
+  await env.DB.batch(SN_CATS.map((c) => env.DB.prepare('INSERT OR IGNORE INTO sn_categories(id,name,icon,color,sound,pref,builtin,active) VALUES(?,?,?,?,?,?,1,1)').bind(...c)));
+}
+async function snCats(env) { await snSeed(env); return (await env.DB.prepare('SELECT id,name,icon,color,sound,pref,builtin,active FROM sn_categories ORDER BY builtin DESC, rowid').all()).results; }
+
+// Who gets a notification. Returns the SQL (on profiles p / user_prefs up) and its arguments.
+// "all" has to skip banned accounts; customers who switched a type off are skipped, except security ones.
+async function snAudience(env, n, withPrefs) {
+  const where = ['p.is_banned=0'], args = [];
+  const [kind, val] = String(n.target || 'all').split(':');
+  if (kind === 'user') { where.push('p.id=?'); args.push(val || ''); }
+  else if (kind === 'group') { const g = NOTICE_GROUPS[val]; if (!g) throw new Error('Unknown customer group'); where.push('(' + g[1] + ')'); }
+  else if (kind === 'active') where.push('(' + NOTICE_GROUPS.active[1] + ')');
+  else if (kind === 'service') { where.push("EXISTS (SELECT 1 FROM transactions t WHERE t.user_id=p.id AND t.type=? AND t.status='successful')"); args.push(val || ''); }
+  else if (kind !== 'all') throw new Error('Unknown audience');
+  if (withPrefs) {
+    const cat = await env.DB.prepare('SELECT pref FROM sn_categories WHERE id=?').bind(n.category).first();
+    const pref = cat?.pref;
+    if (pref && pref !== 'security' && SN_PREF_KEYS.includes(pref)) where.push(`COALESCE(CASE WHEN json_valid(up.notif_prefs) THEN json_extract(up.notif_prefs,'$.${pref}') END, 1) <> 0`);
+  }
+  return { sql: `FROM profiles p LEFT JOIN user_prefs up ON up.user_id=p.id WHERE ${where.join(' AND ')}`, args };
+}
+async function snEstimate(env, n) {
+  const a = await snAudience(env, n, false), b = await snAudience(env, n, true);
+  return { total: (await env.DB.prepare(`SELECT COUNT(*) n ${a.sql}`).bind(...a.args).first()).n, eligible: (await env.DB.prepare(`SELECT COUNT(*) n ${b.sql}`).bind(...b.args).first()).n };
+}
+// Writes the notification into each customer's own inbox. Safe to run twice: (user, notification) is unique.
+async function snDeliver(env, id) {
+  const n = await env.DB.prepare('SELECT * FROM sn_notifications WHERE id=?').bind(id).first();
+  if (!n) return { ok: false, error: 'Not found' };
+  try {
+    const est = await snEstimate(env, n), b = await snAudience(env, n, true);
+    await env.DB.prepare(`INSERT OR IGNORE INTO user_notifications(id,user_id,title,message,category,sound,priority,sn_id,action_label,action_target) SELECT lower(hex(randomblob(16))), p.id, ?,?,?,?,?,?,?,? ${b.sql}`)
+      .bind(n.title, n.message, n.category, n.sound, n.priority, n.id, n.action_label || null, n.action_target || null, ...b.args).run();
+    const got = (await env.DB.prepare('SELECT COUNT(*) n FROM user_notifications WHERE sn_id=?').bind(n.id).first()).n;
+    await env.DB.prepare("UPDATE sn_notifications SET status='sent', sent_at=CURRENT_TIMESTAMP, intended=?, delivered=?, skipped=?, failed=0, error=NULL WHERE id=?").bind(est.total, got, Math.max(0, est.total - est.eligible), n.id).run();
+    return { ok: true, intended: est.total, delivered: got, skipped: Math.max(0, est.total - est.eligible) };
+  } catch (e) {
+    await env.DB.prepare("UPDATE sn_notifications SET status='failed', error=? WHERE id=?").bind(String(e.message || e).slice(0, 200), n.id).run();
+    return { ok: false, error: String(e.message || e).slice(0, 200) };
+  }
+}
+async function snClaimAndSend(env, id, from) {
+  const c = await env.DB.prepare(`UPDATE sn_notifications SET status='sending' WHERE id=? AND status IN (${from.map(() => '?').join(',')})`).bind(id, ...from).run();
+  if (!c.meta.changes) return { ok: false, error: 'This notification was already sent or is being sent.' };
+  return snDeliver(env, id);
+}
+async function snRunDue(env) {   // called by the 5-minute cron
+  try {
+    await snSeed(env);
+    const due = (await env.DB.prepare("SELECT id FROM sn_notifications WHERE status='scheduled' AND scheduled_at<=datetime('now') ORDER BY scheduled_at LIMIT 10").all()).results;
+    for (const d of due) await snClaimAndSend(env, d.id, ['scheduled']);
+  } catch (e) { console.error('snRunDue failed', e); }
+}
+
+FUNCTIONS['admin-notify'] = async (x, env, user) => {
+  if (!user.is_admin) return fail('Admin permission required.', 403);
+  await snSeed(env);
+  const db = env.DB, PAGE = 15;
+  const log = (action, tgt, detail) => db.prepare('INSERT INTO admin_log(id,admin_id,action,target_id,detail) VALUES(?,?,?,?,?)').bind(uid(), user.id, action, tgt || null, detail ? String(detail).slice(0, 300) : null).run();
+  const catOk = async (c) => !!(await db.prepare('SELECT 1 FROM sn_categories WHERE id=? AND active=1').bind(String(c || '')).first());
+  const targetOk = async (t) => {
+    const [k, v] = String(t || '').split(':');
+    if (k === 'all' || k === 'active') return !v;
+    if (k === 'group') return !!NOTICE_GROUPS[v];
+    if (k === 'service') return /^[a-z][a-z_-]{1,24}$/.test(v || '');
+    if (k === 'user') return !!(await db.prepare('SELECT 1 FROM profiles WHERE id=?').bind(v || '').first());
+    return false;
+  };
+  const targetLabel = async (t) => {
+    const [k, v] = String(t || '').split(':');
+    if (k === 'all') return 'All customers';
+    if (k === 'active') return 'Active customers';
+    if (k === 'group') return NOTICE_GROUPS[v]?.[0] || 'Group';
+    if (k === 'service') return 'Customers who bought: ' + v;
+    if (k === 'user') { const p = await db.prepare('SELECT full_name,username FROM profiles WHERE id=?').bind(v).first(); return p ? `${p.full_name || p.username || 'Customer'} (${p.username || ''})` : 'One customer'; }
+    return t;
+  };
+  const pub = async (n) => n && ({ ...n, target_label: await targetLabel(n.target) });
+  switch (x.action) {
+    case 'overview': {
+      const c = (st) => db.prepare('SELECT COUNT(*) n FROM sn_notifications WHERE ' + st).first().then((r) => r.n);
+      return json({
+        total: await c("status<>'deleted'"), sent: await c("status='sent'"), pending: await c("status='sending'"), failed: await c("status='failed'"), scheduled: await c("status='scheduled'"),
+        reached: (await db.prepare('SELECT COUNT(DISTINCT user_id) n FROM user_notifications WHERE sn_id IS NOT NULL').first()).n,
+        categories: await snCats(env),
+        groups: Object.fromEntries(Object.entries(NOTICE_GROUPS).map(([k, v]) => [k, v[0]])),
+        channels: { in_app: true, push: false, email: false, sms: false, voice: true },   // push/email/sms are switched on only when configured
+        server_time: new Date().toISOString(),
+      });
+    }
+    case 'list': {
+      const where = ["status<>'deleted'"], args = [];
+      const q = String(x.q || '').trim().slice(0, 60);
+      if (q) { const like = '%' + q.replace(/[\\%_]/g, '\\$&') + '%'; where.push("(id LIKE ? ESCAPE '\\' OR title LIKE ? ESCAPE '\\' OR message LIKE ? ESCAPE '\\')"); args.push(like, like, like); }
+      if (x.category) { where.push('category=?'); args.push(String(x.category)); }
+      if (['draft', 'scheduled', 'sending', 'sent', 'failed', 'cancelled'].includes(x.status)) { where.push('status=?'); args.push(x.status); }
+      if (/^\d{4}-\d{2}-\d{2}$/.test(x.from || '')) { where.push('date(created_at)>=?'); args.push(x.from); }
+      if (/^\d{4}-\d{2}-\d{2}$/.test(x.to || '')) { where.push('date(created_at)<=?'); args.push(x.to); }
+      const W = where.join(' AND '), off = Math.max(0, Math.floor(Number(x.offset) || 0));
+      const items = (await db.prepare(`SELECT n.id,n.title,n.category,n.target,n.status,n.priority,n.sound,n.created_at,n.scheduled_at,n.sent_at,n.intended,n.delivered,n.skipped,n.failed,n.created_by,(SELECT COALESCE(full_name,username) FROM profiles WHERE id=n.created_by) created_by_name FROM sn_notifications n WHERE ${W.replace(/\b(id|title|message|category|status|created_at)\b/g, 'n.$1')} ORDER BY n.created_at DESC, n.rowid DESC LIMIT ${PAGE} OFFSET ?`).bind(...args, off).all()).results;
+      for (const i of items) i.target_label = await targetLabel(i.target);
+      const total = (await db.prepare(`SELECT COUNT(*) n FROM sn_notifications WHERE ${W}`).bind(...args).first()).n;
+      return json({ items, total, page_size: PAGE });
+    }
+    case 'get': {
+      const n = await db.prepare('SELECT * FROM sn_notifications WHERE id=?').bind(String(x.id || '')).first();
+      if (!n || n.status === 'deleted') return fail('Notification not found.', 404);
+      const read = (await db.prepare('SELECT COUNT(*) n FROM user_notifications WHERE sn_id=? AND read_at IS NOT NULL').bind(n.id).first()).n;
+      const by = n.created_by ? (await db.prepare('SELECT COALESCE(full_name,username) nm FROM profiles WHERE id=?').bind(n.created_by).first())?.nm : null;
+      return json({ item: { ...(await pub(n)), created_by_name: by, read_count: read } });
+    }
+    case 'estimate': {
+      if (!(await targetOk(x.target))) return fail('Choose a valid audience.');
+      const cat = (await catOk(x.category)) ? x.category : 'general';
+      return json(await snEstimate(env, { target: x.target, category: cat }));
+    }
+    case 'find_user': {
+      const q = String(x.q || '').trim().slice(0, 40); if (q.length < 2) return json({ items: [] });
+      const like = '%' + q.replace(/[\\%_]/g, '\\$&') + '%';
+      return json({ items: (await db.prepare("SELECT p.id,p.full_name,p.username,p.phone,u.email FROM profiles p JOIN users u ON u.id=p.id WHERE p.username LIKE ? ESCAPE '\\' OR p.full_name LIKE ? ESCAPE '\\' OR p.phone LIKE ? ESCAPE '\\' OR u.email LIKE ? ESCAPE '\\' LIMIT 8").bind(like, like, like, like).all()).results });
+    }
+    case 'save': {   // mode: draft | schedule | now
+      const mode = ['draft', 'schedule', 'now'].includes(x.mode) ? x.mode : 'draft';
+      const title = snClip(x.title, 80).trim(), message = snClip(x.message, 500).trim();
+      if (!title) return fail('Enter a title.'); if (!message) return fail('Enter the message.');
+      if (!(await catOk(x.category))) return fail('Choose a category.');
+      if (!(await targetOk(x.target))) return fail('Choose who should receive it.');
+      const sound = SN_SOUNDS.includes(x.sound) ? x.sound : 'hii', prio = SN_PRIO.includes(x.priority) ? x.priority : 'normal', lang = ['en', 'ha', 'yo'].includes(x.language) ? x.language : 'en';
+      const chans = Array.isArray(x.channels) ? x.channels : ['in_app'];
+      if (chans.some((c) => c !== 'in_app' && c !== 'voice')) return fail('Only In-App (and the in-app voice) are set up. Push, Email and SMS are not configured yet.');
+      const channels = JSON.stringify(['in_app', ...(chans.includes('voice') ? ['voice'] : [])]);
+      const alabel = snClip(x.action_label, 30).trim() || null, atarget = snClip(x.action_target, 40).trim() || null;
+      if (atarget && !/^(page:[a-z-]{2,30}|tx:[A-Za-z0-9-]{4,60}|https:\/\/[^\s]{4,200})$/.test(atarget)) return fail('The button link is not valid.');
+      let when = null;
+      if (mode === 'schedule') {
+        const d = new Date(String(x.scheduled_at || '')); if (isNaN(d)) return fail('Choose the date and time to send.');
+        if (d.getTime() < Date.now() + 60000) return fail('The scheduled time must be in the future.');
+        when = snDate(d);
+      }
+      let id = String(x.id || '');
+      if (id) {
+        const cur = await db.prepare('SELECT status FROM sn_notifications WHERE id=?').bind(id).first();
+        if (!cur) return fail('Notification not found.', 404);
+        if (!['draft', 'scheduled', 'cancelled'].includes(cur.status)) return fail('A sent notification cannot be edited. Use Duplicate instead.');
+      }
+      const est = mode === 'now' ? await snEstimate(env, { target: x.target, category: x.category }) : null;
+      if (mode === 'now') {
+        if (est.total > 1 && x.confirm !== true) return json({ needs_confirm: true, total: est.total, eligible: est.eligible });
+        const since = snDate(new Date(Date.now() - 3600000));
+        if ((await db.prepare("SELECT COUNT(*) n FROM admin_log WHERE admin_id=? AND action='sn_send' AND created_at>=?").bind(user.id, since).first()).n >= 30) return fail('Too many notifications sent in the last hour. Please wait a little.', 429);
+      }
+      const status = mode === 'schedule' ? 'scheduled' : 'draft';
+      if (id) await db.prepare('UPDATE sn_notifications SET title=?,message=?,category=?,language=?,priority=?,sound=?,target=?,channels=?,action_label=?,action_target=?,scheduled_at=?,status=? WHERE id=?').bind(title, message, x.category, lang, prio, sound, x.target, channels, alabel, atarget, when, status, id).run();
+      else { id = uid(); await db.prepare('INSERT INTO sn_notifications(id,title,message,category,language,priority,sound,target,channels,action_label,action_target,scheduled_at,status,created_by) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)').bind(id, title, message, x.category, lang, prio, sound, x.target, channels, alabel, atarget, when, status, user.id).run(); }
+      if (mode !== 'now') { await log(mode === 'schedule' ? 'sn_schedule' : 'sn_draft', id, title); return json({ ok: true, id, status }); }
+      await log('sn_send', id, `${title} → ${x.target} (${est.total})`);
+      const r = await snClaimAndSend(env, id, ['draft']);
+      if (!r.ok) return fail(r.error || 'Could not send.', 500);
+      return json({ ok: true, id, status: 'sent', ...r });
+    }
+    case 'send': {   // send a saved draft / failed one now
+      const n = await db.prepare('SELECT * FROM sn_notifications WHERE id=?').bind(String(x.id || '')).first();
+      if (!n) return fail('Notification not found.', 404);
+      if (!['draft', 'scheduled', 'failed'].includes(n.status)) return fail('This notification cannot be sent now.');
+      const est = await snEstimate(env, n);
+      if (est.total > 1 && x.confirm !== true) return json({ needs_confirm: true, total: est.total, eligible: est.eligible });
+      await log('sn_send', n.id, `${n.title} → ${n.target} (${est.total})`);
+      const r = await snClaimAndSend(env, n.id, ['draft', 'scheduled', 'failed']);
+      return r.ok ? json({ ok: true, ...r }) : fail(r.error || 'Could not send.', 500);
+    }
+    case 'cancel': {
+      const c = await db.prepare("UPDATE sn_notifications SET status='cancelled' WHERE id=? AND status='scheduled'").bind(String(x.id || '')).run();
+      if (!c.meta.changes) return fail('Only a scheduled notification can be cancelled.');
+      await log('sn_cancel', x.id); return json({ ok: true });
+    }
+    case 'duplicate': {
+      const n = await db.prepare('SELECT * FROM sn_notifications WHERE id=? AND status<>?').bind(String(x.id || ''), 'deleted').first();
+      if (!n) return fail('Notification not found.', 404);
+      const id = uid();
+      await db.prepare("INSERT INTO sn_notifications(id,title,message,category,language,priority,sound,target,channels,action_label,action_target,status,created_by) VALUES(?,?,?,?,?,?,?,?,?,?,?,'draft',?)").bind(id, n.title, n.message, n.category, n.language, n.priority, n.sound, n.target, n.channels, n.action_label, n.action_target, user.id).run();
+      await log('sn_duplicate', id, n.id); return json({ ok: true, id });
+    }
+    case 'delete': {
+      const c = await db.prepare("UPDATE sn_notifications SET status='deleted' WHERE id=? AND status IN ('draft','cancelled')").bind(String(x.id || '')).run();
+      if (!c.meta.changes) return fail('Only a draft or cancelled notification can be deleted. Sent ones are kept as a record.');
+      await log('sn_delete', x.id); return json({ ok: true });
+    }
+    case 'category_save': {
+      const name = snClip(x.name, 40).trim(); if (!name) return fail('Enter the category name.');
+      const color = /^#[0-9a-fA-F]{6}$/.test(x.color || '') ? x.color : '#1d4ed8', icon = snClip(x.icon, 4).trim() || '🔔', sound = SN_SOUNDS.includes(x.sound) ? x.sound : 'hii';
+      const pref = SN_PREF_KEYS.includes(x.pref) ? x.pref : 'service';
+      if (x.id) {
+        const c = await db.prepare('UPDATE sn_categories SET name=?,icon=?,color=?,sound=?,pref=? WHERE id=?').bind(name, icon, color, sound, pref, String(x.id)).run();
+        if (!c.meta.changes) return fail('Category not found.', 404);
+        await log('sn_category_edit', x.id, name); return json({ ok: true, id: x.id });
+      }
+      const id = 'c_' + uid().slice(0, 10);
+      await db.prepare('INSERT INTO sn_categories(id,name,icon,color,sound,pref,builtin,active) VALUES(?,?,?,?,?,?,0,1)').bind(id, name, icon, color, sound, pref).run();
+      await log('sn_category_add', id, name); return json({ ok: true, id });
+    }
+    case 'category_toggle': {
+      const c = await db.prepare('UPDATE sn_categories SET active=? WHERE id=?').bind(x.active ? 1 : 0, String(x.id || '')).run();
+      if (!c.meta.changes) return fail('Category not found.', 404);
+      await log('sn_category_toggle', x.id, x.active ? 'on' : 'off'); return json({ ok: true });
+    }
+    default: return fail('Unknown action.');
+  }
+};
+
+/* ----- customer notification centre ----- */
 FUNCTIONS['my-notifications'] = async (x, env, user) => {
+  await snSeed(env);
   const seen = (await env.DB.prepare('SELECT notif_seen_at s FROM profiles WHERE id=?').bind(user.id).first())?.s || '1970-01-01 00:00:00';
-  const mine = (await env.DB.prepare('SELECT title,message,created_at FROM user_notifications WHERE user_id=? ORDER BY created_at DESC, rowid DESC LIMIT 50').bind(user.id).all()).results;
   const np = (await getPrefs(env, user.id)).notif;
-  const all = (await env.DB.prepare('SELECT title,message,created_at FROM notifications ORDER BY created_at DESC LIMIT 30').all()).results.filter((n) => np[/promo|offer|discount|bonus|cashback/i.test(n.title + ' ' + n.message) ? 'promo' : 'service'] !== false).map((n) => ({ ...n, from_admin: true }));
-  const items = [...mine, ...all].sort((a, b) => String(b.created_at).localeCompare(String(a.created_at))).slice(0, 60).map((n) => ({ ...n, unread: n.created_at > seen }));
-  return json({ items, unread: items.filter((i) => i.unread).length });
+  const mine = (await env.DB.prepare('SELECT id,title,message,created_at,category,sound,priority,ref_type,ref_id,read_at,action_label,action_target FROM user_notifications WHERE user_id=? AND deleted_at IS NULL ORDER BY created_at DESC, rowid DESC LIMIT 300').bind(user.id).all()).results
+    .map((n) => ({ ...n, own: true, unread: !n.read_at && n.created_at >= seen }));
+  const all = (await env.DB.prepare('SELECT id,title,message,created_at FROM notifications ORDER BY created_at DESC LIMIT 30').all()).results
+    .filter((n) => np[/promo|offer|discount|bonus|cashback/i.test(n.title + ' ' + n.message) ? 'promo' : 'service'] !== false)
+    .map((n) => ({ ...n, id: 'b_' + n.id, from_admin: true, own: false, category: 'general', unread: n.created_at > seen }));
+  const items = [...mine, ...all].sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+  const catOf = (n) => n.category || ({ funding: 'wallet_funding', withdrawal: 'withdrawal_update', security: 'security_alert', support: 'support_update', promo: 'promo_offer', service: 'general' }[notifCat(n.title)] || 'transaction_update');
+  const TABS = {
+    all: () => true, unread: (n) => n.unread, read: (n) => !n.unread,
+    important: (n) => n.priority === 'high' || SN_IMPORTANT.includes(catOf(n)),
+    transactions: (n) => SN_TX_CATS.includes(catOf(n)),
+    announcements: (n) => !SN_TX_CATS.includes(catOf(n)) && !['security_alert', 'support_update'].includes(catOf(n)),
+  };
+  const f = TABS[x?.filter] || TABS.all, off = Math.max(0, Math.floor(Number(x?.offset) || 0)), LIM = 25;
+  const shown = items.filter(f).slice(off, off + LIM + 1);
+  const cats = Object.fromEntries((await snCats(env)).map((c) => [c.id, { name: c.name, icon: c.icon, color: c.color }]));
+  return json({ items: shown.slice(0, LIM).map((n) => ({ ...n, category: catOf(n) })), has_more: shown.length > LIM, unread: items.filter((n) => n.unread).length, cats });
+};
+FUNCTIONS['notification-read'] = async (x, env, user) => {
+  await env.DB.prepare('UPDATE user_notifications SET read_at=CURRENT_TIMESTAMP WHERE id=? AND user_id=? AND read_at IS NULL').bind(String(x.id || ''), user.id).run();
+  return json({ ok: true });
+};
+FUNCTIONS['notification-read-all'] = async (x, env, user) => {
+  await env.DB.batch([
+    env.DB.prepare('UPDATE user_notifications SET read_at=CURRENT_TIMESTAMP WHERE user_id=? AND read_at IS NULL').bind(user.id),
+    env.DB.prepare('UPDATE profiles SET notif_seen_at=CURRENT_TIMESTAMP WHERE id=?').bind(user.id),
+  ]);
+  return json({ ok: true });
+};
+FUNCTIONS['notification-delete'] = async (x, env, user) => {
+  await env.DB.prepare('UPDATE user_notifications SET deleted_at=CURRENT_TIMESTAMP WHERE id=? AND user_id=?').bind(String(x.id || ''), user.id).run();
+  return json({ ok: true });
 };
 FUNCTIONS['notifications-seen'] = async (x, env, user) => { await env.DB.prepare('UPDATE profiles SET notif_seen_at=CURRENT_TIMESTAMP WHERE id=?').bind(user.id).run(); return json({ ok: true }); };
 
@@ -2926,5 +3220,5 @@ export default {
     }
   },
   // Runs every few minutes (Cron Trigger): settles purchases that are still pending.
-  async scheduled(event, env, ctx) { await ensureSchema(env); ctx.waitUntil(reconcilePending(await withSettings(env))); },
+  async scheduled(event, env, ctx) { await ensureSchema(env); ctx.waitUntil(reconcilePending(await withSettings(env))); ctx.waitUntil(snRunDue(env)); },
 };

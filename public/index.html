@@ -11,6 +11,10 @@ function normalizePlan(p){
 }
 </script>
 <title>UMARSHOYI-SUB — Data & Airtime</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#1d4ed8">
+<link rel="icon" type="image/png" href="/icon-192.png">
+<link rel="apple-touch-icon" href="/icon-192.png">
 
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
@@ -5567,8 +5571,21 @@ async function adminLoadPriceAlerts(){
     const ch = (name, on, note) => `<div class="st-kv"><span>${name}</span><b style="color:${on ? '#16a05f' : '#94a3b8'};">${on ? 'Ready' : 'Not configured'}</b></div>${note ? `<div class="sn-note" style="margin:-4px 0 6px;">${note}</div>` : ''}`;
     body().innerHTML = `<div class="sn-grid">${cards.map((c) => `<div class="sn-card"><b>${Number(c[1]).toLocaleString()}</b><span>${c[0]}</span></div>`).join('')}</div>
       <div class="sn-box"><h4>Delivery channels</h4>${ch('In-App (bell)', o.channels.in_app)}${ch('Female voice (app open)', o.channels.voice, 'Plays only while the customer has the app open.')}${ch('Push (app closed)', o.channels.push)}${ch('Email', o.channels.email)}${ch('SMS', o.channels.sms)}</div>
+      <div class="sn-box" id="snPushBox"><h4>Phone push (app closed)</h4><div class="sn-note">Loading…</div></div>
       <div class="sn-box"><h4>Recent notifications</h4>${rows(l.data?.items?.slice(0, 5) || [])}</div>
       <button class="btn-primary" data-sn="new">+ Create notification</button>`;
+    pushPanel();
+  }
+  async function pushPanel() {
+    const r = await invokeFn('admin-push', { body: { action: 'get' } }), b = $('snPushBox'); if (!b) return;
+    if (r.errMsg) { b.innerHTML = `<h4>Phone push (app closed)</h4><div class="err-text">${E(r.errMsg)}</div>`; return; }
+    const p = r.data, kv = (a, v) => `<div class="st-kv"><span>${a}</span><b>${v}</b></div>`;
+    b.innerHTML = `<h4>Phone push (app closed)</h4>${kv('Status', p.configured ? '<span style="color:#16a05f;">Keys created</span>' : '<span style="color:#94a3b8;">Not set up</span>')}
+      ${p.configured ? kv('Customers subscribed', p.subscribers) + kv('Phones', p.devices) + kv('Accepted by push service', p.accepted) + kv('Failed', p.failed) + kv('Expired phones', p.expired) : ''}
+      ${!p.auth_ok ? '<div class="err-text">AUTH_SECRET is missing, so keys cannot be stored safely.</div>' : ''}
+      <div class="sn-note">Push shows the phone's own notification sound. The spoken voice cannot play while the app is closed. It works on Android Chrome and installed apps; iPhone needs the app added to the Home Screen. "Accepted" means the push service took the message; it does not prove the phone displayed it.</div>
+      <button class="btn-outline" style="margin-top:10px;" data-sn="pushkeys">${p.configured ? 'Replace push keys' : 'Create push keys'}</button>
+      ${p.configured ? '<button class="btn-outline" style="margin-top:8px;" data-sn="pushtest">Send a test to my phone</button>' : ''}`;
   }
   const badge = (st) => `<span class="sn-st" style="background:${STC[st] || '#64748b'}">${E(st)}</span>`;
   function rows(items) {
@@ -5595,7 +5612,7 @@ async function adminLoadPriceAlerts(){
       <div class="sn-box"><h4>Delivery</h4><div class="sn-chan">
         <label><input type="checkbox" checked disabled> In-App notification (bell)</label>
         <label><input type="checkbox" id="snVoice" ${chans.includes('voice') ? 'checked' : ''}> Female voice (plays when the app is open)</label>
-        <label style="opacity:.55;"><input type="checkbox" disabled> Push (not configured yet)</label>
+        ${o.channels.push ? `<label><input type="checkbox" id="snPush" ${chans.includes('push') ? 'checked' : ''}> Phone push (customers who turned it on)</label>` : '<label style="opacity:.55;"><input type="checkbox" disabled> Push (create the push keys on the Dashboard first)</label>'}
         <label style="opacity:.55;"><input type="checkbox" disabled> Email (not configured)</label>
         <label style="opacity:.55;"><input type="checkbox" disabled> SMS (not configured)</label></div></div>
       <div class="sn-box"><h4>Action button (optional)</h4><div class="sn-row2"><div class="field"><label>Opens</label><select id="snAT">${opt(PAGES, v.action_target || '')}</select></div><div class="field"><label>Button text</label><input id="snAL" maxlength="30" value="${E(v.action_label || '')}" placeholder="e.g. Buy now"></div></div></div>
@@ -5642,7 +5659,7 @@ async function adminLoadPriceAlerts(){
   function payload(mode) {
     const w = mode || $('snWhen').value, p = {
       action: 'save', mode: w, id: D.edit?.id, title: $('snTitle').value.trim(), message: $('snMsg').value.trim(), category: $('snCat').value, language: $('snLang').value,
-      priority: $('snPrio').value, sound: $('snSound').value, target: target(), channels: ['in_app', ...($('snVoice').checked ? ['voice'] : [])],
+      priority: $('snPrio').value, sound: $('snSound').value, target: target(), channels: ['in_app', ...($('snVoice').checked ? ['voice'] : []), ...($('snPush')?.checked ? ['push'] : [])],
       action_label: $('snAL').value.trim(), action_target: $('snAT').value,
     };
     if (w === 'schedule') { const v = $('snAt').value; p.scheduled_at = v ? new Date(v).toISOString() : ''; }
@@ -5694,7 +5711,7 @@ async function adminLoadPriceAlerts(){
     const btn = (a, l, cls = 'btn-outline') => `<button class="${cls}" style="margin-top:8px;" data-sn="${a}" data-id="${E(n.id)}">${l}</button>`;
     openSheet(`<div style="font-weight:800;font-size:16px;">${c.icon} ${E(n.title)}</div><div class="sn-note" style="font-size:13px;color:var(--text);margin:6px 0 10px;">${E(n.message)}</div>
       ${kv('Status', badge(st))}${kv('ID', E(n.id.slice(0, 8)))}${kv('Category', E(c.name))}${kv('Audience', E(n.target_label))}${kv('Language', E(n.language))}${kv('Priority', E(n.priority))}${kv('Created by', E(n.created_by_name || '-'))}${kv('Created', when(n.created_at))}${n.scheduled_at ? kv('Scheduled', when(n.scheduled_at)) : ''}${n.sent_at ? kv('Sent', when(n.sent_at)) : ''}
-      ${st === 'sent' ? kv('Recipients', n.intended) + kv('Delivered in-app', n.delivered) + kv('Opted out', n.skipped) + kv('Failed', n.failed) + kv('Opened by', n.read_count) : ''}${n.error ? kv('Error', E(n.error)) : ''}
+      ${st === 'sent' ? kv('Recipients', n.intended) + kv('Delivered in-app', n.delivered) + kv('Opted out', n.skipped) + kv('Failed', n.failed) + kv('Opened by', n.read_count) : ''}${n.push_state || (n.push && Object.keys(n.push).length) ? kv('Phone push accepted', n.push.accepted || 0) + kv('Phone push failed', n.push.failed || 0) + kv('Phone expired', n.push.expired || 0) + (n.push_state === 'pending' ? kv('Push', 'still sending') : '') : ''}${n.error ? kv('Error', E(n.error)) : ''}
       ${['draft', 'scheduled', 'failed'].includes(st) ? btn('send', st === 'failed' ? 'Retry sending' : 'Send now', 'btn-primary') : ''}${['draft', 'scheduled'].includes(st) ? btn('edit', 'Edit') : ''}${st === 'scheduled' ? btn('cancel', 'Cancel scheduled') : ''}${btn('dup', 'Duplicate')}${['draft', 'cancelled'].includes(st) ? btn('del', 'Delete') : ''}
       <div class="sn-note">Delivery shows what was written to each customer's notification inbox. Push, email and SMS are not set up, so no delivery is reported for them.</div>`);
     D.cur = n;
@@ -5764,6 +5781,12 @@ async function adminLoadPriceAlerts(){
   }
   document.addEventListener('change', _file);
   Object.assign(ACT, {
+    pushkeys: async () => {
+      let r = await invokeFn('admin-push', { body: { action: 'create_keys' } });
+      if (r.data?.needs_confirm) { if (!window.confirm('Replace the push keys? Every phone must switch phone notifications on again.')) return; r = await invokeFn('admin-push', { body: { action: 'create_keys', confirm: true } }); }
+      if (r.errMsg) { showToast(r.errMsg, 'error'); return; } showToast('Push keys created.', 'success'); await loadOv(); dash();
+    },
+    pushtest: async () => { const r = await invokeFn('admin-push', { body: { action: 'test' } }); if (r.errMsg) { showToast(r.errMsg, 'error'); return; } showToast(r.data.ok ? 'Test accepted by the push service. Check your phone.' : 'The push service did not accept it.', r.data.ok ? 'success' : 'error'); pushPanel(); },
     prevsound: (t) => UMSound.play(t.dataset.k, true),
     prevvoice: async (t) => { const k = t.dataset.k, l = t.dataset.l, txt = document.querySelector(`.svPh[data-k=${k}][data-l=${l}]`).value; const cs = UMSound.cfg; if (cs?.settings) cs.settings.phrases[k][l] = txt; const o = await UMSound.play(k, true, l); showToast(o.voice ? 'Playing.' : `No ${l.toUpperCase()} voice on this device. Only the sound can play here; upload a clip for ${l.toUpperCase()}.`, o.voice ? 'success' : 'error'); },
     clipplay: async (t) => { const u = await UMSound.clipUrl(t.dataset.slot); if (u) new Audio(u).play().catch(() => {}); },
@@ -5920,6 +5943,52 @@ window.UMSound = (function () {
   }
   document.addEventListener('change', async (e) => { const t = e.target.closest('[data-sv=tog]'); if (!t) return; const r = await fn('sound-prefs-save', { [t.dataset.k]: t.checked }); if (r.data) UMSound.cfg.prefs = r.data.prefs; else showToast(r.errMsg || 'Could not save.', 'error'); });
   document.addEventListener('click', (e) => { const t = e.target.closest('[data-sv=prev]'); if (!t) return; e.preventDefault(); UMSound.play(t.dataset.k, true); });
+})();
+</script>
+
+<script>
+/* ============ Phone notifications (Web Push): customer switch ============ */
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const supported = () => 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+  const u8 = (s) => { s = s.replace(/-/g, '+').replace(/_/g, '/'); while (s.length % 4) s += '='; return Uint8Array.from(atob(s), (c) => c.charCodeAt(0)); };
+  if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+  async function curSub() { try { const reg = await navigator.serviceWorker.ready; return await reg.pushManager.getSubscription(); } catch { return null; } }
+  async function send(sub) { const j = sub.toJSON(); return fn('push-subscribe', { endpoint: j.endpoint, keys: j.keys, ua: navigator.userAgent.slice(0, 120), lang: typeof LANG === 'string' ? LANG : 'en' }); }
+  window.UMPush = {
+    supported,
+    async state() {
+      if (!supported()) return 'unsupported';
+      const { data } = await fn('push-config'); if (!data?.enabled) return 'off-server';
+      if (Notification.permission === 'denied') return 'denied';
+      return (Notification.permission === 'granted' && await curSub()) ? 'on' : 'off';
+    },
+    async enable() {
+      const { data } = await fn('push-config'); if (!data?.enabled) return { error: 'Phone notifications are not available yet.' };
+      const perm = await Notification.requestPermission(); if (perm !== 'granted') return { error: 'Permission was not given. Allow notifications for this site in your browser settings.' };
+      try {
+        const reg = await navigator.serviceWorker.ready; let sub = await reg.pushManager.getSubscription();
+        if (sub) { const cur = new Uint8Array(sub.options?.applicationServerKey || []); const want = u8(data.key); if (cur.length && cur.join() !== want.join()) { await sub.unsubscribe(); sub = null; } }
+        if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: u8(data.key) });
+        const r = await send(sub); return r.errMsg ? { error: r.errMsg } : { ok: true };
+      } catch (e) { return { error: 'This browser could not turn on phone notifications.' }; }
+    },
+    async disable() { const s = await curSub(); if (s) { await fn('push-unsubscribe', { endpoint: s.endpoint }); try { await s.unsubscribe(); } catch {} } return { ok: true }; },
+    async sync() { if (!supported() || Notification.permission !== 'granted') return; const s = await curSub(); if (s) send(s); },
+  };
+  // keep this phone linked to whoever is logged in (shared phones), and unlink on logout
+  const t = setInterval(() => { if (typeof profile !== 'undefined' && profile) { clearInterval(t); UMPush.sync(); } }, 2000);
+  const _lo = logout; logout = async function () { try { const s = supported() && await curSub(); if (s) await fn('push-unsubscribe', { endpoint: s.endpoint }); } catch {} return _lo(); };
+  // Settings > Notification preferences > Sound & Voice: add the phone row under the sound rows
+  const _r = renderNotifPrefs;
+  renderNotifPrefs = function () { _r(); setTimeout(pushRow, 700); };
+  async function pushRow() {
+    const box = $('svBox'); if (!box) return; $('svPush')?.remove();
+    const st = await UMPush.state();
+    const msg = { unsupported: 'This browser cannot show phone notifications. On iPhone, add the app to your Home Screen first.', 'off-server': 'Phone notifications are not available yet.', denied: 'Notifications are blocked for this site. Allow them in your browser settings, then come back.', off: 'Get alerts on your phone even when the app is closed.', on: 'You will get alerts on this phone even when the app is closed.' }[st];
+    box.insertAdjacentHTML('afterbegin', `<div id="svPush" class="st-row" style="cursor:default;"><div class="st-t"><b>Phone notifications</b><small>${msg}</small></div>${['off', 'on'].includes(st) ? `<label class="toggle-switch"><input type="checkbox" id="svPushT" ${st === 'on' ? 'checked' : ''}><span class="toggle-slider"></span></label>` : ''}</div>`);
+    const tg = $('svPushT'); if (tg) tg.onchange = async () => { tg.disabled = true; const r = tg.checked ? await UMPush.enable() : await UMPush.disable(); if (r.error) { showToast(r.error, 'error'); tg.checked = !tg.checked; } else showToast(tg.checked ? 'Phone notifications are on.' : 'Phone notifications are off.', 'success'); tg.disabled = false; };
+  }
 })();
 </script>
 

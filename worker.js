@@ -645,7 +645,9 @@ async function settlePurchase(env, txId, outcome, extra = {}) {
 // After a successful purchase, keep what the provider REALLY took from our wallet, so "My Profit" is exact.
 async function recordRealCost(env, txId, cost) {
   if (cost == null) return;
-  try { await env.DB.prepare("UPDATE transactions SET metadata=json_set(COALESCE(metadata,'{}'),'$.cost',?) WHERE id=?").bind(cost, txId).run(); }
+  // Keep the REAL cost the provider charged. For items with a fixed price (data, cable, exam, cards) also compare it with the cost written in catalog.js:
+  // a difference means the provider changed its price, and it is shown to the owner in Admin -> Overview ("Provider price changed").
+  try { await env.DB.prepare("UPDATE transactions SET metadata=json_set(COALESCE(metadata,'{}'),'$.cost',?,'$.price_diff',CASE WHEN json_extract(metadata,'$.kind') IN ('data','cable','exam','data-card','airtime-card') AND json_extract(metadata,'$.catalog_cost') IS NOT NULL AND abs(?-json_extract(metadata,'$.catalog_cost'))>0.5 THEN round(?-json_extract(metadata,'$.catalog_cost'),2) ELSE NULL END) WHERE id=?").bind(cost, cost, cost, txId).run(); }
   catch (e) { console.error('cost record failed', e); }
 }
 // Legitdataway cannot be asked about a transaction (checkStatus always says 'pending'), so this only matters if that ever changes.
@@ -673,7 +675,7 @@ async function purchase(env, user, { pin, type, label, price, cost, kind, params
   const txId = uid();
   const r = await env.DB.batch([
     env.DB.prepare('UPDATE profiles SET balance_ngn=balance_ngn-? WHERE id=? AND balance_ngn>=? AND is_banned=0').bind(price, user.id, price),
-    env.DB.prepare("INSERT INTO transactions(id,user_id,type,label,amount,direction,status,metadata) SELECT ?,?,?,?,?,'out','pending',? WHERE changes() > 0").bind(txId, user.id, type, label, price, JSON.stringify({ cost: money(cost), kind })),
+    env.DB.prepare("INSERT INTO transactions(id,user_id,type,label,amount,direction,status,metadata) SELECT ?,?,?,?,?,'out','pending',? WHERE changes() > 0").bind(txId, user.id, type, label, price, JSON.stringify({ cost: money(cost), catalog_cost: money(cost), kind, item: String(label).split(' \u2192 ')[0].slice(0, 80) })),
   ]);
   if (r[0].meta.changes !== 1) return fail('Insufficient balance. Please fund your wallet.');
 
@@ -1740,6 +1742,17 @@ FUNCTIONS['admin-manage-users'] = async (x, env, user) => {
   const page = (n) => Math.max(0, Math.floor(Number(n) || 0));
   const PAGE = 20;
   const USER_FILTER = { all: '1=1', banned: 'p.is_banned=1', admins: 'p.is_admin=1', funded: 'p.balance_ngn>0' };
+  // search used by the admin transaction lists: transaction ID (full or first characters), username, name, email, phone, provider reference, label, amount
+  const adminTxSearch = (q0) => {
+    const q = String(q0 || '').trim().slice(0, 64); if (!q) return { sql: '', args: [] };
+    const lk = (s) => '%' + s.replace(/[\\%_]/g, '\\$&') + '%', ors = [], a = [], ql = q.toLowerCase();
+    ors.push("lower(t.id) LIKE ? ESCAPE '\\'"); a.push(ql.replace(/[\\%_]/g, '\\$&') + '%');
+    if (ql.length >= 6) { ors.push("lower(t.id) LIKE ? ESCAPE '\\'"); a.push(lk(ql)); }
+    for (const c of ['p.username', 'p.full_name', 'u.email', 'p.phone', 't.label']) { ors.push(`lower(${c}) LIKE ? ESCAPE '\\'`); a.push(lk(ql)); }
+    ors.push("(lower(t.provider_ref) LIKE ? ESCAPE '\\' AND t.provider_ref NOT LIKE 'Token:%' AND t.provider_ref NOT LIKE '[%' AND t.provider_ref NOT LIKE '{%')"); a.push(lk(ql));
+    if (/^\d+(\.\d+)?$/.test(q)) { ors.push('t.amount = ?'); a.push(Number(q)); }
+    return { sql: ' AND (' + ors.join(' OR ') + ')', args: a };
+  };
   const TX_FILTER = { all: '1=1', pending: "t.status='pending'", successful: "t.status='successful'", failed: "t.status='failed'" };
 
   switch (x.action) {
@@ -1830,18 +1843,48 @@ FUNCTIONS['admin-manage-users'] = async (x, env, user) => {
       await db.batch([db.prepare('UPDATE profiles SET is_admin=? WHERE id=?').bind(x.isAdmin ? 1 : 0, target), log(x.isAdmin ? 'make_admin' : 'remove_admin', target)]);
       return json({ ok: true });
     }
-    case 'get_transactions': // one user's transactions
-      return json({ transactions: (await db.prepare('SELECT id,type,label,amount,direction,status,created_at FROM transactions WHERE user_id=? ORDER BY created_at DESC LIMIT 50').bind(target).all()).results });
-    case 'list_transactions': {
-      const where = TX_FILTER[x.status] || TX_FILTER.all;
-      const rows = (await db.prepare(`SELECT t.id,t.user_id,t.type,t.label,t.amount,t.direction,t.status,t.created_at,p.username,p.full_name FROM transactions t JOIN profiles p ON p.id=t.user_id WHERE ${where} ORDER BY t.created_at DESC LIMIT ? OFFSET ?`).bind(PAGE, page(x.offset)).all()).results;
-      const total = (await db.prepare(`SELECT COUNT(*) n FROM transactions t WHERE ${where}`).first()).n;
+    case 'get_transactions': { // one user's transactions (newest first, with paging, status filter and search)
+      if (!await exists(target)) return fail('User not found.', 404);
+      const s = adminTxSearch(x.q), where = (TX_FILTER[x.status] || TX_FILTER.all) + s.sql;
+      const rows = (await db.prepare(`SELECT t.id,t.type,t.label,t.amount,t.direction,t.status,t.created_at FROM transactions t JOIN profiles p ON p.id=t.user_id JOIN users u ON u.id=t.user_id WHERE t.user_id=? AND ${where} ORDER BY t.created_at DESC, t.rowid DESC LIMIT ? OFFSET ?`).bind(target, ...s.args, PAGE, page(x.offset)).all()).results;
+      const total = (await db.prepare(`SELECT COUNT(*) n FROM transactions t JOIN profiles p ON p.id=t.user_id JOIN users u ON u.id=t.user_id WHERE t.user_id=? AND ${where}`).bind(target, ...s.args).first()).n;
       return json({ transactions: rows, total, page_size: PAGE });
+    }
+    case 'list_transactions': {   // every customer's transactions; search by transaction ID, username, name, email, phone, reference, amount
+      const s = adminTxSearch(x.q), where = (TX_FILTER[x.status] || TX_FILTER.all) + s.sql;
+      const rows = (await db.prepare(`SELECT t.id,t.user_id,t.type,t.label,t.amount,t.direction,t.status,t.created_at,p.username,p.full_name FROM transactions t JOIN profiles p ON p.id=t.user_id JOIN users u ON u.id=t.user_id WHERE ${where} ORDER BY t.created_at DESC, t.rowid DESC LIMIT ? OFFSET ?`).bind(...s.args, PAGE, page(x.offset)).all()).results;
+      const total = (await db.prepare(`SELECT COUNT(*) n FROM transactions t JOIN profiles p ON p.id=t.user_id JOIN users u ON u.id=t.user_id WHERE ${where}`).bind(...s.args).first()).n;
+      return json({ transactions: rows, total, page_size: PAGE });
+    }
+    case 'admin_tx_detail': {   // everything support needs about one transaction (a full ID or the first 6+ characters of it)
+      const id = String(x.txId || '').trim().slice(0, 64);
+      if (id.length < 6) return fail('Enter at least 6 characters of the transaction ID.');
+      let t = await db.prepare('SELECT * FROM transactions WHERE id=?').bind(id).first();
+      if (!t) {
+        const m = (await db.prepare("SELECT * FROM transactions WHERE lower(id) LIKE ? ESCAPE '\\' LIMIT 3").bind(id.toLowerCase().replace(/[\\%_]/g, '\\$&') + '%').all()).results;
+        if (m.length > 1) return fail('More than one transaction starts with that. Paste more of the ID.');
+        t = m[0];
+      }
+      if (!t) return fail('No transaction with that ID.', 404);
+      const d = await (await FUNCTIONS['txc-detail']({ id: t.id }, env, { id: t.user_id })).json();
+      const u = await db.prepare('SELECT p.id,p.full_name,p.username,u.email,p.phone,p.balance_ngn,p.exchange_balance,p.atc_balance,p.is_banned FROM profiles p JOIN users u ON u.id=p.id WHERE p.id=?').bind(t.user_id).first();
+      let meta = {}; try { meta = JSON.parse(t.metadata || '{}') || {}; } catch {}
+      const cost = Number.isFinite(Number(meta.cost)) ? Number(meta.cost) : null;
+      const events = (await db.prepare('SELECT provider,status,amount,created_at FROM payment_events WHERE tx_ref=? ORDER BY created_at DESC LIMIT 10').bind(t.id).all()).results;
+      const ledger = (await db.prepare("SELECT wallet,direction,amount,type,note,balance_before,balance_after,created_at FROM wallet_ledger WHERE user_id=? AND ref LIKE ? ESCAPE '\\' ORDER BY created_at").bind(t.user_id, '%' + t.id).all()).results;
+      const pr = String(t.provider_ref || '');
+      return json({ detail: d, user: u, admin: { raw_status: t.status, wallet: t.wallet, cost, profit: cost != null && t.direction === 'out' && t.status === 'successful' ? money(t.amount - cost) : null, provider_ref: pr.startsWith('Token:') || pr.startsWith('[') || pr.startsWith('{') ? null : pr || null,
+        events, ledger, can_resolve: t.status === 'pending' && !['withdrawal', 'exchange'].includes(t.type), resolve_hint: t.status === 'pending' && ['withdrawal', 'exchange'].includes(t.type) ? 'This one is settled in the Exchange tab (it is a withdrawal or an exchange payment).' : null } });
+    }
+    case 'user_wallet_history': {   // exactly what the customer sees in Wallet History, for support
+      if (!await exists(target)) return fail('User not found.', 404);
+      return await FUNCTIONS['wallet-history'](x, env, { id: target });
     }
     case 'resolve_transaction': {
       // For a transaction stuck on "pending": confirm it, or fail it (which refunds the customer).
       const t = await db.prepare("SELECT id,user_id,type,amount,direction,metadata FROM transactions WHERE id=? AND status='pending'").bind(String(x.txId || '')).first();
       if (!t) return fail('That transaction is no longer pending.', 404);
+      if (['withdrawal', 'exchange'].includes(t.type)) return fail('Settle withdrawals and exchange payments from the Exchange tab, so the right wallet is used.');
       const ok = x.resolution === 'success';
       if (!ok && x.resolution !== 'failed') return fail('Unknown resolution.');
       const guard = "EXISTS(SELECT 1 FROM transactions WHERE id=? AND status='pending')";
@@ -1856,6 +1899,16 @@ FUNCTIONS['admin-manage-users'] = async (x, env, user) => {
       ops.push(log('resolve_transaction', t.user_id, `${t.id} -> ${ok ? 'successful' : 'failed (refunded)'}`));
       await db.batch(ops);
       return json({ ok: true });
+    }
+    case 'price_alerts': {   // purchases of the last 30 days where Legitdataway charged a different price from catalog.js
+      const rows = (await db.prepare("SELECT type,label,amount,created_at,metadata FROM transactions WHERE status='successful' AND direction='out' AND created_at >= datetime('now','-30 days') AND json_extract(metadata,'$.price_diff') IS NOT NULL ORDER BY created_at DESC, rowid DESC LIMIT 400").all()).results;
+      const g = new Map();
+      for (const r of rows) {
+        let m = {}; try { m = JSON.parse(r.metadata || '{}'); } catch {}
+        const key = r.type + '|' + (m.item || r.label), e = g.get(key) || { type: r.type, item: m.item || r.label, count: 0, losses: 0, last_at: r.created_at, catalog_cost: m.catalog_cost, real_cost: m.cost, diff: m.price_diff, sell_price: r.amount };
+        e.count++; if (Number(m.cost) > Number(r.amount)) e.losses++; g.set(key, e);
+      }
+      return json({ alerts: [...g.values()].map((e) => ({ ...e, profit_now: money(e.sell_price - e.real_cost) })).slice(0, 30) });
     }
     case 'get_settings': {
       const map = await loadSettings(env);

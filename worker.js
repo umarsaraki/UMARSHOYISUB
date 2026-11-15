@@ -34,6 +34,10 @@ const SCHEMA = [
   `CREATE INDEX IF NOT EXISTS idx_sn_status ON sn_notifications(status, scheduled_at)`,
   `CREATE INDEX IF NOT EXISTS idx_sn_created ON sn_notifications(created_at)`,
   `CREATE TABLE IF NOT EXISTS sn_sound_settings (k TEXT PRIMARY KEY, v TEXT)`,
+  `CREATE TABLE IF NOT EXISTS push_subscriptions (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), endpoint TEXT NOT NULL UNIQUE, p256dh TEXT NOT NULL, auth TEXT NOT NULL, ua TEXT, lang TEXT, active INTEGER NOT NULL DEFAULT 1, fail_count INTEGER NOT NULL DEFAULT 0, last_ok_at TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+  `CREATE INDEX IF NOT EXISTS idx_push_user ON push_subscriptions(user_id, active)`,
+  `CREATE TABLE IF NOT EXISTS sn_push_log (id TEXT PRIMARY KEY, sn_id TEXT, user_id TEXT, sub_id TEXT, status TEXT NOT NULL, http_status INTEGER, error TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+  `CREATE INDEX IF NOT EXISTS idx_pushlog_sn ON sn_push_log(sn_id, sub_id)`,
   `CREATE TABLE IF NOT EXISTS sn_sound_files (slot TEXT PRIMARY KEY, mime TEXT NOT NULL, size INTEGER NOT NULL, b64 TEXT NOT NULL, updated_by TEXT, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
   `CREATE TABLE IF NOT EXISTS support_tickets (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), tx_id TEXT, message TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'open', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
   `CREATE TABLE IF NOT EXISTS admin_log (id TEXT PRIMARY KEY, admin_id TEXT NOT NULL, action TEXT NOT NULL, target_id TEXT, detail TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
@@ -75,6 +79,7 @@ const MIGRATIONS = [
   `ALTER TABLE user_notifications ADD COLUMN action_target TEXT`,
   `ALTER TABLE user_notifications ADD COLUMN played_at TEXT`,
   `ALTER TABLE user_prefs ADD COLUMN sound_prefs TEXT`,
+  `ALTER TABLE sn_notifications ADD COLUMN push_state TEXT`,
   `CREATE UNIQUE INDEX IF NOT EXISTS uq_un_sn ON user_notifications(user_id, sn_id) WHERE sn_id IS NOT NULL`,
   `CREATE UNIQUE INDEX IF NOT EXISTS uq_un_event ON user_notifications(user_id, event_id) WHERE event_id IS NOT NULL`,
   `CREATE INDEX IF NOT EXISTS idx_un_sn ON user_notifications(sn_id)`,
@@ -1032,6 +1037,7 @@ async function notify(env, userId, title, message, opts = {}) {   // a personal 
     const cat = opts.pref || notifCat(title);
     if (cat !== 'security' && (await getPrefs(env, userId)).notif[cat] === false) return;   // the customer switched this type off
     await env.DB.prepare('INSERT OR IGNORE INTO user_notifications(id,user_id,title,message,category,sound,priority,ref_type,ref_id,event_id) VALUES(?,?,?,?,?,?,?,?,?,?)').bind(uid(), userId, String(title).slice(0, 80), String(message).slice(0, 300), opts.category || null, opts.sound || null, opts.priority || null, opts.ref_type || null, opts.ref_id || null, opts.event_id || null).run();
+    if (['wow', 'ahh', 'hii'].includes(opts.sound)) await pushToUser(env, userId, { title: String(title).slice(0, 80), body: 'Open UMARSHOYI-SUB to see the details.', tag: opts.event_id || 'n', url: '/', kind: opts.sound });
   }
   catch (e) { console.error('notify failed', e); }
 }
@@ -1145,6 +1151,7 @@ async function snDeliver(env, id) {
       .bind(n.title, n.message, n.category, n.sound, n.priority, n.id, n.action_label || null, n.action_target || null, ...b.args).run();
     const got = (await env.DB.prepare('SELECT COUNT(*) n FROM user_notifications WHERE sn_id=?').bind(n.id).first()).n;
     await env.DB.prepare("UPDATE sn_notifications SET status='sent', sent_at=CURRENT_TIMESTAMP, intended=?, delivered=?, skipped=?, failed=0, error=NULL WHERE id=?").bind(est.total, got, Math.max(0, est.total - est.eligible), n.id).run();
+    if (String(n.channels).includes('"push"') && await pushKeys(env)) { await env.DB.prepare("UPDATE sn_notifications SET push_state='pending' WHERE id=?").bind(n.id).run(); await pushRunDue(env); }
     return { ok: true, intended: est.total, delivered: got, skipped: Math.max(0, est.total - est.eligible) };
   } catch (e) {
     await env.DB.prepare("UPDATE sn_notifications SET status='failed', error=? WHERE id=?").bind(String(e.message || e).slice(0, 200), n.id).run();
@@ -1196,7 +1203,7 @@ FUNCTIONS['admin-notify'] = async (x, env, user) => {
         reached: (await db.prepare('SELECT COUNT(DISTINCT user_id) n FROM user_notifications WHERE sn_id IS NOT NULL').first()).n,
         categories: await snCats(env),
         groups: Object.fromEntries(Object.entries(NOTICE_GROUPS).map(([k, v]) => [k, v[0]])),
-        channels: { in_app: true, push: false, email: false, sms: false, voice: true },   // push/email/sms are switched on only when configured
+        channels: { in_app: true, push: !!(await pushKeys(env)), email: false, sms: false, voice: true },   // email/sms are switched on only when configured
         server_time: new Date().toISOString(),
       });
     }
@@ -1219,7 +1226,8 @@ FUNCTIONS['admin-notify'] = async (x, env, user) => {
       if (!n || n.status === 'deleted') return fail('Notification not found.', 404);
       const read = (await db.prepare('SELECT COUNT(*) n FROM user_notifications WHERE sn_id=? AND read_at IS NOT NULL').bind(n.id).first()).n;
       const by = n.created_by ? (await db.prepare('SELECT COALESCE(full_name,username) nm FROM profiles WHERE id=?').bind(n.created_by).first())?.nm : null;
-      return json({ item: { ...(await pub(n)), created_by_name: by, read_count: read } });
+      const pc = (await db.prepare('SELECT status, COUNT(*) n FROM sn_push_log WHERE sn_id=? GROUP BY status').bind(n.id).all()).results, push = Object.fromEntries(pc.map((r) => [r.status, r.n]));
+      return json({ item: { ...(await pub(n)), created_by_name: by, read_count: read, push_state: n.push_state, push } });
     }
     case 'estimate': {
       if (!(await targetOk(x.target))) return fail('Choose a valid audience.');
@@ -1239,8 +1247,10 @@ FUNCTIONS['admin-notify'] = async (x, env, user) => {
       if (!(await targetOk(x.target))) return fail('Choose who should receive it.');
       const sound = SN_SOUNDS.includes(x.sound) ? x.sound : 'hii', prio = SN_PRIO.includes(x.priority) ? x.priority : 'normal', lang = ['en', 'ha', 'yo'].includes(x.language) ? x.language : 'en';
       const chans = Array.isArray(x.channels) ? x.channels : ['in_app'];
-      if (chans.some((c) => c !== 'in_app' && c !== 'voice')) return fail('Only In-App (and the in-app voice) are set up. Push, Email and SMS are not configured yet.');
-      const channels = JSON.stringify(['in_app', ...(chans.includes('voice') ? ['voice'] : [])]);
+      const pushOn = !!(await pushKeys(env));
+      if (chans.some((c) => !['in_app', 'voice', 'push'].includes(c))) return fail('Email and SMS are not configured yet.');
+      if (chans.includes('push') && !pushOn) return fail('Phone push is not set up yet. Create the push keys first.');
+      const channels = JSON.stringify(['in_app', ...(chans.includes('voice') ? ['voice'] : []), ...(chans.includes('push') ? ['push'] : [])]);
       const alabel = snClip(x.action_label, 30).trim() || null, atarget = snClip(x.action_target, 40).trim() || null;
       if (atarget && !/^(page:[a-z-]{2,30}|tx:[A-Za-z0-9-]{4,60}|https:\/\/[^\s]{4,200})$/.test(atarget)) return fail('The button link is not valid.');
       let when = null;
@@ -1455,6 +1465,117 @@ async function txEvent(env, txId, outcome) {
     else await notify(env, t.user_id, `${nm} failed`, `${nm} did not go through. ${amt} was returned to your wallet.`, { sound: 'ahh', category: 'transaction_update', pref: 'transaction', ref_type: 'tx', ref_id: t.id, event_id: 'tx:' + t.id + ':fail' });
   } catch (e) { console.error('txEvent failed', e); }
 }
+
+/* ===================== WEB PUSH (phone notifications when the app is closed) ===================== */
+// Standard Web Push: VAPID (RFC 8292) + aes128gcm message encryption (RFC 8291), done with Web Crypto only.
+const b64u = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const unb64u = (s) => { s = String(s).replace(/-/g, '+').replace(/_/g, '/'); while (s.length % 4) s += '='; return Uint8Array.from(atob(s), (c) => c.charCodeAt(0)); };
+const concatBytes = (...a) => { const o = new Uint8Array(a.reduce((n, x) => n + x.length, 0)); let i = 0; for (const x of a) { o.set(x, i); i += x.length; } return o; };
+async function pushKeys(env) {   // { pub, priv(JWK) } or null when not created yet
+  const rows = (await env.DB.prepare("SELECT k,v FROM sn_sound_settings WHERE k IN ('vapid_pub','vapid_priv')").all()).results, m = Object.fromEntries(rows.map((r) => [r.k, r.v]));
+  if (!m.vapid_pub || !m.vapid_priv || !authSecretOk(env)) return null;
+  const p = await decryptSetting(env, m.vapid_priv); if (!p) return null;
+  try { return { pub: m.vapid_pub, priv: JSON.parse(p) }; } catch { return null; }
+}
+async function pushCreateKeys(env) {
+  const kp = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify']);
+  const pub = b64u(await crypto.subtle.exportKey('raw', kp.publicKey)), priv = JSON.stringify(await crypto.subtle.exportKey('jwk', kp.privateKey));
+  const put = (k, v) => env.DB.prepare('INSERT INTO sn_sound_settings(k,v) VALUES(?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v').bind(k, v);
+  await env.DB.batch([put('vapid_pub', pub), put('vapid_priv', await encryptSetting(env, priv)), env.DB.prepare('UPDATE push_subscriptions SET active=0')]);   // old subscriptions were made for the old key
+  return pub;
+}
+async function vapidHeader(keys, endpoint, subject) {
+  const aud = new URL(endpoint).origin, h = b64u(enc(JSON.stringify({ typ: 'JWT', alg: 'ES256' }))), c = b64u(enc(JSON.stringify({ aud, exp: Math.floor(Date.now() / 1000) + 12 * 3600, sub: subject })));
+  const key = await crypto.subtle.importKey('jwk', keys.priv, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['sign']);
+  const sig = await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, key, enc(h + '.' + c));
+  return `vapid t=${h}.${c}.${b64u(sig)}, k=${keys.pub}`;
+}
+// RFC 8291: encrypt `payload` (bytes) for one subscription
+async function pushEncrypt(sub, payload) {
+  const ua = unb64u(sub.p256dh), auth = unb64u(sub.auth);
+  const eph = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']), asPub = new Uint8Array(await crypto.subtle.exportKey('raw', eph.publicKey));
+  const uaKey = await crypto.subtle.importKey('raw', ua, { name: 'ECDH', namedCurve: 'P-256' }, false, []);
+  const ecdh = new Uint8Array(await crypto.subtle.deriveBits({ name: 'ECDH', public: uaKey }, eph.privateKey, 256));
+  const hk = async (ikm, salt, info, bits) => crypto.subtle.deriveBits({ name: 'HKDF', hash: 'SHA-256', salt, info }, await crypto.subtle.importKey('raw', ikm, 'HKDF', false, ['deriveBits']), bits);
+  const ikm = new Uint8Array(await hk(ecdh, auth, concatBytes(enc('WebPush: info\0'), ua, asPub), 256));
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const cek = await hk(ikm, salt, enc('Content-Encoding: aes128gcm\0'), 128), nonce = await hk(ikm, salt, enc('Content-Encoding: nonce\0'), 96);
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv: nonce }, await crypto.subtle.importKey('raw', cek, 'AES-GCM', false, ['encrypt']), concatBytes(payload, new Uint8Array([2]))));
+  return concatBytes(salt, new Uint8Array([0, 0, 0x10, 0]), new Uint8Array([asPub.length]), asPub, ct);   // header: salt | record size 4096 | key id length | key id
+}
+// Sends one push. Returns { ok, status, gone } from what the push service REALLY answered.
+async function pushOne(env, keys, sub, data, urgency = 'normal') {
+  try {
+    const subject = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(env.SUPPORT_EMAIL || '') ? 'mailto:' + env.SUPPORT_EMAIL : 'mailto:' + (String(env.ADMIN_EMAILS || '').split(',')[0].trim() || 'admin@example.com');
+    const body = await pushEncrypt(sub, enc(JSON.stringify(data)));
+    const res = await fetch(sub.endpoint, { method: 'POST', headers: { authorization: await vapidHeader(keys, sub.endpoint, subject), 'content-encoding': 'aes128gcm', 'content-type': 'application/octet-stream', ttl: '86400', urgency }, body, signal: AbortSignal.timeout(4000) });
+    return { ok: res.status === 201 || res.status === 200 || res.status === 202, status: res.status, gone: res.status === 404 || res.status === 410 };
+  } catch (e) { return { ok: false, status: 0, gone: false, error: String(e.message || e).slice(0, 80) }; }
+}
+// push to all of one customer's phones (verified events). Never throws.
+async function pushToUser(env, userId, data) {
+  try {
+    const keys = await pushKeys(env); if (!keys) return;
+    const subs = (await env.DB.prepare('SELECT id,endpoint,p256dh,auth FROM push_subscriptions WHERE user_id=? AND active=1 ORDER BY last_ok_at DESC LIMIT 5').bind(userId).all()).results;
+    for (const s of subs) await pushRecord(env, s, await pushOne(env, keys, s, data), null);
+  } catch (e) { console.error('pushToUser failed', e); }
+}
+async function pushRecord(env, sub, r, snId) {
+  const st = r.ok ? 'accepted' : r.gone ? 'expired' : 'failed';
+  const ops = [env.DB.prepare('INSERT INTO sn_push_log(id,sn_id,user_id,sub_id,status,http_status,error) SELECT ?,?,user_id,id,?,?,? FROM push_subscriptions WHERE id=?').bind(uid(), snId, st, r.status, r.error || null, sub.id)];
+  if (r.ok) ops.push(env.DB.prepare('UPDATE push_subscriptions SET last_ok_at=CURRENT_TIMESTAMP, fail_count=0 WHERE id=?').bind(sub.id));
+  else if (r.gone) ops.push(env.DB.prepare('UPDATE push_subscriptions SET active=0 WHERE id=?').bind(sub.id));
+  else ops.push(env.DB.prepare('UPDATE push_subscriptions SET fail_count=fail_count+1, active=CASE WHEN fail_count+1>=5 THEN 0 ELSE active END WHERE id=?').bind(sub.id));
+  await env.DB.batch(ops);
+}
+// Admin sends with Push on: a bounded batch per run (the 5-minute cron continues until everybody has been tried once).
+async function pushRunDue(env) {
+  try {
+    const keys = await pushKeys(env); if (!keys) return;
+    const list = (await env.DB.prepare("SELECT id,title,message,priority,category FROM sn_notifications WHERE push_state='pending' AND status='sent' ORDER BY sent_at LIMIT 3").all()).results;
+    for (const n of list) {
+      const subs = (await env.DB.prepare("SELECT ps.id,ps.endpoint,ps.p256dh,ps.auth FROM user_notifications un JOIN push_subscriptions ps ON ps.user_id=un.user_id AND ps.active=1 WHERE un.sn_id=? AND NOT EXISTS (SELECT 1 FROM sn_push_log l WHERE l.sn_id=un.sn_id AND l.sub_id=ps.id) LIMIT 25").bind(n.id).all()).results;
+      for (const s of subs) await pushRecord(env, s, await pushOne(env, keys, s, { title: n.title, body: n.message, tag: 'sn-' + n.id, url: '/', kind: 'notice' }, n.priority === 'high' ? 'high' : 'normal'), n.id);
+      if (subs.length < 25) await env.DB.prepare("UPDATE sn_notifications SET push_state='done' WHERE id=?").bind(n.id).run();
+    }
+  } catch (e) { console.error('pushRunDue failed', e); }
+}
+
+FUNCTIONS['push-config'] = async (x, env, user) => { const k = await pushKeys(env); return json({ enabled: !!k, key: k?.pub || null }); };
+FUNCTIONS['push-subscribe'] = async (x, env, user) => {
+  const keys = await pushKeys(env); if (!keys) return fail('Phone notifications are not set up yet.', 503);
+  const ep = String(x.endpoint || ''), p = String(x.keys?.p256dh || ''), a = String(x.keys?.auth || '');
+  if (!/^https:\/\/[^\s]{10,600}$/.test(ep) || !/^[A-Za-z0-9_-]{80,100}$/.test(p) || !/^[A-Za-z0-9_-]{16,32}$/.test(a)) return fail('That subscription is not valid.');
+  if (unb64u(p).length !== 65) return fail('That subscription is not valid.');
+  if ((await env.DB.prepare('SELECT COUNT(*) n FROM push_subscriptions WHERE user_id=? AND active=1').bind(user.id).first()).n >= 5 && !(await env.DB.prepare('SELECT 1 FROM push_subscriptions WHERE endpoint=?').bind(ep).first())) return fail('Too many phones are subscribed on this account.');
+  await env.DB.prepare('INSERT INTO push_subscriptions(id,user_id,endpoint,p256dh,auth,ua,lang,active) VALUES(?,?,?,?,?,?,?,1) ON CONFLICT(endpoint) DO UPDATE SET user_id=excluded.user_id,p256dh=excluded.p256dh,auth=excluded.auth,ua=excluded.ua,lang=excluded.lang,active=1,fail_count=0').bind(uid(), user.id, ep, p, a, snClip(x.ua, 120), ['en', 'ha', 'yo'].includes(x.lang) ? x.lang : 'en').run();
+  return json({ ok: true });
+};
+FUNCTIONS['push-unsubscribe'] = async (x, env, user) => { await env.DB.prepare('UPDATE push_subscriptions SET active=0 WHERE endpoint=? AND user_id=?').bind(String(x.endpoint || ''), user.id).run(); return json({ ok: true }); };
+FUNCTIONS['admin-push'] = async (x, env, user) => {
+  if (!user.is_admin) return fail('Admin permission required.', 403);
+  const db = env.DB, log = (a, d) => db.prepare('INSERT INTO admin_log(id,admin_id,action,target_id,detail) VALUES(?,?,?,?,?)').bind(uid(), user.id, a, null, d || null).run();
+  switch (x.action) {
+    case 'get': {
+      const k = await pushKeys(env);
+      const c = async (q, ...a) => (await db.prepare(q).bind(...a).first()).n;
+      return json({ configured: !!k, key: k?.pub || null, auth_ok: authSecretOk(env), subscribers: await c('SELECT COUNT(DISTINCT user_id) n FROM push_subscriptions WHERE active=1'), devices: await c('SELECT COUNT(*) n FROM push_subscriptions WHERE active=1'), accepted: await c("SELECT COUNT(*) n FROM sn_push_log WHERE status='accepted'"), failed: await c("SELECT COUNT(*) n FROM sn_push_log WHERE status='failed'"), expired: await c("SELECT COUNT(*) n FROM sn_push_log WHERE status='expired'") });
+    }
+    case 'create_keys': {
+      if (!authSecretOk(env)) return fail('AUTH_SECRET is not set, so keys cannot be stored safely.');
+      if (await pushKeys(env)) { if (x.confirm !== true) return json({ needs_confirm: true }); }
+      const pub = await pushCreateKeys(env); await log('push_keys', 'created'); return json({ ok: true, key: pub });
+    }
+    case 'test': {   // a test push to the admin's own phones
+      const k = await pushKeys(env); if (!k) return fail('Create the push keys first.');
+      const subs = (await db.prepare('SELECT id,endpoint,p256dh,auth FROM push_subscriptions WHERE user_id=? AND active=1').bind(user.id).all()).results;
+      if (!subs.length) return fail('This account has no phone subscribed. Switch on phone notifications in Settings first.');
+      const out = []; for (const s of subs) { const r = await pushOne(env, k, s, { title: 'UMARSHOYI-SUB', body: 'Test notification. Your phone notifications work.', tag: 'test', url: '/', kind: 'notice' }); await pushRecord(env, s, r, null); out.push({ ok: r.ok, status: r.status }); }
+      return json({ ok: out.some((o) => o.ok), results: out });
+    }
+    default: return fail('Unknown action.');
+  }
+};
 
 /* ----- transactions ----- */
 FUNCTIONS['tx-list'] = async (x, env, user) => {
@@ -3323,5 +3444,5 @@ export default {
     }
   },
   // Runs every few minutes (Cron Trigger): settles purchases that are still pending.
-  async scheduled(event, env, ctx) { await ensureSchema(env); ctx.waitUntil(reconcilePending(await withSettings(env))); ctx.waitUntil(snRunDue(env)); },
+  async scheduled(event, env, ctx) { await ensureSchema(env); ctx.waitUntil(reconcilePending(await withSettings(env))); ctx.waitUntil(snRunDue(env).then(() => pushRunDue(env))); },
 };

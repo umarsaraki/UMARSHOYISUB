@@ -5494,5 +5494,285 @@ async function adminLoadPriceAlerts(){
     <div class="mg-s" style="margin-top:12px;"><b>How to fix:</b> 1) Open Settings \u2192 Profit and raise the profit for that service so the customer price covers the new cost. 2) Send the new cost to your developer (or change that one line in catalog.js) so the catalog matches. (This warning keeps showing for 30 days after the last such sale; the sale rows stay in the history.)</div></div>`;
 }
 </script>
+<style>
+  .sn-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px;}
+  .sn-card{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:12px; box-shadow:var(--sh-sm);}
+  .sn-card b{display:block; font-size:22px; line-height:1.1; color:var(--blue-2);}
+  .sn-card span{font-size:11px; color:var(--sub); font-weight:600;}
+  .sn-box{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:14px; margin-bottom:12px;}
+  .sn-box h4{margin:0 0 10px; font-size:14px; color:var(--blue-2);}
+  .sn-row2{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .sn-box select,.sn-box input,.sn-box textarea{width:100%; box-sizing:border-box;}
+  .sn-box textarea{min-height:84px; border:1.5px solid var(--line); border-radius:12px; padding:10px 12px; font:inherit; background:var(--card); color:var(--text);}
+  .sn-chips{display:flex; gap:8px; overflow-x:auto; padding-bottom:8px; margin-bottom:10px;}
+  .sn-ic{width:38px; height:38px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:18px; flex:0 0 auto;}
+  .sn-item{display:flex; gap:10px; background:var(--card); border:1px solid var(--line); border-radius:16px; padding:12px; margin-bottom:10px; box-shadow:var(--sh-sm); position:relative;}
+  .sn-item.unread{border-color:var(--blue-1); background:linear-gradient(180deg,rgba(37,99,235,.06),transparent);}
+  .sn-item .t{font-weight:800; font-size:13px; padding-right:22px;}
+  .sn-item .m{font-size:13px; color:var(--sub); margin-top:3px; word-break:break-word;}
+  .sn-item .d{font-size:11px; color:var(--sub); margin-top:6px;}
+  .sn-dot{position:absolute; right:12px; top:12px; width:9px; height:9px; border-radius:50%; background:var(--blue-1);}
+  .sn-act{margin-top:8px; display:flex; gap:8px; flex-wrap:wrap;}
+  .sn-act button{border:1px solid var(--line); background:var(--card); color:var(--blue-2); border-radius:10px; padding:6px 10px; font-size:12px; font-weight:700; cursor:pointer;}
+  .sn-st{display:inline-block; font-size:10px; font-weight:800; padding:2px 8px; border-radius:8px; color:#fff;}
+  .sn-note{font-size:12px; color:var(--sub); margin-top:6px;}
+  .sn-pick{border:1px solid var(--line); border-radius:12px; padding:8px 10px; margin-top:6px; cursor:pointer; font-size:13px;}
+  .sn-chan label{display:flex; align-items:center; gap:8px; font-size:13px; margin:6px 0;}
+  .sn-chan input{width:auto;}
+</style>
+<script>
+/* ============ Smart Notifications: admin manager + customer centre ============ */
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const E = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const snc = (b) => invokeFn('admin-notify', { body: b });
+  const D = { sec: 'dash', ov: null, edit: null, hist: { q: '', category: '', status: '', from: '', to: '', offset: 0 }, picked: null };
+  const SECS = [['dash', 'Dashboard'], ['create', 'Create'], ['hist', 'History'], ['cats', 'Categories']];
+  const STC = { sent: '#16a05f', scheduled: '#2563eb', draft: '#64748b', sending: '#e98a0c', failed: '#dc2626', cancelled: '#94a3b8' };
+  const PAGES = [['', 'No button'], ['page:fund', 'Fund wallet'], ['page:purchase', 'Buy data / airtime'], ['page:cable', 'Cable TV'], ['page:electricity', 'Electricity'], ['page:exam', 'Exam PINs'], ['page:exchange', 'Exchange'], ['page:bulksms', 'Bulk SMS'], ['page:referral', 'Referral'], ['page:support', 'Support'], ['page:history', 'History']];
+  const SERVICES = [['data', 'Data'], ['airtime', 'Airtime'], ['cable', 'Cable TV'], ['electricity', 'Electricity'], ['exam', 'Exam PIN'], ['fund', 'Wallet funding']];
+  const tz = (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone; } catch { return 'your time'; } })();
+  const when = (s) => { if (!s) return '-'; const d = dt(s); return isNaN(d) ? '-' : d.toLocaleString(undefined, { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }); };
+  const cat = (id) => (D.ov?.categories || []).find((c) => c.id === id) || { name: id, icon: '🔔', color: '#1d4ed8', sound: 'hii' };
+  const body = () => $('snBody');
+
+  function inject() {
+    const tabs = $('adminTabs'), panel = $('page-admin-panel'); if (!tabs || !panel || $('atab-sn')) return;
+    tabs.insertAdjacentHTML('beforeend', '<button class="atab" data-tab="sn" onclick="adminSetTab(\'sn\')">Notify</button>');
+    panel.querySelector('.page-body').insertAdjacentHTML('beforeend', '<div id="atab-sn" style="display:none;"><div class="sn-chips" id="snChips"></div><div id="snBody"></div></div>');
+  }
+  const _setTab = adminSetTab;
+  adminSetTab = function (t) {
+    const box = $('atab-sn'); if (!box) return _setTab(t);
+    if (t === 'sn') {
+      document.querySelectorAll('#adminTabs .atab').forEach((b) => b.classList.toggle('on', b.dataset.tab === 'sn'));
+      document.querySelectorAll('#page-admin-panel [id^="atab-"]').forEach((x) => { x.style.display = 'none'; });
+      box.style.display = 'block'; open();
+    } else { box.style.display = 'none'; _setTab(t); }
+  };
+  function chips() { $('snChips').innerHTML = SECS.map((s) => `<button class="atab ${D.sec === s[0] ? 'on' : ''}" data-sn="sec" data-s="${s[0]}">${s[1]}</button>`).join(''); }
+  async function open() { chips(); await loadOv(); section(D.sec); }
+  async function loadOv() { const r = await snc({ action: 'overview' }); if (r.data) D.ov = r.data; return r; }
+  function section(s) {
+    D.sec = s; chips(); body().innerHTML = '<div class="empty-note">Loading…</div>';
+    ({ dash, create: () => create(D.edit), hist, cats })[s]();
+  }
+
+  /* ---------- dashboard ---------- */
+  async function dash() {
+    const r = await loadOv(); if (r.errMsg) { body().innerHTML = `<div class="err-text">${E(r.errMsg)}</div>`; return; }
+    const o = r.data, l = await snc({ action: 'list', offset: 0 });
+    const cards = [['Total', o.total], ['Sent', o.sent], ['Pending delivery', o.pending], ['Failed', o.failed], ['Scheduled', o.scheduled], ['Customers reached', o.reached]];
+    const ch = (name, on, note) => `<div class="st-kv"><span>${name}</span><b style="color:${on ? '#16a05f' : '#94a3b8'};">${on ? 'Ready' : 'Not configured'}</b></div>${note ? `<div class="sn-note" style="margin:-4px 0 6px;">${note}</div>` : ''}`;
+    body().innerHTML = `<div class="sn-grid">${cards.map((c) => `<div class="sn-card"><b>${Number(c[1]).toLocaleString()}</b><span>${c[0]}</span></div>`).join('')}</div>
+      <div class="sn-box"><h4>Delivery channels</h4>${ch('In-App (bell)', o.channels.in_app)}${ch('Female voice (app open)', o.channels.voice, 'Plays only while the customer has the app open.')}${ch('Push (app closed)', o.channels.push)}${ch('Email', o.channels.email)}${ch('SMS', o.channels.sms)}</div>
+      <div class="sn-box"><h4>Recent notifications</h4>${rows(l.data?.items?.slice(0, 5) || [])}</div>
+      <button class="btn-primary" data-sn="new">+ Create notification</button>`;
+  }
+  const badge = (st) => `<span class="sn-st" style="background:${STC[st] || '#64748b'}">${E(st)}</span>`;
+  function rows(items) {
+    if (!items.length) return '<div class="empty-note">No notifications yet.</div>';
+    return items.map((n) => { const c = cat(n.category); return `<div class="arow" data-sn="detail" data-id="${E(n.id)}"><div class="top"><span>${c.icon} ${E(n.title)}</span>${badge(n.status)}</div><div class="sub">${E(c.name)} · ${E(n.target_label)}</div><div class="sub">${n.status === 'scheduled' ? 'Sends ' + when(n.scheduled_at) : n.status === 'sent' ? `${n.delivered}/${n.intended} delivered${n.skipped ? ' · ' + n.skipped + ' opted out' : ''}` : 'Created ' + when(n.created_at)}</div></div>`; }).join('');
+  }
+
+  /* ---------- create / edit ---------- */
+  function create(e) {
+    const o = D.ov; if (!o) { body().innerHTML = '<div class="err-text">Could not load.</div>'; return; }
+    const v = e || { title: '', message: '', category: 'general', language: 'en', priority: 'normal', sound: cat('general').sound, target: 'all', action_label: '', action_target: '', channels: '["in_app"]' };
+    const [tk, tv] = String(v.target).split(':'), chans = (() => { try { return JSON.parse(v.channels); } catch { return ['in_app']; } })();
+    const opt = (list, cur) => list.map((x) => `<option value="${E(x[0])}" ${x[0] === cur ? 'selected' : ''}>${E(x[1])}</option>`).join('');
+    body().innerHTML = `<div class="sn-box"><h4>${e ? 'Edit notification' : 'Create notification'}</h4>
+      <div class="field"><label>Title *</label><input id="snTitle" maxlength="80" value="${E(v.title)}" placeholder="e.g. New data plans available"></div>
+      <div class="field"><label>Message *</label><textarea id="snMsg" maxlength="500" placeholder="Write a short message">${E(v.message)}</textarea></div>
+      <div class="sn-row2"><div class="field"><label>Category</label><select id="snCat">${opt(o.categories.filter((c) => c.active || c.id === v.category).map((c) => [c.id, c.icon + ' ' + c.name]), v.category)}</select></div>
+      <div class="field"><label>Language</label><select id="snLang">${opt([['en', 'English'], ['ha', 'Hausa'], ['yo', 'Yoruba']], v.language)}</select></div></div>
+      <div class="sn-row2"><div class="field"><label>Priority</label><select id="snPrio">${opt([['normal', 'Normal'], ['high', 'High / Important']], v.priority)}</select></div>
+      <div class="field"><label>Sound</label><select id="snSound">${opt([['hii', 'HII – notice'], ['wow', 'WOW – success'], ['ahh', 'AHH – attention'], ['none', 'No sound']], v.sound)}</select></div></div></div>
+      <div class="sn-box"><h4>Who receives it</h4>
+      <div class="field"><select id="snTarget">${opt([['all', 'All customers'], ['active', 'Active customers (last 30 days)'], ['group', 'A customer group'], ['service', 'Customers who bought a service'], ['user', 'One specific customer']], tk)}</select></div>
+      <div id="snTargetX"></div><div class="sn-note" id="snEst">Counting…</div></div>
+      <div class="sn-box"><h4>Delivery</h4><div class="sn-chan">
+        <label><input type="checkbox" checked disabled> In-App notification (bell)</label>
+        <label><input type="checkbox" id="snVoice" ${chans.includes('voice') ? 'checked' : ''}> Female voice (plays when the app is open)</label>
+        <label style="opacity:.55;"><input type="checkbox" disabled> Push (not configured yet)</label>
+        <label style="opacity:.55;"><input type="checkbox" disabled> Email (not configured)</label>
+        <label style="opacity:.55;"><input type="checkbox" disabled> SMS (not configured)</label></div></div>
+      <div class="sn-box"><h4>Action button (optional)</h4><div class="sn-row2"><div class="field"><label>Opens</label><select id="snAT">${opt(PAGES, v.action_target || '')}</select></div><div class="field"><label>Button text</label><input id="snAL" maxlength="30" value="${E(v.action_label || '')}" placeholder="e.g. Buy now"></div></div></div>
+      <div class="sn-box"><h4>When to send</h4>
+      <div class="field"><select id="snWhen"><option value="now">Send now</option><option value="schedule" ${v.status === 'scheduled' ? 'selected' : ''}>Schedule for later</option><option value="draft">Save as draft</option></select></div>
+      <div id="snSched" style="display:none;"><div class="field"><label>Date and time</label><input type="datetime-local" id="snAt"></div><div class="sn-note">Time zone: ${E(tz)}. Scheduled ones are sent within 5 minutes of the time.</div></div></div>
+      <div class="sn-box"><h4>Preview</h4><div id="snPrev"></div></div>
+      <div class="err-text" id="snErr"></div>
+      <button class="btn-primary" data-sn="submit">Continue</button>${e ? '<button class="btn-outline" style="margin-top:8px;" data-sn="cancelEdit">Cancel editing</button>' : ''}`;
+    if (v.scheduled_at) { const d = dt(v.scheduled_at), p = (n) => String(n).padStart(2, '0'); if (!isNaN(d)) $('snAt').value = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; }
+    D.picked = tk === 'user' ? { id: tv, label: v.target_label || 'Selected customer' } : null;
+    D.tv = tv || '';
+    targetX(); sched(); prev(); est();
+    ['snTitle', 'snMsg', 'snCat', 'snPrio', 'snAL', 'snAT'].forEach((id) => $(id).addEventListener('input', prev));
+    $('snCat').addEventListener('change', () => { $('snSound').value = cat($('snCat').value).sound; est(); });
+    $('snTarget').addEventListener('change', () => { D.tv = ''; D.picked = null; targetX(); est(); });
+    $('snWhen').addEventListener('change', sched);
+    $('snWhen').value = v.status === 'scheduled' ? 'schedule' : 'now';
+    sched();
+  }
+  function sched() { $('snSched').style.display = $('snWhen').value === 'schedule' ? 'block' : 'none'; }
+  function targetX() {
+    const k = $('snTarget').value, box = $('snTargetX');
+    if (k === 'group') box.innerHTML = `<div class="field"><select id="snTV">${Object.entries(D.ov.groups).map(([g, n]) => `<option value="${g}" ${g === D.tv ? 'selected' : ''}>${E(n)}</option>`).join('')}</select></div>`;
+    else if (k === 'service') box.innerHTML = `<div class="field"><select id="snTV">${SERVICES.map((s) => `<option value="${s[0]}" ${s[0] === D.tv ? 'selected' : ''}>${s[1]}</option>`).join('')}</select></div>`;
+    else if (k === 'user') box.innerHTML = `<div class="field"><input id="snFind" placeholder="Search name, username, email or phone" autocomplete="off"></div><div id="snFound"></div><div class="sn-note" id="snPicked">${D.picked ? '✓ ' + E(D.picked.label) : 'No customer chosen yet.'}</div>`;
+    else box.innerHTML = '';
+    const tv = $('snTV'); if (tv) tv.addEventListener('change', () => { D.tv = tv.value; est(); });
+    if (tv) D.tv = tv.value;
+    const f = $('snFind'); if (f) { let t; f.addEventListener('input', () => { clearTimeout(t); t = setTimeout(async () => { const r = await snc({ action: 'find_user', q: f.value }); $('snFound').innerHTML = (r.data?.items || []).map((u) => `<div class="sn-pick" data-sn="pick" data-id="${E(u.id)}" data-l="${E((u.full_name || u.username) + ' (' + (u.username || '') + ')')}">${E(u.full_name || '')} <b>@${E(u.username || '')}</b><div class="sn-note">${E(u.email || '')} ${E(u.phone || '')}</div></div>`).join('') || '<div class="sn-note">Nobody found.</div>'; }, 300); }); }
+  }
+  const target = () => { const k = $('snTarget').value; if (k === 'all' || k === 'active') return k; if (k === 'user') return D.picked ? 'user:' + D.picked.id : ''; return k + ':' + ($('snTV')?.value || ''); };
+  async function est() {
+    const t = target(), b = $('snEst'); if (!b) return;
+    if (!t) { b.textContent = 'Choose a customer.'; return; }
+    const r = await snc({ action: 'estimate', target: t, category: $('snCat').value });
+    if (!$('snEst')) return;
+    $('snEst').innerHTML = r.errMsg ? `<span class="err-text">${E(r.errMsg)}</span>` : `<b>${r.data.eligible.toLocaleString()}</b> customer${r.data.eligible === 1 ? '' : 's'} will receive it${r.data.total > r.data.eligible ? ` (${r.data.total - r.data.eligible} switched this type off)` : ''}.`;
+  }
+  function prev() {
+    const c = cat($('snCat').value), t = $('snTitle').value || 'Notification title', m = $('snMsg').value || 'Your message appears here.';
+    $('snPrev').innerHTML = `<div class="sn-item unread"><div class="sn-ic" style="background:${c.color}22;">${c.icon}</div><div style="flex:1;min-width:0;"><div class="t">${E(t)}</div><div class="m">${E(m)}</div>${$('snAL').value && $('snAT').value ? `<div class="sn-act"><button type="button">${E($('snAL').value)}</button></div>` : ''}<div class="d">Just now</div></div><span class="sn-dot"></span></div>`;
+  }
+  function payload(mode) {
+    const w = mode || $('snWhen').value, p = {
+      action: 'save', mode: w, id: D.edit?.id, title: $('snTitle').value.trim(), message: $('snMsg').value.trim(), category: $('snCat').value, language: $('snLang').value,
+      priority: $('snPrio').value, sound: $('snSound').value, target: target(), channels: ['in_app', ...($('snVoice').checked ? ['voice'] : [])],
+      action_label: $('snAL').value.trim(), action_target: $('snAT').value,
+    };
+    if (w === 'schedule') { const v = $('snAt').value; p.scheduled_at = v ? new Date(v).toISOString() : ''; }
+    return p;
+  }
+  async function submit() {
+    const err = $('snErr'); err.textContent = '';
+    const p = payload(); if (!p.title || !p.message) { err.textContent = 'Enter the title and the message.'; return; }
+    if (!p.target) { err.textContent = 'Choose who should receive it.'; return; }
+    if (p.mode === 'now') { // always confirm before a real send: show who gets it
+      const r = await snc({ action: 'estimate', target: p.target, category: p.category }); if (r.errMsg) { err.textContent = r.errMsg; return; }
+      confirmSend(p, r.data); return;
+    }
+    const r = await snc(p); if (r.errMsg) { err.textContent = r.errMsg; return; }
+    showToast(p.mode === 'schedule' ? 'Scheduled.' : 'Saved as draft.', 'success'); D.edit = null; section('hist');
+  }
+  function confirmSend(p, e) {
+    openSheet(`<div style="font-weight:800;font-size:17px;margin-bottom:8px;">Send this notification?</div>
+      <div class="sn-note" style="font-size:14px;color:var(--text);">“${E(p.title)}” will be sent to <b>${e.eligible.toLocaleString()}</b> customer${e.eligible === 1 ? '' : 's'} now. This cannot be undone.</div>
+      <div class="err-text" id="snCErr"></div><button class="btn-primary" id="snGo" style="margin-top:12px;">Yes, send now</button><button class="btn-outline" style="margin-top:8px;" onclick="closeSheet()">Cancel</button>`);
+    $('snGo').onclick = async () => {
+      $('snGo').disabled = true; const body2 = p.id ? { action: 'send', id: p.id, confirm: true } : { ...p, confirm: true };
+      let r; if (p.id) { const s = await snc({ ...p, mode: 'draft' }); if (s.errMsg) { $('snCErr').textContent = s.errMsg; $('snGo').disabled = false; return; } r = await snc({ action: 'send', id: p.id, confirm: true }); } else r = await snc(body2);
+      if (r.errMsg) { $('snCErr').textContent = r.errMsg; $('snGo').disabled = false; return; }
+      closeSheet(); showToast(`Sent to ${r.data.delivered} customer${r.data.delivered === 1 ? '' : 's'}.`, 'success'); D.edit = null; section('hist');
+    };
+  }
+
+  /* ---------- history ---------- */
+  async function hist(more) {
+    const h = D.hist; if (!more) h.offset = 0;
+    const r = await snc({ action: 'list', ...h });
+    const o = D.ov || {}, list = r.data;
+    if (!more) body().innerHTML = `<div class="sn-box"><input id="snQ" placeholder="Search by ID, title or message" value="${E(h.q)}">
+      <div class="sn-row2" style="margin-top:8px;"><select id="snFC"><option value="">All categories</option>${(o.categories || []).map((c) => `<option value="${c.id}" ${c.id === h.category ? 'selected' : ''}>${E(c.name)}</option>`).join('')}</select>
+      <select id="snFS"><option value="">Any status</option>${['draft', 'scheduled', 'sent', 'failed', 'cancelled'].map((s) => `<option ${s === h.status ? 'selected' : ''}>${s}</option>`).join('')}</select></div>
+      <div class="sn-row2" style="margin-top:8px;"><input type="date" id="snFF" value="${E(h.from)}"><input type="date" id="snFT" value="${E(h.to)}"></div></div><div id="snList"></div>`;
+    if (!more) { const go = () => { h.q = $('snQ').value; h.category = $('snFC').value; h.status = $('snFS').value; h.from = $('snFF').value; h.to = $('snFT').value; hist(); }; let t; $('snQ').addEventListener('input', () => { clearTimeout(t); t = setTimeout(go, 350); }); ['snFC', 'snFS', 'snFF', 'snFT'].forEach((id) => $(id).addEventListener('change', go)); }
+    const box = $('snList'); if (!box) return;
+    if (r.errMsg) { box.innerHTML = `<div class="err-text">${E(r.errMsg)}</div>`; return; }
+    const old = more ? box.innerHTML.replace(/<button[^>]*data-sn="more"[\s\S]*?<\/button>/, '') : '';
+    box.innerHTML = old + rows(list.items) + (h.offset + list.items.length < list.total ? '<button class="btn-outline" data-sn="more">Load more</button>' : '');
+    h.offset += list.items.length;
+  }
+  async function detail(id) {
+    const r = await snc({ action: 'get', id }); if (r.errMsg) { showToast(r.errMsg, 'error'); return; }
+    const n = r.data.item, c = cat(n.category), st = n.status;
+    const kv = (a, b) => `<div class="st-kv"><span>${a}</span><b style="text-align:right;max-width:60%;word-break:break-word;">${b}</b></div>`;
+    const btn = (a, l, cls = 'btn-outline') => `<button class="${cls}" style="margin-top:8px;" data-sn="${a}" data-id="${E(n.id)}">${l}</button>`;
+    openSheet(`<div style="font-weight:800;font-size:16px;">${c.icon} ${E(n.title)}</div><div class="sn-note" style="font-size:13px;color:var(--text);margin:6px 0 10px;">${E(n.message)}</div>
+      ${kv('Status', badge(st))}${kv('ID', E(n.id.slice(0, 8)))}${kv('Category', E(c.name))}${kv('Audience', E(n.target_label))}${kv('Language', E(n.language))}${kv('Priority', E(n.priority))}${kv('Created by', E(n.created_by_name || '-'))}${kv('Created', when(n.created_at))}${n.scheduled_at ? kv('Scheduled', when(n.scheduled_at)) : ''}${n.sent_at ? kv('Sent', when(n.sent_at)) : ''}
+      ${st === 'sent' ? kv('Recipients', n.intended) + kv('Delivered in-app', n.delivered) + kv('Opted out', n.skipped) + kv('Failed', n.failed) + kv('Opened by', n.read_count) : ''}${n.error ? kv('Error', E(n.error)) : ''}
+      ${['draft', 'scheduled', 'failed'].includes(st) ? btn('send', st === 'failed' ? 'Retry sending' : 'Send now', 'btn-primary') : ''}${['draft', 'scheduled'].includes(st) ? btn('edit', 'Edit') : ''}${st === 'scheduled' ? btn('cancel', 'Cancel scheduled') : ''}${btn('dup', 'Duplicate')}${['draft', 'cancelled'].includes(st) ? btn('del', 'Delete') : ''}
+      <div class="sn-note">Delivery shows what was written to each customer's notification inbox. Push, email and SMS are not set up, so no delivery is reported for them.</div>`);
+    D.cur = n;
+  }
+
+  /* ---------- categories ---------- */
+  function cats() {
+    const o = D.ov, c = o.categories;
+    body().innerHTML = `<div class="sn-box"><h4>Add a category</h4><div class="sn-row2"><div class="field"><label>Name</label><input id="ncN" maxlength="40"></div><div class="field"><label>Icon</label><input id="ncI" maxlength="4" value="🔔"></div></div>
+      <div class="sn-row2"><div class="field"><label>Colour</label><input type="color" id="ncC" value="#1d4ed8"></div><div class="field"><label>Default sound</label><select id="ncS"><option value="hii">HII</option><option value="wow">WOW</option><option value="ahh">AHH</option><option value="none">None</option></select></div></div>
+      <div class="field"><label>Customer setting that controls it</label><select id="ncP"><option value="service">Service announcements</option><option value="promo">Promotional</option><option value="transaction">Transactions</option><option value="funding">Wallet</option><option value="withdrawal">Withdrawals</option><option value="support">Support</option><option value="security">Security (always delivered)</option></select></div>
+      <div class="err-text" id="ncE"></div><button class="btn-primary" data-sn="addcat">Add category</button></div>
+      ${c.map((x) => `<div class="arow" style="cursor:default;"><div class="top"><span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${E(x.color)};margin-right:6px;"></span>${x.icon} ${E(x.name)}</span><button class="btn-outline" style="width:auto;padding:4px 12px;margin:0;" data-sn="togcat" data-id="${E(x.id)}" data-on="${x.active ? 0 : 1}">${x.active ? 'On' : 'Off'}</button></div><div class="sub">Sound: ${E(x.sound.toUpperCase())}${x.builtin ? '' : ' · custom'}</div></div>`).join('')}`;
+  }
+
+  /* ---------- actions ---------- */
+  const ACT = {
+    sec: (t) => { D.edit = null; section(t.dataset.s); },
+    new: () => { D.edit = null; section('create'); },
+    submit,
+    cancelEdit: () => { D.edit = null; section('hist'); },
+    more: () => hist(true),
+    detail: (t) => detail(t.dataset.id),
+    pick: (t) => { D.picked = { id: t.dataset.id, label: t.dataset.l }; $('snFound').innerHTML = ''; $('snPicked').textContent = '✓ ' + t.dataset.l; est(); },
+    edit: async () => { closeSheet(); D.edit = D.cur; section('create'); },
+    send: async (t) => {
+      const e = await snc({ action: 'send', id: t.dataset.id }); closeSheet();
+      if (e.errMsg) { showToast(e.errMsg, 'error'); return; }
+      if (e.data.needs_confirm) { confirmSend({ id: t.dataset.id, title: D.cur.title, ...{} }, e.data); $('snGo').onclick = async () => { $('snGo').disabled = true; const r = await snc({ action: 'send', id: t.dataset.id, confirm: true }); if (r.errMsg) { $('snCErr').textContent = r.errMsg; $('snGo').disabled = false; return; } closeSheet(); showToast(`Sent to ${r.data.delivered}.`, 'success'); section('hist'); }; return; }
+      showToast(`Sent to ${e.data.delivered}.`, 'success'); section('hist');
+    },
+    cancel: async (t) => { const r = await snc({ action: 'cancel', id: t.dataset.id }); closeSheet(); showToast(r.errMsg || 'Cancelled.', r.errMsg ? 'error' : 'success'); section('hist'); },
+    dup: async (t) => { const r = await snc({ action: 'duplicate', id: t.dataset.id }); closeSheet(); if (r.errMsg) { showToast(r.errMsg, 'error'); return; } showToast('Copied as a draft.', 'success'); section('hist'); },
+    del: async (t) => { const r = await snc({ action: 'delete', id: t.dataset.id }); closeSheet(); showToast(r.errMsg || 'Deleted.', r.errMsg ? 'error' : 'success'); section('hist'); },
+    addcat: async () => { const r = await snc({ action: 'category_save', name: $('ncN').value, icon: $('ncI').value, color: $('ncC').value, sound: $('ncS').value, pref: $('ncP').value }); if (r.errMsg) { $('ncE').textContent = r.errMsg; return; } await loadOv(); showToast('Category added.', 'success'); cats(); },
+    togcat: async (t) => { const r = await snc({ action: 'category_toggle', id: t.dataset.id, active: t.dataset.on === '1' }); if (r.errMsg) { showToast(r.errMsg, 'error'); return; } await loadOv(); cats(); },
+  };
+  document.addEventListener('click', (e) => { const t = e.target.closest('[data-sn]'); if (!t) return; const f = ACT[t.dataset.sn]; if (f) { e.preventDefault(); f(t, e); } });
+  inject();
+
+  /* ============ customer notification centre ============ */
+  const NF = { filter: 'all', offset: 0, items: [], cats: {} };
+  const TABS = [['all', 'All'], ['unread', 'Unread'], ['read', 'Read'], ['important', 'Important'], ['transactions', 'Transactions'], ['announcements', 'Announcements']];
+  const ncat = (id) => NF.cats[id] || { name: '', icon: '🔔', color: '#1d4ed8' };
+  function nfChrome() {
+    const list = $('notifList'); if (!list || $('nfTabs')) return;
+    list.insertAdjacentHTML('beforebegin', '<div class="sn-chips" id="nfTabs"></div><div style="display:flex;justify-content:flex-end;margin-bottom:8px;"><button class="sn-act-btn" id="nfAll" style="border:none;background:none;color:var(--blue-1);font-weight:700;font-size:13px;cursor:pointer;">Mark all as read</button></div>');
+    $('nfAll').onclick = async () => { await fn('notification-read-all'); nfLoad(true); checkUnreadNotifications(); };
+    $('nfTabs').addEventListener('click', (e) => { const b = e.target.closest('[data-nf]'); if (!b) return; NF.filter = b.dataset.nf; nfLoad(true); });
+    list.addEventListener('click', nfClick);
+  }
+  function nfTabs() { $('nfTabs').innerHTML = TABS.map((t) => `<button class="atab ${NF.filter === t[0] ? 'on' : ''}" data-nf="${t[0]}">${t[1]}</button>`).join(''); }
+  async function nfLoad(reset) {
+    nfChrome(); nfTabs(); if (reset) { NF.offset = 0; NF.items = []; }
+    const { data, errMsg } = await fn('my-notifications', { filter: NF.filter, offset: NF.offset }); if (errMsg) { showToast(errMsg, 'error'); return; }
+    NF.cats = data.cats || NF.cats; NF.items = NF.items.concat(data.items); NF.offset += data.items.length; NF.more = data.has_more; NF.unread = data.unread;
+    nfRender(); const b = $('notifDot'); if (b) { b.textContent = data.unread > 9 ? '9+' : data.unread; b.style.display = data.unread ? 'flex' : 'none'; }
+  }
+  function nfRender() {
+    const empty = { unread: 'You are all caught up.', read: 'Nothing read yet.', important: 'No important notifications.', transactions: 'No transaction updates yet.', announcements: 'No announcements yet.' }[NF.filter] || 'No notifications yet.';
+    $('notifList').innerHTML = NF.items.length ? NF.items.map((n) => {
+      const c = ncat(n.category), tx = n.ref_type === 'tx' && n.ref_id, at = n.action_target;
+      return `<div class="sn-item ${n.unread ? 'unread' : ''}" data-nid="${E(n.id)}" data-own="${n.own ? 1 : 0}"><div class="sn-ic" style="background:${E(c.color)}22;">${c.icon}</div><div style="flex:1;min-width:0;"><div class="t">${E(n.title)}${n.from_admin ? ' <span style="font-size:10px;color:var(--blue-1);">· UMARSHOYI-SUB</span>' : ''}</div><div class="m">${E(n.message)}</div>
+        ${tx || (at && n.action_label) || n.own ? `<div class="sn-act">${tx ? `<button data-a="tx" data-ref="${E(n.ref_id)}">Open transaction</button>` : ''}${at && n.action_label ? `<button data-a="go" data-at="${E(at)}">${E(n.action_label)}</button>` : ''}${n.own ? '<button data-a="del">Delete</button>' : ''}</div>` : ''}
+        <div class="d">${E(dt(n.created_at).toLocaleString())}</div></div>${n.unread ? '<span class="sn-dot"></span>' : ''}</div>`;
+    }).join('') + (NF.more ? '<button class="btn-outline" id="nfMore">Load more</button>' : '') : `<div class="empty-note">${empty}</div>`;
+    const m = $('nfMore'); if (m) m.onclick = () => nfLoad(false);
+  }
+  async function nfClick(e) {
+    const card = e.target.closest('[data-nid]'); if (!card) return;
+    const id = card.dataset.nid, own = card.dataset.own === '1', a = e.target.closest('[data-a]'), n = NF.items.find((x) => x.id === id);
+    if (a?.dataset.a === 'del') { await fn('notification-delete', { id }); NF.items = NF.items.filter((x) => x.id !== id); nfRender(); checkUnreadNotifications(); return; }
+    if (n?.unread && own) { n.unread = false; fn('notification-read', { id }).then(() => checkUnreadNotifications()); nfRender(); }
+    if (a?.dataset.a === 'tx') { showTxReceipt(a.dataset.ref); return; }
+    if (a?.dataset.a === 'go') { const at = a.dataset.at; if (at.startsWith('page:')) showPage(at.slice(5)); else if (/^https:\/\//.test(at)) window.open(at, '_blank', 'noopener'); }
+  }
+  loadNotifications = async function () { $('adminNotifyBox').style.display = profile?.is_admin ? 'block' : 'none'; await nfLoad(true); };
+})();
+</script>
+
 </body>
 </html>

@@ -159,9 +159,67 @@ export const AIRTIME_MAX = 100000;
 export const AIRTIME_COST_RATE = 0.97;          // estimate only (provider gave 3% discount in its example); the real cost is read from the provider's reply
 
 // ---------------------------------------------------------------- CABLE TV
-// provider = dstv | gotv | startimes.  code = Legitdataway "cableplan" (for example 'dstv-padi'). cost in naira.
-// Empty list = "Coming soon" for that provider. Add rows like:  { code: 'dstv-padi', name: 'DStv Padi', cost: 2500 }
-export const CABLE_PLANS = { dstv: [], gotv: [], startimes: [] };
+// provider = dstv | gotv | startimes.  code = the Plan ID from your Legitdataway Pricing page (Cable Plans). cost in naira.
+// Empty list = "Coming soon" for that provider. Add rows like:  { code: '1', name: 'DStv Padi', cost: 4400 }
+// NOTE: the dashboard shows only plans 1-50 of 89 per page. Plans not pasted yet are missing here (GOtv has just one so far).
+export const CABLE_PLANS = {
+  dstv: [
+    { code: '28', name: "DStv HDPVR Access Service", cost: 2500 },
+    { code: '1', name: "DStv Padi", cost: 4400 },
+    { code: '107', name: "Yanga OTT Streaming subscription", cost: 5100 },
+    { code: '111', name: "Yanga", cost: 6000 },
+    { code: '32', name: "ExtraView Access", cost: 6050 },
+    { code: '2', name: "DSTV -YANGA", cost: 6100 },
+    { code: '110', name: "Confam streaming subscription (\u20a67,450)", cost: 7450 },
+    { code: '31', name: "DStv French Touch Add-on", cost: 7500 },
+    { code: '101', name: "Padi + showmax", cost: 8900 },
+    { code: '34', name: "Dstv Confam", cost: 9300 },
+    { code: '112', name: "Confam", cost: 11000 },
+    { code: '121', name: "Confam streaming subscription (\u20a611,000)", cost: 11000 },
+    { code: '33', name: "DStv French 11", cost: 11000 },
+    { code: '30', name: "DStv Asian Add-on", cost: 12400 },
+    { code: '109', name: "Streaming subscription", cost: 12550 },
+    { code: '118', name: "Asia addon", cost: 14900 },
+    { code: '122', name: "DStv indian", cost: 14900 },
+    { code: '35', name: "Compact", cost: 15700 },
+    { code: '120', name: "Compact streaming", cost: 19000 },
+    { code: '29', name: "DStv French Plus Add-on", cost: 24500 },
+    { code: '14', name: "DStv Compact + Extra View", cost: 25100 },
+    { code: '15', name: "DStv Compact + French Touch", cost: 26100 },
+    { code: '108', name: "Compact plus streaming subscription", cost: 30000 },
+    { code: '38', name: "DStv Compact Plus", cost: 31000 },
+    { code: '18', name: "DStv Compact + French Touch + ExtraView", cost: 32200 },
+    { code: '100', name: "Compact + showmax", cost: 32250 },
+    { code: '13', name: "DStv Compact + Asia", cost: 34000 },
+    { code: '22', name: "DStv Compact Plus + Extra View", cost: 36000 },
+    { code: '105', name: "DStv Premium Streaming subscription", cost: 37000 },
+    { code: '21', name: "DStv Compact Plus + French Touch", cost: 37000 },
+    { code: '19', name: "DStv Compact + Asia + ExtraView", cost: 40000 },
+    { code: '25', name: "DStv Compact Plus + Asia + ExtraView", cost: 42400 },
+    { code: '24', name: "DStv Compact + French Plus", cost: 43700 },
+    { code: '104', name: "Premium + showmax", cost: 44500 },
+    { code: '17', name: "DStv Compact Plus + Asia", cost: 45000 },
+    { code: '102', name: "Premium + Asia + showmax", cost: 50500 },
+    { code: '26', name: "DStv Premium + Asia + Extra View", cost: 54400 },
+    { code: '20', name: "DStv Compact Plus + French Plus", cost: 55000 },
+    { code: '16', name: "DStv Premium - Extra View", cost: 55700 },
+    { code: '23', name: "DStv Compact Plus + FrenchPlus + Extra View", cost: 61000 },
+    { code: '103', name: "Premium + French + showmax", cost: 69000 },
+    { code: '27', name: "DStv Premium + French + Extra View", cost: 75000 },
+    { code: '106', name: "Prestige (\u20a6590,200)", cost: 590200 },
+    { code: '119', name: "Prestige (\u20a6850,000)", cost: 850000 },
+  ],
+  gotv: [
+    { code: '123', name: "Gotv Supa Plus - Monthly", cost: 16900 },
+  ],
+  startimes: [
+    { code: '116', name: "Nova (dish) 1 week", cost: 700 },
+    { code: '114', name: "Special (dish) 1 week", cost: 2100 },
+    { code: '117', name: "Super (antenna) 1 week", cost: 3200 },
+    { code: '115', name: "Special (dish) 1 month", cost: 5600 },
+    { code: '113', name: "Chinese 1 month", cost: 16000 },
+  ],
+};
 
 // ---------------------------------------------------------------- ELECTRICITY
 // id = Legitdataway disco id

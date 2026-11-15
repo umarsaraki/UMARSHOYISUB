@@ -5519,6 +5519,7 @@ async function adminLoadPriceAlerts(){
   .sn-pick{border:1px solid var(--line); border-radius:12px; padding:8px 10px; margin-top:6px; cursor:pointer; font-size:13px;}
   .sn-chan label{display:flex; align-items:center; gap:8px; font-size:13px; margin:6px 0;}
   .sn-chan input{width:auto;}
+  .sn-lnk{border:none; background:none; color:var(--blue-1); font-weight:700; font-size:12px; padding:0 4px; cursor:pointer;}
 </style>
 <script>
 /* ============ Smart Notifications: admin manager + customer centre ============ */
@@ -5527,7 +5528,7 @@ async function adminLoadPriceAlerts(){
   const E = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const snc = (b) => invokeFn('admin-notify', { body: b });
   const D = { sec: 'dash', ov: null, edit: null, hist: { q: '', category: '', status: '', from: '', to: '', offset: 0 }, picked: null };
-  const SECS = [['dash', 'Dashboard'], ['create', 'Create'], ['hist', 'History'], ['cats', 'Categories']];
+  const SECS = [['dash', 'Dashboard'], ['create', 'Create'], ['hist', 'History'], ['sound', 'Sound & Voice'], ['cats', 'Categories']];
   const STC = { sent: '#16a05f', scheduled: '#2563eb', draft: '#64748b', sending: '#e98a0c', failed: '#dc2626', cancelled: '#94a3b8' };
   const PAGES = [['', 'No button'], ['page:fund', 'Fund wallet'], ['page:purchase', 'Buy data / airtime'], ['page:cable', 'Cable TV'], ['page:electricity', 'Electricity'], ['page:exam', 'Exam PINs'], ['page:exchange', 'Exchange'], ['page:bulksms', 'Bulk SMS'], ['page:referral', 'Referral'], ['page:support', 'Support'], ['page:history', 'History']];
   const SERVICES = [['data', 'Data'], ['airtime', 'Airtime'], ['cable', 'Cable TV'], ['electricity', 'Electricity'], ['exam', 'Exam PIN'], ['fund', 'Wallet funding']];
@@ -5555,7 +5556,7 @@ async function adminLoadPriceAlerts(){
   async function loadOv() { const r = await snc({ action: 'overview' }); if (r.data) D.ov = r.data; return r; }
   function section(s) {
     D.sec = s; chips(); body().innerHTML = '<div class="empty-note">Loading…</div>';
-    ({ dash, create: () => create(D.edit), hist, cats })[s]();
+    ({ dash, create: () => create(D.edit), hist, cats, sound: soundSec })[s]();
   }
 
   /* ---------- dashboard ---------- */
@@ -5603,7 +5604,7 @@ async function adminLoadPriceAlerts(){
       <div id="snSched" style="display:none;"><div class="field"><label>Date and time</label><input type="datetime-local" id="snAt"></div><div class="sn-note">Time zone: ${E(tz)}. Scheduled ones are sent within 5 minutes of the time.</div></div></div>
       <div class="sn-box"><h4>Preview</h4><div id="snPrev"></div></div>
       <div class="err-text" id="snErr"></div>
-      <button class="btn-primary" data-sn="submit">Continue</button>${e ? '<button class="btn-outline" style="margin-top:8px;" data-sn="cancelEdit">Cancel editing</button>' : ''}`;
+      <button class="btn-outline" type="button" data-sn="testnow" style="margin-bottom:8px;">▶ Test sound and voice on this device</button><button class="btn-primary" data-sn="submit">Continue</button>${e ? '<button class="btn-outline" style="margin-top:8px;" data-sn="cancelEdit">Cancel editing</button>' : ''}`;
     if (v.scheduled_at) { const d = dt(v.scheduled_at), p = (n) => String(n).padStart(2, '0'); if (!isNaN(d)) $('snAt').value = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`; }
     D.picked = tk === 'user' ? { id: tv, label: v.target_label || 'Selected customer' } : null;
     D.tv = tv || '';
@@ -5709,6 +5710,29 @@ async function adminLoadPriceAlerts(){
       ${c.map((x) => `<div class="arow" style="cursor:default;"><div class="top"><span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${E(x.color)};margin-right:6px;"></span>${x.icon} ${E(x.name)}</span><button class="btn-outline" style="width:auto;padding:4px 12px;margin:0;" data-sn="togcat" data-id="${E(x.id)}" data-on="${x.active ? 0 : 1}">${x.active ? 'On' : 'Off'}</button></div><div class="sub">Sound: ${E(x.sound.toUpperCase())}${x.builtin ? '' : ' · custom'}</div></div>`).join('')}`;
   }
 
+  /* ---------- Sound & Voice Manager ---------- */
+  const KINDS = [['wow', 'WOW – success', 'Successful transactions, deposits, withdrawals, exchange'], ['ahh', 'AHH – attention', 'Failed transactions and problems needing attention'], ['hii', 'HII – general notice', 'Announcements, maintenance and updates']];
+  const LANGS = [['en', 'English'], ['ha', 'Hausa'], ['yo', 'Yoruba']];
+  const snd = (b) => invokeFn('admin-sound', { body: b });
+  async function soundSec() {
+    const r = await snd({ action: 'get' }); if (r.errMsg) { body().innerHTML = `<div class="err-text">${E(r.errMsg)}</div>`; return; }
+    D.snd = r.data; UMSound.cfg = { ...(UMSound.cfg || {}), settings: r.data.settings, clips: r.data.clips, prefs: UMSound.cfg?.prefs };
+    const s = r.data.settings, clips = Object.fromEntries(r.data.clips.map((c) => [c.slot, c]));
+    const vs = UMSound.voices().filter((v) => UMSound.FEMALE.test(v.name) && !UMSound.MALE.test(v.name));
+    const clipRow = (slot) => { const c = clips[slot]; return `<div class="sn-note" style="margin-top:4px;">${c ? `Recorded clip: ${(c.size / 1024).toFixed(0)} KB (${E(c.mime.replace('audio/', ''))}) <button type="button" class="sn-lnk" data-sn="clipplay" data-slot="${slot}">▶ play</button> <button type="button" class="sn-lnk" data-sn="clipdel" data-slot="${slot}">remove</button>` : 'No recorded clip'} · <label class="sn-lnk" style="cursor:pointer;">${c ? 'Replace' : 'Upload'}<input type="file" accept="audio/mpeg,audio/wav,audio/ogg,.mp3,.wav,.ogg" data-slot="${slot}" style="display:none;" data-sn-file></label></div>`; };
+    body().innerHTML = `<div class="sn-box"><h4>Voice and sound switches</h4>
+        <div class="sn-chan"><label><input type="checkbox" id="svVoice" ${s.voice_enabled ? 'checked' : ''}> Female voice (app-wide)</label>
+        ${KINDS.map((k) => `<label><input type="checkbox" class="svCh" data-k="${k[0]}" ${s.chime[k[0]] ? 'checked' : ''}> ${k[1].split(' ')[0]} sound</label>`).join('')}</div>
+        <div class="field" style="margin-top:8px;"><label>Preferred female voice on phones (optional)</label><input id="svHint" maxlength="60" value="${E(s.voice_hint)}" placeholder="e.g. Zira, Samantha, Google UK English Female">
+        <div class="sn-note">${vs.length ? 'Female voices on this device: ' + E(vs.map((v) => v.name + ' (' + v.lang + ')').join(', ')) : 'This device reports no female voice names. Customers\' phones choose their own.'}</div></div>
+        <div class="sn-note">Voice is spoken by each customer's phone in their app language. Hausa and Yoruba voices exist only on some phones. For a sweet voice everywhere, upload a recorded clip for the language below.</div></div>
+      ${KINDS.map((k) => `<div class="sn-box"><h4>${k[1]}</h4><div class="sn-note" style="margin:-6px 0 8px;">${k[2]}</div>
+        <button class="btn-outline" type="button" data-sn="prevsound" data-k="${k[0]}" style="margin-bottom:4px;">▶ Preview sound + voice (${LANGS.find((l) => l[0] === (UMSound.lang()))[1]})</button>${clipRow(k[0] + ':chime').replace('Recorded clip', 'Sound clip')}
+        ${LANGS.map((l) => `<div class="field" style="margin-top:10px;"><label>${l[1]} sentence</label><input class="svPh" data-k="${k[0]}" data-l="${l[0]}" maxlength="160" value="${E(s.phrases[k[0]][l[0]])}">
+          <div style="display:flex;gap:8px;margin-top:6px;"><button type="button" class="btn-outline" style="margin:0;padding:6px;" data-sn="prevvoice" data-k="${k[0]}" data-l="${l[0]}">▶ Preview ${l[1]}</button></div>${clipRow(k[0] + ':' + l[0])}</div>`).join('')}</div>`).join('')}
+      <div class="err-text" id="svErr"></div><button class="btn-primary" data-sn="savesnd">Save voice settings</button>
+      <div class="sn-note">Clips: MP3, WAV or OGG, under 1 MB. Never put a customer's name, amount or number in a spoken sentence.</div>`;
+  }
   /* ---------- actions ---------- */
   const ACT = {
     sec: (t) => { D.edit = null; section(t.dataset.s); },
@@ -5731,6 +5755,28 @@ async function adminLoadPriceAlerts(){
     addcat: async () => { const r = await snc({ action: 'category_save', name: $('ncN').value, icon: $('ncI').value, color: $('ncC').value, sound: $('ncS').value, pref: $('ncP').value }); if (r.errMsg) { $('ncE').textContent = r.errMsg; return; } await loadOv(); showToast('Category added.', 'success'); cats(); },
     togcat: async (t) => { const r = await snc({ action: 'category_toggle', id: t.dataset.id, active: t.dataset.on === '1' }); if (r.errMsg) { showToast(r.errMsg, 'error'); return; } await loadOv(); cats(); },
   };
+  const _file = (e) => { const f = e.target.closest('[data-sn-file]'); if (!f || !f.files[0]) return; upClip(f.dataset.slot, f.files[0]); };
+  async function upClip(slot, file) {
+    if (file.size > 1000000) { showToast('The file is bigger than 1 MB.', 'error'); return; }
+    const b64 = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1] || ''); r.onerror = rej; r.readAsDataURL(file); });
+    const r = await snd({ action: 'upload', slot, b64 }); if (r.errMsg) { showToast(r.errMsg, 'error'); return; }
+    showToast('Clip saved.', 'success'); soundSec();
+  }
+  document.addEventListener('change', _file);
+  Object.assign(ACT, {
+    prevsound: (t) => UMSound.play(t.dataset.k, true),
+    prevvoice: async (t) => { const k = t.dataset.k, l = t.dataset.l, txt = document.querySelector(`.svPh[data-k=${k}][data-l=${l}]`).value; const cs = UMSound.cfg; if (cs?.settings) cs.settings.phrases[k][l] = txt; const o = await UMSound.play(k, true, l); showToast(o.voice ? 'Playing.' : `No ${l.toUpperCase()} voice on this device. Only the sound can play here; upload a clip for ${l.toUpperCase()}.`, o.voice ? 'success' : 'error'); },
+    clipplay: async (t) => { const u = await UMSound.clipUrl(t.dataset.slot); if (u) new Audio(u).play().catch(() => {}); },
+    clipdel: async (t) => { const r = await snd({ action: 'remove', slot: t.dataset.slot }); if (r.errMsg) { showToast(r.errMsg, 'error'); return; } soundSec(); },
+    savesnd: async () => {
+      const ph = { wow: {}, ahh: {}, hii: {} }; document.querySelectorAll('.svPh').forEach((i) => { ph[i.dataset.k][i.dataset.l] = i.value; });
+      const chime = {}; document.querySelectorAll('.svCh').forEach((c) => { chime[c.dataset.k] = c.checked; });
+      const a = await snd({ action: 'save_settings', voice_enabled: $('svVoice').checked, chime, voice_hint: $('svHint').value }); if (a.errMsg) { $('svErr').textContent = a.errMsg; return; }
+      const b = await snd({ action: 'save_phrases', phrases: ph }); if (b.errMsg) { $('svErr').textContent = b.errMsg; return; }
+      $('svErr').textContent = ''; showToast('Saved.', 'success'); await UMSound.load(); soundSec();
+    },
+    testnow: async () => { const k = $('snSound').value; if (k === 'none') { showToast('No sound selected.', 'error'); return; } const o = await UMSound.play(k, true, $('snLang').value); showToast(o.voice ? 'Playing sound and voice.' : 'Playing the sound. No voice for this language on this device.', 'success'); },
+  });
   document.addEventListener('click', (e) => { const t = e.target.closest('[data-sn]'); if (!t) return; const f = ACT[t.dataset.sn]; if (f) { e.preventDefault(); f(t, e); } });
   inject();
 
@@ -5771,6 +5817,109 @@ async function adminLoadPriceAlerts(){
     if (a?.dataset.a === 'go') { const at = a.dataset.at; if (at.startsWith('page:')) showPage(at.slice(5)); else if (/^https:\/\//.test(at)) window.open(at, '_blank', 'noopener'); }
   }
   loadNotifications = async function () { $('adminNotifyBox').style.display = profile?.is_admin ? 'block' : 'none'; await nfLoad(true); };
+})();
+</script>
+
+<script>
+/* ============ Sound + female voice engine (customer app and admin preview) ============ */
+window.UMSound = (function () {
+  const U = { cfg: null, ctx: null, busy: false, urls: {}, unlocked: false };
+  const NOTES = { wow: [[523.25, 0], [659.25, 0.14], [783.99, 0.28]], ahh: [[440, 0], [349.23, 0.24]], hii: [[659.25, 0], [880, 0.17]] };
+  const TYPE = { wow: 'sine', ahh: 'triangle', hii: 'sine' }, GAIN = { wow: 0.2, ahh: 0.2, hii: 0.16 };
+  const FEMALE = /female|woman|zira|hazel|susan|samantha|victoria|karen|moira|tessa|fiona|serena|aria|jenny|libby|sonia|natasha|emma|amy|joanna|salli|kendra|kimberly|ivy|zoe|ava|allison|catherine|heera|neerja|ayanda|zuri|google uk english female|google us english/i;
+  const MALE = /\bmale\b|david|mark|george|daniel|james|richard|guy|ryan|alex\b|fred|tom\b|\bman\b/i;
+  const ctx = () => { try { if (!U.ctx) U.ctx = new (window.AudioContext || window.webkitAudioContext)(); if (U.ctx.state === 'suspended') U.ctx.resume(); return U.ctx; } catch { return null; } };
+  const unlock = () => { U.unlocked = true; ctx(); };
+  ['pointerdown', 'keydown', 'touchstart'].forEach((e) => document.addEventListener(e, unlock, { once: false, passive: true }));
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  function synth(kind) {
+    const c = ctx(); if (!c) return Promise.resolve(false);
+    const t0 = c.currentTime + 0.02;
+    (NOTES[kind] || NOTES.hii).forEach(([f, at]) => {
+      const o = c.createOscillator(), g = c.createGain(); o.type = TYPE[kind]; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t0 + at); g.gain.exponentialRampToValueAtTime(GAIN[kind], t0 + at + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0 + at + 0.42);
+      o.connect(g); g.connect(c.destination); o.start(t0 + at); o.stop(t0 + at + 0.45);
+    });
+    const end = (NOTES[kind] || NOTES.hii).slice(-1)[0][1] + 0.5; return wait(end * 1000).then(() => true);
+  }
+  async function clipUrl(slot) {
+    const meta = (U.cfg?.clips || []).find((c) => c.slot === slot); if (!meta) return null;
+    const key = slot + '|' + meta.updated_at; if (U.urls[key]) return U.urls[key];
+    const { data } = await fn('sound-file', { slot }); if (!data) return null;
+    try { const bin = atob(data.b64), a = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i); return (U.urls[key] = URL.createObjectURL(new Blob([a], { type: data.mime }))); } catch { return null; }
+  }
+  function playUrl(url) { return new Promise((res) => { const a = new Audio(url); a.volume = 0.85; a.onended = () => res(true); a.onerror = () => res(false); a.play().catch(() => res(false)); }); }
+  function voices() { try { return window.speechSynthesis ? speechSynthesis.getVoices() : []; } catch { return []; } }
+  // best female voice for a language on THIS device (null if the device has none for that language)
+  function voiceFor(lang) {
+    const vs = voices().filter((v) => String(v.lang || '').toLowerCase().replace('_', '-').split('-')[0] === lang); if (!vs.length) return null;
+    const hint = (U.cfg?.settings?.voice_hint || '').toLowerCase();
+    return (hint && vs.find((v) => v.name.toLowerCase().includes(hint))) || vs.find((v) => FEMALE.test(v.name) && !MALE.test(v.name)) || vs.find((v) => !MALE.test(v.name)) || vs[0];
+  }
+  function say(text, lang) {
+    return new Promise((res) => {
+      const v = voiceFor(lang); if (!v || !text) { res(false); return; }
+      try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.voice = v; u.lang = v.lang; u.rate = 0.95; u.pitch = 1.12; u.volume = 0.85; u.onend = () => res(true); u.onerror = () => res(false); speechSynthesis.speak(u); setTimeout(() => res(true), 9000); } catch { res(false); }
+    });
+  }
+  const lang = () => (typeof LANG === 'string' && ['en', 'ha', 'yo'].includes(LANG) ? LANG : 'en');
+  // force=true: admin/customer preview, ignores the on/off switches
+  async function play(kind, force, l) {
+    if (!['wow', 'ahh', 'hii'].includes(kind) || U.busy) return { chime: false, voice: false };
+    const s = U.cfg?.settings || { chime: { wow: true, ahh: true, hii: true }, voice_enabled: true, phrases: {} }, p = U.cfg?.prefs || { voice: true, wow: true, ahh: true, hii: true }, lg = l || lang();
+    if (!force && !p[kind]) return { chime: false, voice: false };
+    U.busy = true; const out = { chime: false, voice: false };
+    try {
+      if (force || s.chime[kind]) { const cu = await clipUrl(kind + ':chime'); out.chime = cu ? await playUrl(cu) : await synth(kind); }
+      if (force || (p.voice && s.voice_enabled)) {
+        const vu = await clipUrl(kind + ':' + lg);
+        if (vu) out.voice = await playUrl(vu); else out.voice = await say(s.phrases?.[kind]?.[lg], lg);
+      }
+    } finally { U.busy = false; }
+    return out;
+  }
+  async function load() { const { data } = await fn('sound-config'); if (data) U.cfg = data; return U.cfg; }
+  async function poll() {
+    if (document.hidden || typeof profile === 'undefined' || !profile) return;
+    const { data } = await fn('notif-poll'); if (!data) return;
+    const b = document.getElementById('notifDot'); if (b) { b.textContent = data.unread > 9 ? '9+' : data.unread; b.style.display = data.unread ? 'flex' : 'none'; }
+    if (!data.items.length) return;
+    if (!U.cfg) await load();
+    const kinds = data.items.map((i) => i.sound), kind = kinds.includes('ahh') ? 'ahh' : kinds.includes('wow') ? 'wow' : 'hii';
+    play(kind, false);   // one sound for a burst, never a pile-up
+  }
+  let started = false;
+  function start() { if (started) return; started = true; load(); if (window.speechSynthesis) try { speechSynthesis.getVoices(); speechSynthesis.onvoiceschanged = () => {}; } catch {} setInterval(poll, 20000); document.addEventListener('visibilitychange', () => { if (!document.hidden) { poll(); } }); setTimeout(poll, 4000); }
+  Object.assign(U, { play, load, voiceFor, voices, start, lang, clipUrl, FEMALE, MALE });
+  const t = setInterval(() => { if (typeof profile !== 'undefined' && profile) { clearInterval(t); start(); } }, 1500);
+  return U;
+})();
+
+/* ---- customer: Settings > Notification Preferences > Sound & Voice ---- */
+(function () {
+  const $ = (id) => document.getElementById(id), E = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const _r = renderNotifPrefs;
+  renderNotifPrefs = function () {
+    _r();
+    const host = $('ntList')?.parentElement; if (!host) return;
+    if (!$('svBox')) host.insertAdjacentHTML('beforeend', '<div class="st-card" id="svBox" style="margin-top:14px;"></div>');
+    svRender();
+  };
+  async function svRender() {
+    if (!UMSound.cfg) await UMSound.load();
+    const c = UMSound.cfg; if (!c || !$('svBox')) return; const p = c.prefs, lg = UMSound.lang();
+    const nm = { en: 'English', ha: 'Hausa', yo: 'Yoruba' }[lg], hasV = !!UMSound.voiceFor(lg), clip = (c.clips || []).some((x) => x.slot.endsWith(':' + lg));
+    const row = (k, t, sub, on, kind) => `<div class="st-row" style="cursor:default;"><div class="st-t"><b>${t}</b><small>${sub}</small></div>${kind ? `<button type="button" data-sv="prev" data-k="${kind}" style="border:1px solid var(--line);background:var(--card);border-radius:10px;padding:6px 10px;margin-right:8px;font-weight:700;color:var(--blue-2);cursor:pointer;">▶</button>` : ''}<label class="toggle-switch"><input type="checkbox" data-sv="tog" data-k="${k}" ${on ? 'checked' : ''}><span class="toggle-slider"></span></label></div>`;
+    $('svBox').innerHTML = `<div style="padding:12px 14px 4px;font-weight:800;color:var(--blue-2);">Sound &amp; Voice</div>
+      ${row('voice', 'Female voice', 'Speaks a short message in ' + nm + ' (your app language)', p.voice, '')}
+      ${row('wow', 'WOW – success sound', 'Plays when a transaction is successful', p.wow, 'wow')}
+      ${row('ahh', 'AHH – attention sound', 'Plays when a transaction fails or needs attention', p.ahh, 'ahh')}
+      ${row('hii', 'HII – notice sound', 'Plays for announcements and updates', p.hii, 'hii')}
+      <div class="st-note" style="padding:6px 14px 12px;">${!c.settings.voice_enabled ? 'The voice is switched off by the app for now. ' : ''}${p.voice && !hasV && !clip ? `This phone has no ${nm} voice, so you will hear the sound only. ` : ''}Sounds play only while the app is open, and follow your phone's volume, silent mode and Do Not Disturb.</div>`;
+    $('svBox').onclick = null;
+  }
+  document.addEventListener('change', async (e) => { const t = e.target.closest('[data-sv=tog]'); if (!t) return; const r = await fn('sound-prefs-save', { [t.dataset.k]: t.checked }); if (r.data) UMSound.cfg.prefs = r.data.prefs; else showToast(r.errMsg || 'Could not save.', 'error'); });
+  document.addEventListener('click', (e) => { const t = e.target.closest('[data-sv=prev]'); if (!t) return; e.preventDefault(); UMSound.play(t.dataset.k, true); });
 })();
 </script>
 

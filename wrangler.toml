@@ -16,7 +16,7 @@ database_name = "umarshoyi-db"
 database_id = "2b79c9f4-2682-4e95-85bc-0a7e92d8fd19"
 
 [triggers]
-# Every 5 minutes: settle purchases that are still "pending" at VTUAgent
+# Every 5 minutes: settle purchases that are still "pending" (Legitdataway also calls the webhook)
 crons = ["*/5 * * * *"]
 
 [observability]
@@ -26,7 +26,7 @@ enabled = true
 # Only two plain values are kept in this file.
 #
 # EVERYTHING ELSE is managed inside the app: Admin Panel -> Settings
-#   (Flutterwave keys, VTUAgent key, Exchange on/off, fees, min/max, markup, SMS price ...)
+#   (Flutterwave keys, Legitdataway token, Exchange on/off, fees, min/max, markup, SMS price ...)
 # Those are stored in the database and do not disappear when this file changes.
 #
 # The only value you must keep in Cloudflare (Variables and Secrets, type "Secret"):
@@ -36,4 +36,6 @@ enabled = true
 # ---------------------------------------------------------------------------
 [vars]
 APP_NAME = "UMARSHOYI-SUB"
+APP_VERSION = "1.0.0"
+# Optional, shown in Settings -> App Information when set: BUILD_NUMBER = "1"   WEBSITE_URL = "https://..."
 ADMIN_EMAILS = "umarsaraki96@gmail.com"

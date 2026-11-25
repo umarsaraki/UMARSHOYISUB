@@ -29,6 +29,40 @@ async function lgw(env, method, path, body) {
   } finally { clearTimeout(timer); }
 }
 
+/* ------------------------------------------------------------ providers (Admin -> Providers) */
+// Each service is sold by ONE provider, chosen in Admin -> Providers. Airtime, cards and bulk SMS always use Legitdataway.
+export const ROUTABLE = ['data', 'cable', 'electricity', 'exam'];
+export function providerFor(env, kind) {
+  if (!ROUTABLE.includes(kind)) return 'legitdataway';
+  return String((env && env['PROVIDER_' + kind.toUpperCase()]) || '') === 'easyaccess' ? 'easyaccess' : 'legitdataway';
+}
+export const providerOn = (env, prov) => (prov === 'easyaccess' ? env.PROVIDER_EASYACCESS_ENABLED !== '0' : env.PROVIDER_LEGITDATAWAY_ENABLED !== '0');
+export const providerToken = (env, prov) => !!(prov === 'easyaccess' ? env.EASYACCESS_TOKEN : env.LEGITDATAWAY_TOKEN);
+// A service can be sold when its provider is switched ON in Admin and has a key.
+export function providerReady(env, kind) { const pr = providerFor(env, kind); return providerOn(env, pr) && providerToken(env, pr); }
+
+/* ---- EasyAccess (https://easyaccessapi.com.ng): plans are synced from its get-plans API into the database (Admin -> Providers -> Sync plans) */
+export const EA_PRODUCTS = {
+  mtn_cg: ['mtn', 'Corporate Gifting'], mtn_awoof: ['mtn', 'Awoof'], mtn_sme: ['mtn', 'SME'], mtn_gifting: ['mtn', 'Gifting'],
+  glo_cg: ['glo', 'Corporate Gifting'], glo_awoof: ['glo', 'Awoof'], glo_gifting: ['glo', 'Gifting'],
+  airtel_cg: ['airtel', 'Corporate Gifting'], airtel_awoof: ['airtel', 'Awoof'], airtel_gifting: ['airtel', 'Gifting'],
+  '9mobile_sme': ['9mobile', 'SME'], '9mobile_gifting': ['9mobile', 'Gifting'],
+};
+export const EA_OTHER = ['dstv', 'gotv', 'startimes', 'waec', 'neco', 'nabteb', 'nbais'];
+const EA_NET = { mtn: 1, glo: 2, airtel: 3, '9mobile': 4 };
+const EA_CABLE = { dstv: 1, gotv: 2, startimes: 3 };
+// EasyAccess electricity company numbers. Only the ones its docs name are listed (1=EKEDC 2=IKEDC 3=PHEDC 4=KEDCO, the rest says "etc.").
+// A company that is not here is shown as unavailable while electricity is routed to EasyAccess: add its number here once you have the full list.
+export const EA_DISCOS = { 'eko-electric': 1, 'ikeja-electric': 2, 'portharcourt-electric': 3, 'kano-electric': 4 };
+export const discoAvailable = (env, code) => providerFor(env, 'electricity') !== 'easyaccess' || EA_DISCOS[code] != null;
+const eaRows = (env, product) => ((env && env.__PB && env.__PB.ea) || {})[product] || [];
+const eaSize = (name) => { const m = String(name || '').match(/^\s*([\d.]+)\s*(MB|GB|TB)/i); return m ? m[1] + m[2].toUpperCase() : String(name || ''); };
+function eaDataBase(env) {
+  const out = [];
+  for (const [prod, [network, category]] of Object.entries(EA_PRODUCTS)) for (const r of eaRows(env, prod)) out.push({ network, code: 'ea' + r.plan_id, category, size: eaSize(r.name), valid: String(r.validity || ''), cost: Number(r.price) });
+  return out;
+}
+
 /* ------------------------------------------------------------ prices & profit */
 // Profit settings (Admin Panel -> Settings -> Profit). Empty = the default below.
 export const PROFIT_DEFAULTS = { data: 12, airtime: 0, cable: 12, electricity: 10, exam: 5, data_card: 5, recharge_card: 0 };
@@ -55,21 +89,26 @@ const PBK = (env, kind) => (env && env.__PB && env.__PB[kind]) || {};
 export function dataRule(env, network, category) {
   const R = (env && env.__PB && env.__PB.rules) || {}, a = R[network + '|' + category] || {}, b = R['*|' + category] || {};
   const pick = (k) => (a[k] != null ? a[k] : (b[k] != null ? b[k] : null));
-  return { enabled: pick('enabled') !== 0, pct: pick('pct'), fixed: pick('fixed') };
+  return { enabled: pick('enabled') !== 0, pct: pick('pct'), fixed: pick('fixed'), agent_pct: pick('agent_pct') };
 }
-export function dataPriceOf(env, network, category, cost) {
+// Agents (set in Admin) pay less: their own profit % per plan type, or the general "Agent data profit" setting. Never more than a normal customer pays.
+export function dataPriceOf(env, network, category, cost, agent) {
   const g = profitCfg(env, 'data'), r = dataRule(env, network, category), pct = r.pct != null ? r.pct : g.pct, fixed = r.fixed != null ? r.fixed : g.fixed;
-  return Math.ceil(r2(Number(cost) * (100 + pct) / 100 + fixed));
+  const normal = Math.ceil(r2(Number(cost) * (100 + pct) / 100 + fixed));
+  if (!agent) return normal;
+  const ap = r.agent_pct != null ? r.agent_pct : num(env && env.AGENT_DATA_PERCENT);
+  if (ap == null) return normal;
+  return Math.min(normal, Math.ceil(r2(Number(cost) * (100 + ap) / 100)));
 }
 export function effDataBundles(env, withHidden) {
-  const pb = PBK(env, 'data'), out = [];
-  for (const b of C.DATA_BUNDLES) {
+  const pb = PBK(env, 'data'), out = [], ea = providerFor(env, 'data') === 'easyaccess';
+  for (const b of (ea ? eaDataBase(env) : C.DATA_BUNDLES)) {
     const o = pb[b.network + '|' + b.code], off = !dataRule(env, b.network, b.category).enabled;
     if ((off || (o && o.enabled === 0)) && !withHidden) continue;
     out.push({ ...b, ...(off ? { cat_off: true } : {}), ...(o && o.cost != null ? { cost: o.cost } : {}), ...(o ? { edited: o.cost != null, hidden: o.enabled === 0, file_cost: b.cost } : {}) });
   }
   for (const [k, o] of Object.entries(pb)) {
-    if (!o.added || !o.meta) continue;
+    if (!o.added || !o.meta || ea) continue;   // plans you added by hand belong to Legitdataway
     const off = !dataRule(env, String(o.meta.network), String(o.meta.category)).enabled;
     if ((off || o.enabled === 0) && !withHidden) continue;
     out.push({ network: String(o.meta.network), code: String(o.meta.code), category: String(o.meta.category), size: String(o.meta.size), valid: String(o.meta.valid), cost: Number(o.cost), added: true, ...(off ? { cat_off: true } : {}), hidden: o.enabled === 0 });
@@ -77,28 +116,35 @@ export function effDataBundles(env, withHidden) {
   return out;
 }
 export function effCablePlans(env, provider, withHidden) {
-  const pb = PBK(env, 'cable'), out = [];
-  for (const b of (C.CABLE_PLANS[provider] || [])) {
+  const pb = PBK(env, 'cable'), out = [], ea = providerFor(env, 'cable') === 'easyaccess';
+  for (const b of (ea ? eaRows(env, provider).map((r) => ({ code: 'ea' + r.plan_id, name: String(r.name), cost: Number(r.price) })) : (C.CABLE_PLANS[provider] || []))) {
     const o = pb[provider + '|' + String(b.code)];
     if (o && o.enabled === 0 && !withHidden) continue;
     out.push({ code: String(b.code), name: b.name, cost: o && o.cost != null ? o.cost : b.cost, ...(o ? { edited: o.cost != null, hidden: o.enabled === 0, file_cost: b.cost } : {}) });
   }
   for (const [k, o] of Object.entries(pb)) {
-    if (!o.added || !o.meta || String(o.meta.provider) !== provider || (o.enabled === 0 && !withHidden)) continue;
+    if (ea || !o.added || !o.meta || String(o.meta.provider) !== provider || (o.enabled === 0 && !withHidden)) continue;
     out.push({ code: String(o.meta.code), name: String(o.meta.name), cost: Number(o.cost), added: true, hidden: o.enabled === 0 });
   }
   return out;
 }
 export function effExamTypes(env) {
   const pb = PBK(env, 'exam'), out = {};
+  if (providerFor(env, 'exam') === 'easyaccess') {
+    for (const [id, e] of Object.entries({ ...C.EXAM_TYPES, nbais: { id: 4, name: 'NBAIS e-PIN', badge: 'NB', color: '#7a3fb0', cost: 0, available: true } })) {
+      const r = eaRows(env, id)[0], o = pb[id], cost = r ? Number(r.price) : 0;
+      out[id] = { ...e, cost: o && o.cost != null ? o.cost : cost, available: cost > 0 && !(o && o.enabled === 0), file_cost: cost };
+    }
+    return out;
+  }
   for (const [id, e] of Object.entries(C.EXAM_TYPES)) {
     const o = pb[id];
     out[id] = { ...e, id: e.id, ...(o && o.cost != null ? { cost: o.cost } : {}), ...(o && o.enabled === 0 ? { available: false } : {}), file_cost: e.cost };
   }
   return out;
 }
-export function getDataPlans(env) {
-  return effDataBundles(env).map((p) => ({ ...p, price: dataPriceOf(env, p.network, p.category, p.cost) }));
+export function getDataPlans(env, agent) {
+  return effDataBundles(env).map((p) => ({ ...p, price: dataPriceOf(env, p.network, p.category, p.cost, agent) }));
 }
 export const CABLE_PROVIDERS = ['dstv', 'gotv', 'startimes'];
 export function getCablePlans(env, provider) {
@@ -117,17 +163,30 @@ export function publicCatalog(env) {
     exam, data_cards: cards, recharge_cards: recharge,
     cable_available: Object.fromEntries(CABLE_PROVIDERS.map((p) => [p, effCablePlans(env, p).length > 0])),
     airtime: { min: C.AIRTIME_MIN, max: C.AIRTIME_MAX, fee_percent: af.pct, fee_fixed: af.fixed },
-    electricity: { min: C.ELECTRICITY_MIN, max: C.ELECTRICITY_MAX, fee_percent: ef.pct, fee_fixed: ef.fixed, discos: C.ELECTRICITY_DISCOS.map((d) => ({ code: d.code, name: d.name })) },
+    electricity: { min: C.ELECTRICITY_MIN, max: C.ELECTRICITY_MAX, fee_percent: ef.pct, fee_fixed: ef.fixed, discos: C.ELECTRICITY_DISCOS.filter((d) => discoAvailable(env, d.code)).map((d) => ({ code: d.code, name: d.name })) },
   };
 }
 export function clearProviderCaches() { /* the catalog is read from catalog.js on every call: nothing to clear */ }
 
 /* ------------------------------------------------------- verification */
 // Legitdataway has no smartcard check: the customer sees the number they typed.
-export async function verifySmartcard() { return { ok: true, name: '', status: '', due: '', unverified: true }; }
+export async function verifySmartcard(env, prov, card) {
+  if (providerFor(env, 'cable') !== 'easyaccess') return { ok: true, name: '', status: '', due: '', unverified: true };
+  const r = await ea(env, 'POST', '/verify-tv', { company: EA_CABLE[prov], iucno: card }, true);
+  if (r.json.status === 'success' && r.json.customer_name) return { ok: true, name: String(r.json.customer_name), status: String(r.json.customer_status || r.json.current_package || ''), due: String(r.json.due_date || '') };
+  if (r.status >= 500) throw new Error('EasyAccess verify error (' + r.status + ')');
+  return { ok: false, error: 'We could not verify this smartcard/IUC number. Please check it and try again.' };
+}
 export async function verifyMeter(env, disco, meterNumber, meterType) {
   const d = C.ELECTRICITY_DISCOS.find((x) => x.code === disco || String(x.id) === String(disco));
   if (!d) return { ok: false, error: 'Select a distribution company.' };
+  if (providerFor(env, 'electricity') === 'easyaccess') {
+    if (EA_DISCOS[d.code] == null) return { ok: false, error: 'This electricity company is not available right now.' };
+    const r = await ea(env, 'POST', '/verify-electricity', { company: EA_DISCOS[d.code], metertype: meterType === 'postpaid' ? 2 : 1, meterno: meterNumber, amount: 1000 }, true);
+    if (r.json.status === 'success' && r.json.customer_name) return { ok: true, name: String(r.json.customer_name), address: String(r.json.customer_address || '') };
+    if (r.status >= 500) throw new Error('EasyAccess verify error (' + r.status + ')');
+    return { ok: false, error: 'We could not verify this meter number. Please check it and try again.' };
+  }
   const q = new URLSearchParams({ meter_number: meterNumber, disco: String(d.id), meter_type: meterType });
   const r = await lgw(env, 'GET', '/bill/bill-validation?' + q.toString());
   if (r.status === 200 && String(r.json.status).toLowerCase() === 'success' && r.json.name) return { ok: true, name: String(r.json.name), address: '' };
@@ -172,7 +231,66 @@ function parsePins(j, kind) {
   return pins.map((pin, i) => ({ pin, serial: serials[i] || '', load: j.load_pin || '' }));
 }
 
+/* ---- EasyAccess calls */
+const eaBase = (env, live) => (!live && env.EASYACCESS_TEST === '1' ? 'https://easyaccessapi.com.ng/api/test/v1' : 'https://easyaccessapi.com.ng/api/live/v1');
+export async function ea(env, method, path, body, forceLive) {
+  if (!env.EASYACCESS_TOKEN) throw new Error('EASYACCESS_TOKEN is not set');
+  const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 28000);
+  try {
+    const r = await fetch(eaBase(env, forceLive === true) + path, { method, signal: ctl.signal, headers: { authorization: 'Bearer ' + env.EASYACCESS_TOKEN, 'cache-control': 'no-cache', accept: 'application/json', ...(body ? { 'content-type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined });
+    return { status: r.status, json: await r.json().catch(() => ({})) };
+  } finally { clearTimeout(timer); }
+}
+// Success only when EasyAccess says so (200/201 AND status success). Failed (400/401 or status failed) = nothing delivered -> refund. Anything else stays pending.
+function interpretEA(r) {
+  const j = r.json || {}, st = String(j.status || '').toLowerCase(), code = Number(j.code != null ? j.code : r.status);
+  if (r.status === 401 || r.status === 403 || code === 401) { console.error('EasyAccess: API token rejected'); return { ok: false, definite: true, error: 'This service is temporarily unavailable. Please try again later.' }; }
+  if ((st === 'success' || st === 'successful') && (code === 200 || code === 201)) return { ok: true, ref: j.reference || null, token: j.token || j.meter_token || '', units: j.units || j.unit || '', cost: money(j.amount_paid), raw: j };
+  if (['processing', 'pending', 'queued'].includes(st)) return { pending: true };
+  if (st === 'failed' || code === 400 || r.status === 400) {
+    if (/insufficient|low balance|wallet/i.test(String(j.true_response || j.message))) { console.error('EasyAccess wallet balance is too low:', j.true_response || j.message); return { ok: false, definite: true, error: 'This service is temporarily unavailable. Please try again later.' }; }
+    return { ok: false, definite: true, error: safeProviderMessage(j.true_response || j.message), detail: String(j.true_response || j.message || '').slice(0, 200) };
+  }
+  throw new Error(`EasyAccess unexpected response (${r.status}): ${st} ${j.message || ''}`);
+}
+const eaStr = (v) => String(v).replace(/^ea/, '');
+async function runEasy(env, kind, p) {
+  const maxPay = p.maxCost ? Math.ceil(Number(p.maxCost)) : undefined;
+  let res;
+  switch (kind) {
+    case 'data': res = interpretEA(await ea(env, 'POST', '/purchase-data', { network: EA_NET[p.network], dataplan: Number(eaStr(p.planCode)), mobileno: localPhone(p.phone), client_reference: p.requestRef, ...(maxPay ? { max_amount_payable: maxPay } : {}) })); break;
+    case 'cable': {
+      const v = await ea(env, 'POST', '/verify-tv', { company: EA_CABLE[p.provider], iucno: p.smartcard });   // EasyAccess refuses a subscription for a card that was not verified first
+      if (v.json.status !== 'success') return { ok: false, definite: true, error: 'We could not verify this smartcard/IUC number. Your wallet was refunded. Please check it and try again.' };
+      res = interpretEA(await ea(env, 'POST', '/pay-tv', { company: EA_CABLE[p.provider], package: Number(eaStr(p.planCode)), iucno: p.smartcard, ...(maxPay ? { max_amount_payable: maxPay } : {}) })); break;
+    }
+    case 'electricity': {
+      const company = EA_DISCOS[p.discoCode], mt = p.meterType === 'postpaid' ? 2 : 1;
+      if (company == null) return { ok: false, definite: true, error: 'This electricity company is not available right now. Your wallet was refunded.' };
+      const v = await ea(env, 'POST', '/verify-electricity', { company, metertype: mt, meterno: p.meterNumber, amount: Math.round(Number(p.amount)) });
+      if (v.json.status !== 'success') return { ok: false, definite: true, error: 'We could not verify this meter number. Your wallet was refunded. Please check it and try again.' };
+      res = interpretEA(await ea(env, 'POST', '/pay-electricity', { company, metertype: mt, meterno: p.meterNumber, amount: String(Math.round(Number(p.amount))) })); break;
+    }
+    case 'exam': res = interpretEA(await ea(env, 'POST', '/exam-pins', { exam_board: Number(p.examId), no_of_pins: Number(p.quantity), ...(maxPay ? { max_amount_payable: maxPay } : {}) })); break;
+    default: return NOT_AVAILABLE;
+  }
+  if (res.ok && kind === 'exam') {
+    const pins = (Array.isArray(res.raw.pins) ? res.raw.pins : []).map((x) => { const [pin, serial] = String(x).split('<=>'); return { pin: pin || '', serial: serial || '' }; });
+    if (pins.length < Number(p.quantity || 1)) { console.error('EasyAccess: PINs missing in a successful reply', p.requestRef); res.pins = pins.length ? pins : undefined; if (!pins.length) res.ref = 'PINs were not returned. Contact support.'; } else res.pins = pins;
+  }
+  if (res.ok && kind === 'electricity' && !res.token) { console.error('EasyAccess: electricity token missing in a successful reply', p.requestRef); res.ref = res.ref || 'Token was not returned. Contact support.'; }
+  delete res.raw;
+  return res;
+}
+// Ask EasyAccess for the real result of a purchase (used before trusting its webhook, which carries no signature).
+export async function eaQuery(env, reference) {
+  const r = await ea(env, 'POST', '/query-transactions', { reference: String(reference) });
+  const s = String(r.json.retrieved_status || '').toLowerCase();
+  return { state: s === 'successful' || s === 'success' ? 'success' : s === 'failed' ? 'failed' : 'pending' };
+}
+
 export async function runProvider(env, kind, p) {
+  if (providerFor(env, kind) === 'easyaccess') return runEasy(env, kind, p);
   const id = p.requestRef, net = C.NETWORK_IDS[p.network];
   let res;
   switch (kind) {

@@ -1431,6 +1431,12 @@ html[data-theme=dark] .pf-wal b{color:#d6e3ff}
   </div>
 </div>
 
+<!-- ===================== AGENT PANEL ===================== -->
+<div class="page" id="page-agent">
+  <div class="page-head"><button class="back-btn" onclick="closePage('agent')">←</button><div class="page-title">Agent Panel</div></div>
+  <div class="page-body" id="agentBody"><div class="empty-note">Loading…</div></div>
+</div>
+
 <!-- ===================== EXCHANGE PAGE ===================== -->
 <div class="page sv-pg" id="page-exchange" data-sv="exchange">
   <div class="page-head"><button class="back-btn" onclick="closePage('exchange')">←</button><div class="page-title">Exchange</div></div>
@@ -1617,6 +1623,7 @@ html[data-theme=dark] .pf-wal b{color:#d6e3ff}
 
     <div class="section-title" style="padding:0; margin:26px 0 10px;">Account & Security</div>
     <button class="btn-primary" id="auBanBtn" style="margin-top:0;" onclick="adminToggleBan()">Ban User</button>
+    <button class="btn-primary" id="auAgentBtn" style="background:#0f7a46;margin-bottom:8px" onclick="adminToggleAgent()">Make Agent</button>
     <button class="btn-primary" id="auAdminBtn" style="background:#6b5bd6;" onclick="adminToggleAdmin()">Make Admin</button>
     <div class="field" style="margin-top:16px;"><label>New transaction PIN (4 digits) — also unlocks a locked PIN</label><input id="auNewPin" type="password" autocomplete="one-time-code" inputmode="numeric" maxlength="4" placeholder="••••"></div>
     <div class="err-text" id="auPinErr"></div>
@@ -1703,6 +1710,10 @@ html[data-theme=dark] .pf-wal b{color:#d6e3ff}
       <div class="st-row" onclick="showPage('wallets')"><span class="st-ic"><svg class="ic"><use href="#i-wallet"/></svg></span><div class="st-t"><b>Wallet Management</b><small>View wallets and transaction history</small></div><span class="st-arr">›</span></div>
       <div class="st-row" onclick="showTab('support')"><span class="st-ic"><svg class="ic"><use href="#i-headset"/></svg></span><div class="st-t"><b>Help &amp; Support</b><small>Get help and contact us</small></div><span class="st-arr">›</span></div>
       <div class="st-row" onclick="termsPrivacySheet()"><span class="st-ic"><svg class="ic"><use href="#s-doc"/></svg></span><div class="st-t"><b>Terms &amp; Privacy</b><small>Terms of service and privacy policy</small></div><span class="st-arr">›</span></div>
+    </div>
+    <div id="agentRows" style="display:none;">
+      <div class="section-title" style="padding:0; margin:18px 0 10px;">Agent</div>
+      <div class="settings-list"><div class="settings-row" id="agentTile" onclick="showPage('agent')"><span>Agent Panel</span><span>›</span></div></div>
     </div>
     <div id="adminRows" style="display:none;">
       <div class="section-title" style="padding:0; margin:18px 0 10px;">Admin</div>
@@ -2859,7 +2870,7 @@ async function adminLoadUsers(reset){
   if(errMsg){ list.innerHTML = '<div class="empty-note">'+esc(errMsg)+'</div>'; return; }
   const rows = data.users.map(u => `
     <div class="arow" onclick="adminOpenUser('${esc(u.id)}')">
-      <div class="top"><span>${esc(u.full_name || u.username || u.email)}${u.is_admin ? '<span class="badge" style="background:#6b5bd6;">ADMIN</span>' : ''}${u.is_banned ? '<span class="badge" style="background:var(--danger);">BANNED</span>' : ''}</span><span>${naira(u.balance_ngn)}</span></div>
+      <div class="top"><span>${esc(u.full_name || u.username || u.email)}${u.is_admin ? '<span class="badge" style="background:#6b5bd6;">ADMIN</span>' : ''}${u.is_agent ? '<span class="badge" style="background:#0f7a46;">AGENT</span>' : ''}${u.is_banned ? '<span class="badge" style="background:var(--danger);">BANNED</span>' : ''}</span><span>${naira(u.balance_ngn)}</span></div>
       <div class="sub">@${esc(u.username)} · ${esc(u.email)} · ${esc(u.phone || '')}</div>
     </div>`).join('');
   list.innerHTML = reset ? (rows || '<div class="empty-note">No users found.</div>') : list.innerHTML + rows;
@@ -2958,7 +2969,7 @@ async function adminLoadSettings(){
   adminSettings = data.items;
   const sec = (g) => `<div class="section-title" style="padding:0; margin:20px 0 10px;">${g}</div>` + adminSettings.filter(s => s.group === g).map(settingField).join('');
   box.innerHTML = (data.keys_can_be_saved ? '' : '<div class="err-text" style="margin-bottom:10px;">AUTH_SECRET is missing or too short in Cloudflare, so keys cannot be saved here yet.</div>')
-    + sec('Funding') + sec('Exchange') + sec('Withdrawals') + sec('Profit') + sec('Pricing') + sec('PayVessel') + sec('Keys')
+    + sec('App download') + sec('Funding') + sec('Agent') + sec('Exchange') + sec('Withdrawals') + sec('Profit') + sec('Pricing') + sec('PayVessel') + sec('Keys')
     + `<div style="background:var(--soft); border-radius:12px; padding:14px; font-size:12px; line-height:1.7; margin:18px 0; word-break:break-all;">Put these web addresses in your dashboards:<br>
         <b>Flutterwave webhook:</b> ${esc(location.origin)}/api/webhook/flutterwave<br>
         <b>Legitdataway callback:</b> shown on the Overview tab (it has a secret).<br>
@@ -3032,7 +3043,7 @@ async function adminOpenUser(id){
 function adminRenderUser(){
   const u = adminU;
   document.getElementById('auHeader').innerHTML = `
-    <div style="font-size:18px; font-weight:800;">${esc(u.full_name || '—')}${u.is_admin ? '<span class="badge" style="background:#6b5bd6;">ADMIN</span>' : ''}${u.is_banned ? '<span class="badge" style="background:var(--danger);">BANNED</span>' : ''}${u.pin_locked ? '<span class="badge" style="background:var(--accent);">PIN LOCKED</span>' : ''}</div>
+    <div style="font-size:18px; font-weight:800;">${esc(u.full_name || '—')}${u.is_admin ? '<span class="badge" style="background:#6b5bd6;">ADMIN</span>' : ''}${u.is_agent ? '<span class="badge" style="background:#0f7a46;">AGENT</span>' : ''}${u.is_banned ? '<span class="badge" style="background:var(--danger);">BANNED</span>' : ''}${u.pin_locked ? '<span class="badge" style="background:var(--accent);">PIN LOCKED</span>' : ''}</div>
     <div class="sub" style="font-size:12px; color:var(--sub); margin-top:4px;">@${esc(u.username)} · ${esc(u.email)} · ${esc(u.phone || '')}</div>
     <div class="sub" style="font-size:12px; color:var(--sub); margin-top:2px;">Joined ${esc(new Date(u.created_at + 'Z').toLocaleDateString())}${u.referred_by ? ' · referred by @' + esc(u.referred_by) : ''}${u.virtual_account ? '<br>Account no: ' + esc(u.virtual_account.account_number) + ' (' + esc(u.virtual_account.bank_name) + ')' : ''}</div>`;
   const card = (l, v) => `<div class="profit-card"><div class="profit-label">${l}</div><div class="profit-value" style="font-size:17px;">${v}</div></div>`;
@@ -3044,6 +3055,7 @@ function adminRenderUser(){
   const ban = document.getElementById('auBanBtn');
   ban.textContent = u.is_banned ? 'Unban User' : 'Ban User'; ban.style.background = u.is_banned ? 'var(--green)' : 'var(--danger)';
   document.getElementById('auAdminBtn').textContent = u.is_admin ? 'Remove Admin Rights' : 'Make Admin';
+  document.getElementById('auAgentBtn').textContent = u.is_agent ? 'Remove Agent' : 'Make Agent';
 }
 let auTxOffset = 0, auTxStatus = 'all', auWhWallet = 'main', auWhCursor = null, auTxTimer = null;
 function adminUserTxReset(){ auTxStatus = 'all'; const q = document.getElementById('auTxQ'); if(q) q.value = ''; adminChip('auTxChips', 'all'); adminLoadUserTx(true); }
@@ -3105,6 +3117,13 @@ async function adminToggleBan(){
   const { errMsg } = await adminCall({ action: ban ? 'ban' : 'unban', userId: adminU.id });
   if(errMsg){ showToast(errMsg, 'error'); return; }
   showToast(ban ? 'User banned' : 'User unbanned', 'success'); adminRefreshUser();
+}
+async function adminToggleAgent(){
+  const make = !adminU.is_agent;
+  if(!await UMAlert.ask(make ? 'Make this user an AGENT? They will pay agent prices and earn cashback.' : 'Remove agent status? They will pay normal prices and stop earning cashback.')) return;
+  const { errMsg } = await adminCall({ action: 'set_agent', userId: adminU.id, isAgent: make });
+  if(errMsg){ showToast(errMsg, 'error'); return; }
+  showToast(make ? 'Now an agent' : 'Agent status removed', 'success'); adminRefreshUser();
 }
 async function adminToggleAdmin(){
   const make = !adminU.is_admin;
@@ -3430,6 +3449,7 @@ async function loadProfile() {
   $('profileName').value = profile.full_name || ''; $('profileUsername').value = profile.username || '';
   $('profileEmail').value = session.user.email; $('profilePhone').value = profile.phone || '';
   $('adminRows').style.display = profile.is_admin ? 'block' : 'none';
+  if ($('agentRows')) $('agentRows').style.display = profile.is_agent ? 'block' : 'none';
   await loadWallets();
 }
 async function loadWallets() { const { data } = await fn('wallet-summary'); if (data) { W = data; renderWallets(); } }
@@ -6926,7 +6946,7 @@ window.UMSound = (function () {
     box.innerHTML = `<h3>2. Plan types: switch off &amp; profit</h3>
       <div class="lg-small" style="margin-bottom:8px">Switch a whole type (SME, Gifting, Corporate Gifting…) OFF when it is not working, and give each type its own profit. A network's own setting wins over "All networks". Empty profit = the normal Data profit (${E(gtxt)}).</div>
       <div class="lg-chips" id="lgRn">${nets.map((n) => `<button class="${L.rn === n ? 'on' : ''}" data-n="${E(n)}">${n === '*' ? 'All networks' : n.toUpperCase()}</button>`).join('')}</div>
-      ${rows.map((x) => { const off = L.rn === '*' ? x.enabled === false : x.eff_on === false; const pr = (x.pct != null || x.fixed != null) ? `Profit ${x.pct != null ? x.pct + '%' : gtxt.split(' ')[0]}${x.fixed != null ? ' + ' + N(x.fixed) : ''}` : 'Normal profit';
+      ${rows.map((x) => { const off = L.rn === '*' ? x.enabled === false : x.eff_on === false; const pr = ((x.pct != null || x.fixed != null) ? `Profit ${x.pct != null ? x.pct + '%' : gtxt.split(' ')[0]}${x.fixed != null ? ' + ' + N(x.fixed) : ''}` : 'Normal profit') + (x.agent_pct != null ? ` · Agent ${x.agent_pct}%` : '');
         return `<div class="lg-row" data-rc="${E(x.category)}"><div><b>${E(CN(x.category))}</b><div class="lg-small">${x.plans} plan${x.plans === 1 ? '' : 's'} · ${pr}${x.sample ? ` · e.g. ${E(x.sample.size)}: cost ${N(x.sample.cost)} → customer ${N(x.sample.price)}` : ''}</div></div><div><span class="lg-tag ${off ? 'warn' : 'ed'}" style="${off ? '' : 'background:#e6f6ec;color:#17803d'}">${off ? 'OFF' : 'ON'}</span></div></div>`; }).join('') || '<div class="lg-small">No plan types here.</div>'}`;
     $('lgRn').querySelectorAll('[data-n]').forEach((b) => { b.onclick = () => { L.rn = b.dataset.n; loadRules(); }; });
     box.querySelectorAll('[data-rc]').forEach((el) => { el.onclick = () => ruleSheet(L.rn, el.dataset.rc); });
@@ -6941,11 +6961,13 @@ window.UMSound = (function () {
       <input class="lg-in" id="lrPct" inputmode="decimal" value="${x.pct ?? ''}">
       <label class="lg-small">Fixed profit (₦) on top — leave empty for normal</label>
       <input class="lg-in" id="lrFix" inputmode="decimal" value="${x.fixed ?? ''}">
+      <label class="lg-small">Agent profit percent (%) — what AGENTS pay on top of cost. Empty = the general agent setting</label>
+      <input class="lg-in" id="lrAg" inputmode="decimal" value="${x.agent_pct ?? ''}">
       <div id="lrErr" class="err-text"></div>
       <button class="lg-btn" id="lrSave" style="width:100%">Save</button>`);
     let cur = st; $('lrSt').querySelectorAll('[data-st]').forEach((b) => { b.onclick = () => { cur = b.dataset.st; $('lrSt').querySelectorAll('button').forEach((z) => z.classList.toggle('on', z === b)); }; });
     $('lrSave').onclick = async () => {
-      const r = await ac({ action: 'rule_save', network: net, category: cat, enabled: cur === 'def' ? null : cur === 'on', pct: $('lrPct').value.trim(), fixed: $('lrFix').value.trim() });
+      const r = await ac({ action: 'rule_save', network: net, category: cat, enabled: cur === 'def' ? null : cur === 'on', pct: $('lrPct').value.trim(), fixed: $('lrFix').value.trim(), agent_pct: $('lrAg').value.trim() });
       if (r.errMsg) { $('lrErr').textContent = r.errMsg; return; }
       closeSheet(); showToast('Saved', 'success'); await load(true);
     };
@@ -7044,6 +7066,114 @@ window.UMSound = (function () {
   };
   async function load() { const r = await adminCall({ action: 'get_settings' }); if (r.errMsg) return paint(false, r.errMsg); const it = (r.data.items || []).find((s) => s.key === 'exchange_enabled'); paint(!!it && String(it.value) === '1'); }
   const prev = adminSetTab; adminSetTab = function (t) { prev(t); if (t === 'rem') load(); };
+})();
+</script>
+<script>
+/* Agent panel: cashback, purchases, customers brought, referral link */
+(() => {
+  const N = (v) => '₦' + Number(v || 0).toLocaleString('en-NG', { maximumFractionDigits: 2 });
+  const E = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const D = (t) => { try { return new Date(String(t).replace(' ', 'T') + 'Z').toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' }); } catch { return ''; } };
+  const SN = { data: 'Data', airtime: 'Airtime', cable: 'Cable TV', electricity: 'Electricity', exam: 'Exam PIN' };
+  const css = document.createElement('style'); css.textContent = `.ag-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}.ag-box{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px}.ag-box small{display:block;color:var(--sub);font-size:12px}.ag-box b{font-size:18px}.ag-h{font-weight:800;font-size:14px;margin:16px 0 8px}.ag-row{display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);font-size:13.5px}.ag-row:last-child{border:0}.ag-row small{display:block;color:var(--sub);font-size:12px}.ag-row b{white-space:nowrap}.ag-note{background:var(--soft);border-radius:12px;padding:11px 13px;font-size:12.5px;color:var(--sub);line-height:1.6}`; document.head.appendChild(css);
+  async function load() {
+    const box = document.getElementById('agentBody'); if (!box) return; box.innerHTML = '<div class="empty-note">Loading…</div>';
+    const r = await invokeFn('agent-panel', { body: {} }); if (r.errMsg) { box.innerHTML = `<div class="empty-note">${E(r.errMsg)}</div>`; return; }
+    const a = r.data, rates = Object.entries(a.rates).filter(([, v]) => v > 0).map(([k, v]) => `${SN[k]} ${v}%`).join(' · ');
+    box.innerHTML = `<div class="ag-grid"><div class="ag-box"><small>Cashback earned</small><b>${N(a.cashback.total)}</b></div><div class="ag-box"><small>This month</small><b>${N(a.cashback.month)}</b></div><div class="ag-box"><small>Purchases</small><b>${a.purchases.count}</b></div><div class="ag-box"><small>Total spent</small><b>${N(a.purchases.total)}</b></div></div>
+      <div class="ag-note">${rates ? 'You earn cashback on every successful purchase: <b>' + E(rates) + '</b>. It is added to your Main Wallet.' : 'Cashback is not set yet.'} You also pay agent prices on data.</div>
+      <div class="ag-h">Your referral link</div>
+      <div class="ag-box" style="display:flex;justify-content:space-between;align-items:center;gap:10px"><div style="min-width:0;word-break:break-all;font-size:13px">${E(a.link || a.code || '—')}</div>${a.link ? '<button class="btn-primary" id="agCopy" style="width:auto;padding:8px 14px;margin:0">Copy</button>' : ''}</div>
+      <div class="ag-h">Cashback history</div>
+      <div class="ag-box">${a.history.length ? a.history.map((h) => `<div class="ag-row"><div>${E(h.label)}<small>${E(D(h.at))} · ${h.pct}% of ${N(h.base)}</small></div><b style="color:#0f7a46">+${N(h.amount)}</b></div>`).join('') : '<div class="empty-note" style="padding:10px">No cashback yet. It appears after your next successful purchase.</div>'}</div>
+      <div class="ag-h">Customers you brought (${a.customers.length})</div>
+      <div class="ag-box">${a.customers.length ? a.customers.map((c) => `<div class="ag-row"><div>${E(c.name)}<small>@${E(c.username)} · joined ${E(D(c.joined))}</small></div><div style="text-align:right"><b>${N(c.spent)}</b><small>${c.purchases} purchase${c.purchases === 1 ? '' : 's'}</small></div></div>`).join('') : '<div class="empty-note" style="padding:10px">Nobody yet. Share your link so people join under you.</div>'}</div>`;
+    const cp = document.getElementById('agCopy'); if (cp) cp.onclick = () => { try { navigator.clipboard.writeText(a.link); showToast('Link copied', 'success'); } catch { showToast(a.link, 'success'); } };
+  }
+  const _sp = showPage; showPage = function (n) { _sp(n); if (n === 'agent') load(); };
+})();
+</script>
+<script>
+/* "Download our Android app" bar: only in a normal browser on Android, never inside the installed app / APK */
+(() => {
+  const inApp = () => { try { if (['standalone', 'fullscreen', 'minimal-ui'].some((m) => matchMedia('(display-mode: ' + m + ')').matches) || navigator.standalone === true || String(document.referrer).startsWith('android-app://')) { try { localStorage.setItem('um_in_app', '1'); } catch (e) {} return true; } } catch (e) {} try { return localStorage.getItem('um_in_app') === '1'; } catch (e) { return false; } };
+  if (!/Android/i.test(navigator.userAgent) || inApp()) return;
+  try { const t = Number(localStorage.getItem('um_apk_hide') || 0); if (t && Date.now() - t < 7 * 864e5) return; } catch (e) {}
+  fetch('/api/public-config').then((r) => r.json()).then((c) => {
+    const url = c && c.apk_url; if (!url || document.getElementById('apkBar')) return;
+    const css = document.createElement('style'); css.textContent = '#apkBar{position:fixed;left:12px;right:12px;bottom:12px;z-index:9000;background:#0b2a8f;color:#fff;border-radius:16px;padding:12px 14px;display:flex;align-items:center;gap:10px;box-shadow:0 8px 24px rgba(0,0,0,.28);font-size:13px;line-height:1.4}#apkBar b{display:block;font-size:14px}#apkBar a{background:#f2b705;color:#2a1d00;font-weight:800;border-radius:10px;padding:9px 14px;text-decoration:none;white-space:nowrap}#apkBar button{background:none;border:0;color:#fff;font-size:20px;line-height:1;padding:4px 6px;cursor:pointer;opacity:.8}'; document.head.appendChild(css);
+    const bar = document.createElement('div'); bar.id = 'apkBar';
+    bar.innerHTML = '<div style="flex:1;min-width:0"><b>Get the Android app</b>Faster and easier than the browser.</div><a id="apkGo" download></a><button id="apkX" aria-label="Close">×</button>';
+    const a = bar.querySelector('#apkGo'); a.textContent = 'Download'; a.href = url;
+    a.onclick = () => { try { showToast('After the download, open the file and allow "Install unknown apps" if your phone asks.', 'success'); } catch (e) {} };
+    bar.querySelector('#apkX').onclick = () => { bar.remove(); try { localStorage.setItem('um_apk_hide', String(Date.now())); } catch (e) {} };
+    document.body.appendChild(bar);
+  }).catch(() => {});
+})();
+</script>
+
+<script>
+/* ===== Admin -> Providers: which company sells each service, switches, EasyAccess key/test/sync ===== */
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const E = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const call = (b) => invokeFn('admin-providers', { body: b || {} });
+  const save = (values) => adminCall({ action: 'save_settings', values });
+  let S = null, busy = false;
+  const SERV = [['data', 'Data (incl. Awoof)'], ['cable', 'Cable TV'], ['electricity', 'Electricity'], ['exam', 'Exam PIN']];
+  const PNAME = { mtn_cg: 'MTN Corporate Gifting', mtn_awoof: 'MTN Awoof', mtn_sme: 'MTN SME', mtn_gifting: 'MTN Gifting', glo_cg: 'Glo Corporate Gifting', glo_awoof: 'Glo Awoof', glo_gifting: 'Glo Gifting', airtel_cg: 'Airtel Corporate Gifting', airtel_awoof: 'Airtel Awoof', airtel_gifting: 'Airtel Gifting', '9mobile_sme': '9mobile SME', '9mobile_gifting': '9mobile Gifting', dstv: 'DStv', gotv: 'GOtv', startimes: 'Startimes', waec: 'WAEC', neco: 'NECO', nabteb: 'NABTEB', nbais: 'NBAIS' };
+  function inject() {
+    const tabs = $('adminTabs'), panel = $('page-admin-panel'); if (!tabs || !panel || $('atab-prov')) return;
+    tabs.insertAdjacentHTML('beforeend', '<button class="atab" data-tab="prov" onclick="adminSetTab(\'prov\')">Providers</button>');
+    panel.querySelector('.page-body').insertAdjacentHTML('beforeend', '<div id="atab-prov" style="display:none;"></div>');
+  }
+  const _prev = adminSetTab;
+  adminSetTab = function (t) {
+    inject(); const box = $('atab-prov'); if (!box) return _prev(t);
+    if (t === 'prov') { document.querySelectorAll('#adminTabs .atab').forEach((b) => b.classList.toggle('on', b.dataset.tab === 'prov')); document.querySelectorAll('#page-admin-panel [id^="atab-"]').forEach((x) => { x.style.display = 'none'; }); box.style.display = 'block'; load(); }
+    else { box.style.display = 'none'; _prev(t); }
+  };
+  const sw = (id, on) => `<label class="toggle-switch"><input type="checkbox" id="${id}" ${on ? 'checked' : ''}><span class="toggle-slider"></span></label>`;
+  async function load() {
+    const box = $('atab-prov'); box.innerHTML = '<div class="empty-note">Loading…</div>';
+    const r = await call({ action: 'status' }); if (r.errMsg) { box.innerHTML = '<div class="empty-note">' + E(r.errMsg) + '</div>'; return; }
+    S = r.data; draw();
+  }
+  function draw() {
+    const box = $('atab-prov'), L = S.providers[0], A = S.providers[1];
+    const tot = (S.ea_plans ? Object.values(S.ea_plans).reduce((n, p) => n + p.count, 0) : 0);
+    const opt = (v, cur, lbl) => `<option value="${v}" ${cur === v ? 'selected' : ''}>${lbl}</option>`;
+    let h = '<div class="hint" style="background:var(--soft);border-radius:12px;padding:12px;font-size:12px;color:var(--sub);line-height:1.6;margin-bottom:12px;">Each service is sold by <b>one</b> provider. Choose below, and switch a provider ON/OFF. When a provider is OFF (or has no key) its services show as unavailable and customers are never charged.</div>';
+    h += '<div class="mg-card"><div class="mg-h">Which provider sells what</div>';
+    for (const [k, nm] of SERV) {
+      const cur = S.routes[k], rdy = S.ready[k];
+      h += `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--line);"><div style="flex:1;min-width:0;"><b>${nm}</b><div style="font-size:11px;color:${rdy ? '#0a8f4e' : '#c2410c'}">${rdy ? 'Available' : 'Not available (provider off / no key / no plans)'}</div></div><select id="pr-${k}" style="padding:8px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--text);">${opt('legitdataway', cur, 'Legitdataway')}${opt('easyaccess', cur, 'EasyAccess')}</select></div>`;
+    }
+    h += `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--line);"><div style="flex:1"><b>Airtime, Data Card, Recharge Card, Bulk SMS</b><div style="font-size:11px;color:var(--sub)">Always Legitdataway for now</div></div><span style="font-size:12px;font-weight:700;">Legitdataway 🔒</span></div>`;
+    h += '<button class="btn-primary" id="prSaveRoutes" style="margin-top:10px;width:100%;">Save routing</button></div>';
+    h += `<div class="mg-card"><div style="display:flex;align-items:center;gap:10px;"><div style="flex:1"><div class="mg-h" style="margin:0">Legitdataway</div><div class="mg-s">${L.token_set ? 'Key is saved (Settings → Keys)' : 'No key yet. Add it in Settings → Keys.'}</div></div>${sw('prLgOn', L.enabled)}</div></div>`;
+    h += `<div class="mg-card"><div style="display:flex;align-items:center;gap:10px;"><div style="flex:1"><div class="mg-h" style="margin:0">EasyAccess</div><div class="mg-s">Data, Awoof, Cable, Electricity, Exam PIN</div></div>${sw('prEaOn', A.enabled)}</div>
+      <div style="margin-top:10px;font-size:12px;color:var(--sub);">API token: <b>${A.token_set ? 'saved' : 'not set'}</b></div>
+      <div style="display:flex;gap:8px;margin-top:6px;"><input id="prTok" type="password" autocomplete="off" placeholder="${A.token_set ? 'Leave empty to keep the saved token' : 'Paste EasyAccess token'}" style="flex:1;min-width:0;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--text);"><button class="btn-primary" id="prTokSave" style="width:auto;padding:0 14px;">Save</button></div>
+      <div style="display:flex;gap:8px;margin-top:10px;"><button class="btn-ghost" id="prTest" style="flex:1;">Test connection</button><button class="btn-ghost" id="prSync" style="flex:1;">Sync plans</button></div>
+      <div id="prMsg" style="font-size:12px;margin-top:8px;color:var(--sub);"></div>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:12px;"><div style="flex:1"><b style="font-size:13px;">Sandbox (test) mode</b><div style="font-size:11px;color:#c2410c;">ON = nothing is really delivered. Keep it OFF when selling.</div></div>${sw('prEaTest', A.sandbox)}</div>
+      <div style="margin-top:12px;font-size:12px;"><b>Webhook address</b> (give it to EasyAccess, keep it secret):<div id="prHook" style="word-break:break-all;background:var(--soft);padding:8px;border-radius:8px;margin-top:4px;font-size:11px;">${E(A.webhook)}</div><button class="btn-ghost" id="prCopy" style="margin-top:6px;">Copy address</button></div>
+      <div style="margin-top:12px;font-size:12px;color:var(--sub);">Synced plans: <b>${tot}</b>${tot ? '' : ' — press “Sync plans” after saving the token.'}</div>
+      <details style="margin-top:6px;font-size:11.5px;color:var(--sub);"><summary>Plans per product</summary>${Object.entries(S.ea_plans).map(([p, v]) => `<div>${E(PNAME[p] || p)}: ${v.count}${v.updated ? ' · ' + E(v.updated) : ''}</div>`).join('')}</details>
+      <div style="margin-top:8px;font-size:11px;color:var(--sub);">Electricity companies available on EasyAccess: ${E(S.ea_discos.join(', '))}. Others are hidden until their EasyAccess numbers are added.</div></div>`;
+    box.innerHTML = h;
+    const msg = (t, bad) => { const m = $('prMsg'); m.style.color = bad ? '#c2410c' : '#0a8f4e'; m.textContent = t; };
+    const run = async (fn) => { if (busy) return; busy = true; try { await fn(); } finally { busy = false; } };
+    $('prSaveRoutes').onclick = () => run(async () => { const v = {}; for (const [k] of SERV) v['provider_' + k] = $('pr-' + k).value; const r = await save(v); if (r.errMsg) return showToast(r.errMsg); showToast('Saved'); load(); });
+    $('prLgOn').onchange = () => run(async () => { const r = await save({ provider_legitdataway_enabled: $('prLgOn').checked ? '1' : '0' }); if (r.errMsg) showToast(r.errMsg); load(); });
+    $('prEaOn').onchange = () => run(async () => { const r = await save({ provider_easyaccess_enabled: $('prEaOn').checked ? '1' : '0' }); if (r.errMsg) showToast(r.errMsg); load(); });
+    $('prEaTest').onchange = () => run(async () => { const r = await save({ easyaccess_test: $('prEaTest').checked ? '1' : '0' }); if (r.errMsg) showToast(r.errMsg); load(); });
+    $('prTokSave').onclick = () => run(async () => { const t = $('prTok').value.trim(); if (!t) return msg('Paste the token first.', true); const r = await save({ easyaccess_token: t }); if (r.errMsg) return msg(r.errMsg, true); $('prTok').value = ''; showToast('Token saved'); load(); });
+    $('prTest').onclick = () => run(async () => { msg('Testing…'); const r = await call({ action: 'ea_test' }); if (r.errMsg) return msg(r.errMsg, true); msg('Connected. EasyAccess wallet balance: ₦' + Number(r.data.balance).toLocaleString()); });
+    $('prSync').onclick = () => run(async () => { msg('Syncing plans… this takes a few seconds'); const r = await call({ action: 'ea_sync' }); if (r.errMsg) return msg(r.errMsg, true); const n = r.data.report.reduce((a, p) => a + p.count, 0); await load(); const m = $('prMsg'); if (m) { m.style.color = '#0a8f4e'; m.textContent = 'Done: ' + n + ' plans saved.'; } });
+    $('prCopy').onclick = () => { try { navigator.clipboard.writeText(A.webhook); showToast('Copied'); } catch (e) { showToast('Select and copy it manually'); } };
+  }
 })();
 </script>
 </body>

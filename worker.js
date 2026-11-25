@@ -1,7 +1,7 @@
 // UMARSHOYI-SUB — Cloudflare Worker (D1 database)
 // Auth, wallet, Flutterwave funding (+webhook, virtual account), purchases, OTP,
 // airtime-to-cash withdrawals and admin tools. The VTU provider lives in provider.js.
-import { runProvider, sendSms, convertAirtimeToCash, getDataPlans, getCablePlans, dataRule, dataPriceOf, profitCfg, effDataBundles, effCablePlans, effExamTypes, CABLE_PROVIDERS, verifySmartcard, verifyMeter, checkStatus, clearProviderCaches, priceOf, feeOf, publicCatalog, PROFIT_DEFAULTS } from './provider.js';
+import { providerFor, providerOn, providerToken, providerReady, discoAvailable, ea, eaQuery, EA_PRODUCTS, EA_OTHER, EA_DISCOS, runProvider, sendSms, convertAirtimeToCash, getDataPlans, getCablePlans, dataRule, dataPriceOf, profitCfg, effDataBundles, effCablePlans, effExamTypes, CABLE_PROVIDERS, verifySmartcard, verifyMeter, checkStatus, clearProviderCaches, priceOf, feeOf, publicCatalog, PROFIT_DEFAULTS } from './provider.js';
 import * as C from './catalog.js';
 
 /* ------------------------------------------------------------------ schema */
@@ -64,11 +64,16 @@ const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS payvessel_hooks (id TEXT PRIMARY KEY, reference TEXT NOT NULL UNIQUE, status TEXT NOT NULL, reason TEXT, event TEXT, user_id TEXT, account_id TEXT, amount REAL, fee REAL, credit_amount REAL, payload TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
   `CREATE INDEX IF NOT EXISTS idx_pv_hook ON payvessel_hooks(status, created_at)`,
   `CREATE TABLE IF NOT EXISTS price_book (kind TEXT NOT NULL, ref TEXT NOT NULL, cost REAL, enabled INTEGER NOT NULL DEFAULT 1, added INTEGER NOT NULL DEFAULT 0, meta TEXT, updated_at TEXT DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (kind, ref))`,
+  `CREATE TABLE IF NOT EXISTS ea_plans (product TEXT NOT NULL, plan_id TEXT NOT NULL, name TEXT, price REAL, validity TEXT, updated_at TEXT DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (product, plan_id))`,
   `CREATE TABLE IF NOT EXISTS data_rules (network TEXT NOT NULL, category TEXT NOT NULL, enabled INTEGER, pct REAL, fixed REAL, updated_at TEXT DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (network, category))`,
+  `CREATE TABLE IF NOT EXISTS agent_cashback (tx_id TEXT PRIMARY KEY, user_id TEXT NOT NULL, svc TEXT NOT NULL, base REAL NOT NULL, pct REAL NOT NULL, amount REAL NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+  `CREATE INDEX IF NOT EXISTS idx_agent_cb_user ON agent_cashback(user_id, created_at)`,
   `CREATE TABLE IF NOT EXISTS price_flags (kind TEXT NOT NULL, ref TEXT NOT NULL, label TEXT, expected_cost REAL, real_cost REAL, count INTEGER NOT NULL DEFAULT 1, first_at TEXT, last_at TEXT, status TEXT NOT NULL DEFAULT 'open', PRIMARY KEY (kind, ref))`,
 ];
 // For databases created by the older worker: add columns that are missing.
 const MIGRATIONS = [
+  `ALTER TABLE profiles ADD COLUMN is_agent INTEGER NOT NULL DEFAULT 0`,
+  `ALTER TABLE data_rules ADD COLUMN agent_pct REAL`,
   `ALTER TABLE referrals ADD COLUMN deposit_amount REAL`, `ALTER TABLE referrals ADD COLUMN deposit_ref TEXT`, `ALTER TABLE referrals ADD COLUMN deposit_at TEXT`,
   `ALTER TABLE referrals ADD COLUMN reason TEXT`, `ALTER TABLE referrals ADD COLUMN flag TEXT`, `ALTER TABLE referrals ADD COLUMN rule_id TEXT`,
   `ALTER TABLE referrals ADD COLUMN ip_hash TEXT`, `ALTER TABLE referrals ADD COLUMN reviewed_by TEXT`,
@@ -98,7 +103,7 @@ const MIGRATIONS = [
   `ALTER TABLE transactions ADD COLUMN updated_at TEXT`,
   `ALTER TABLE wallet_ledger ADD COLUMN balance_before REAL`, `ALTER TABLE wallet_ledger ADD COLUMN balance_after REAL`,
 ];
-const SAFE_PROFILE = 'id,full_name,username,phone,referral_code,referral_code_used,balance_ngn,atc_balance,exchange_balance,is_admin,is_banned,created_at';
+const SAFE_PROFILE = 'id,full_name,username,phone,referral_code,referral_code_used,balance_ngn,atc_balance,exchange_balance,is_admin,is_agent,is_banned,created_at';
 const WALLET_COL = { main: 'balance_ngn', exchange: 'exchange_balance', atc: 'atc_balance' };
 const WALLET_NAME = { main: 'Main Wallet', exchange: 'Exchange Wallet', atc: 'Airtime-to-Cash Wallet' };
 
@@ -137,7 +142,7 @@ async function authUser(req, env) {
   const token = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
   const v = token && await verifyToken(token, env.AUTH_SECRET);
   if (!v) return null;
-  return await env.DB.prepare('SELECT u.id, u.email, p.is_admin, p.is_banned FROM users u JOIN profiles p ON p.id = u.id WHERE u.id = ?').bind(v.sub).first();
+  return await env.DB.prepare('SELECT u.id, u.email, p.is_admin, p.is_banned, p.is_agent FROM users u JOIN profiles p ON p.id = u.id WHERE u.id = ?').bind(v.sub).first();
 }
 const isAdminEmail = (env, email) => String(env.ADMIN_EMAILS || '').toLowerCase().split(',').map((s) => s.trim()).filter(Boolean).includes(email);
 
@@ -572,6 +577,29 @@ async function lgwWebhook(req, env, url) {
   return json({ ok: true });
 }
 
+// EasyAccess webhook (data purchases only, carries no signature): secret in the URL, and the result is re-checked with EasyAccess before any money moves.
+async function eaWebhookKey(env) {
+  const k = await crypto.subtle.importKey('raw', enc(String(env.AUTH_SECRET || '')), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sig = await crypto.subtle.sign('HMAC', k, enc('ea-webhook-v1:' + await lgwSalt(env)));
+  return [...new Uint8Array(sig)].map((x) => x.toString(16).padStart(2, '0')).join('');
+}
+async function eaWebhook(req, env, url) {
+  const rk = 'eawh:' + await ipHash(env, req);
+  if (await rateWait(env, rk, 20, 900)) return fail('Not found.', 404);
+  if (!authSecretOk(env) || !safeEq(url.searchParams.get('k') || '', await eaWebhookKey(env))) { await rateHit(env, rk, 900); console.error('EasyAccess webhook: wrong secret'); return fail('Not found.', 404); }
+  const e = await body(req), cref = String(e.client_reference || '');
+  if (!/^[0-9a-zA-Z_-]{8,64}$/.test(cref)) return json({ ok: true });
+  const t = await env.DB.prepare("SELECT id,status FROM transactions WHERE id=? AND direction='out' AND type='data'").bind(cref).first();
+  if (!t || t.status !== 'pending') return json({ ok: true });
+  try {
+    const ref = String(e.reference || '');
+    const q = ref ? await eaQuery(env, ref) : { state: 'pending' };   // never trust the unsigned payload alone
+    if (q.state !== 'pending') await settlePurchase(env, cref, q.state === 'success' ? 'success' : 'failed');
+    await env.DB.prepare("INSERT OR IGNORE INTO payment_events(id,provider,event_id,tx_ref,status,payload) VALUES(?,'easyaccess',?,?,?,?)").bind(uid(), 'ea-' + cref + '-' + q.state, cref, q.state, JSON.stringify({ status: String(e.status || '').slice(0, 20) })).run();
+  } catch (err) { console.error('easyaccess webhook error', err); return fail('Processing error', 500); }
+  return json({ ok: true });
+}
+
 // Virtual account (permanent bank account number for each user)
 async function virtualAccount(req, env, user) {
   if (env.FLW_FUND_ENABLED === '0') return json({ hidden: true });   // switched off in Admin -> Settings -> Funding. Deposits already sent to old account numbers are still credited by the webhook.
@@ -667,12 +695,29 @@ async function referralDeposit(env, userId, amount, depositRef) {
   } catch (e) { console.error('referral reward failed', e); }
 }
 
+// Cashback for agents: when an agent's purchase succeeds, a % of what they paid goes to their Main Wallet (percent per service in Admin -> Settings -> Agent).
+// Safe to call twice (one row per transaction) and it can never break the purchase itself.
+const AGENT_CB = { data: 'AGENT_CB_DATA', airtime: 'AGENT_CB_AIRTIME', cable: 'AGENT_CB_CABLE', electricity: 'AGENT_CB_ELECTRICITY', exam: 'AGENT_CB_EXAM' };
+async function agentCashback(env, txId) {
+  try {
+    const t = await env.DB.prepare("SELECT t.user_id,t.type,t.amount,t.label FROM transactions t JOIN profiles p ON p.id=t.user_id WHERE t.id=? AND t.status='successful' AND p.is_agent=1").bind(txId).first();
+    if (!t || !AGENT_CB[t.type]) return;
+    const pct = Number(env[AGENT_CB[t.type]]); if (!Number.isFinite(pct) || pct <= 0) return;
+    const amount = Math.floor(Number(t.amount) * pct) / 100; if (!(amount >= 0.01)) return;
+    const r = await env.DB.batch([
+      env.DB.prepare('INSERT OR IGNORE INTO agent_cashback(tx_id,user_id,svc,base,pct,amount) VALUES(?,?,?,?,?,?)').bind(txId, t.user_id, t.type, t.amount, pct, amount),
+      env.DB.prepare('UPDATE profiles SET balance_ngn=balance_ngn+? WHERE id=? AND changes() > 0').bind(amount, t.user_id),
+      ledgerIfChanged(env, { userId: t.user_id, wallet: 'main', dir: 'in', amount, ref: 'cashback-' + txId, type: 'cashback', note: `Agent cashback ${pct}% on ${t.type}` }),
+    ]);
+    if (r[0].meta.changes === 1) await notify(env, t.user_id, 'Cashback received', `\u20a6${amount.toLocaleString('en-NG', { maximumFractionDigits: 2 })} cashback was added to your Main Wallet.`, { sound: 'cash' }).catch(() => {});
+  } catch (e) { console.error('agent cashback failed', e); }
+}
 async function settlePurchase(env, txId, outcome, extra = {}) {
   const t = await env.DB.prepare("SELECT id,user_id,amount FROM transactions WHERE id=? AND status='pending'").bind(txId).first();
   if (!t) return false;                                   // already settled: nothing to do (safe to call twice)
   if (outcome === 'success') {
     const r = await env.DB.prepare("UPDATE transactions SET updated_at=CURRENT_TIMESTAMP, status='successful', provider_ref=COALESCE(?,provider_ref) WHERE id=? AND status='pending'").bind(extra.ref ?? null, txId).run();
-    if (r.meta.changes === 1) { await txEvent(env, txId, 'success'); return true; }
+    if (r.meta.changes === 1) { await txEvent(env, txId, 'success'); await agentCashback(env, txId); return true; }
     return false;
   }
   const r = await env.DB.batch([
@@ -725,6 +770,7 @@ async function reconcilePending(env) {
 
 const PENDING_MSG = 'Your request is being processed. Check Transaction History for the result. Please do not pay again.';
 async function purchase(env, user, { pin, type, label, price, cost, kind, params, quantity, pk }) {
+  if (['data', 'airtime', 'cable', 'electricity', 'exam', 'data-card', 'airtime-card'].includes(kind) && !providerReady(env, kind)) return fail('This service is temporarily unavailable. Please try again later.', 503);   // provider switched off in Admin -> Providers
   const pinErr = await verifyPin(env, user.id, pin);
   if (pinErr) return fail(pinErr);
   price = money(price);
@@ -797,15 +843,15 @@ const qtyOf = (x, max) => { const q = Math.floor(Number(x)); return Number.isFin
 
 const FUNCTIONS = {
   async 'get-catalog'(x, env) { return json(publicCatalog(env)); },   // prices already include your profit; costs never leave the server
-  async 'get-sabildata-plans'(x, env) {
-    return json({ plans: getDataPlans(env).map((p) => ({ network: p.network.toUpperCase(), data_id: p.code, plan: p.category, size: p.size, validity: p.valid, price: p.price })) });
+  async 'get-sabildata-plans'(x, env, user) {
+    return json({ agent: !!(user && user.is_agent), plans: getDataPlans(env, !!(user && user.is_agent)).map((p) => ({ network: p.network.toUpperCase(), data_id: p.code, plan: p.category, size: p.size, validity: p.valid, price: p.price })) });
   },
   async 'buy-data'(x, env, user) {
     const net = String(x.network || '').toLowerCase();
-    const plan = getDataPlans(env).find((p) => p.network === net && p.code === String(x.planCode));
+    const plan = getDataPlans(env, !!user.is_agent).find((p) => p.network === net && p.code === String(x.planCode));
     if (!plan) return fail('That data plan is not available. Please refresh and choose again.');
     if (!validPhone(x.phone)) return fail('Enter a valid phone number.');
-    return purchase(env, user, { pin: x.pin, type: 'data', label: `${plan.size} ${net.toUpperCase()} data → ${x.phone}`, price: plan.price, cost: plan.cost, kind: 'data', pk: `data|${net}|${plan.code}`, params: { network: net, phone: x.phone, planCode: plan.code } });
+    return purchase(env, user, { pin: x.pin, type: 'data', label: `${plan.size} ${net.toUpperCase()} data → ${x.phone}`, price: plan.price, cost: plan.cost, kind: 'data', pk: `data|${net}|${plan.code}`, params: { network: net, phone: x.phone, planCode: plan.code, maxCost: plan.cost } });
   },
   async 'buy-airtime'(x, env, user) {
     const net = String(x.network || '').toLowerCase(), amt = money(x.amount);
@@ -819,10 +865,14 @@ const FUNCTIONS = {
     if (!CABLE_PROVIDERS.includes(prov)) return fail('Select DStv, GOtv or Startimes.');
     return json({ plans: getCablePlans(env, prov).map((p) => ({ code: p.code, name: p.name, price: p.price })) });
   },
-  async 'verify-smartcard'(x, env) {   // Legitdataway cannot check smartcards: the customer sees the number they typed
+  async 'verify-smartcard'(x, env) {   // Legitdataway cannot check smartcards (customer sees what they typed); EasyAccess can
     const prov = String(x.provider || '').toLowerCase(), card = String(x.smartcard || '').trim();
     if (!CABLE_PROVIDERS.includes(prov)) return fail('Select DStv, GOtv or Startimes.');
     if (!/^\d{8,15}$/.test(card)) return fail('Enter a valid smartcard/IUC number.');
+    if (providerFor(env, 'cable') === 'easyaccess') {
+      try { const v = await verifySmartcard(env, prov, card); return v.ok ? json({ name: v.name, status: v.status, due: v.due }) : fail(v.error); }
+      catch (e) { console.error('verify smartcard error', e); return fail('Could not verify the card right now. Please try again.', 503); }
+    }
     return json({ name: '', status: '', due: '', unverified: true });
   },
   async 'buy-cable'(x, env, user) {
@@ -831,11 +881,11 @@ const FUNCTIONS = {
     if (!/^\d{8,15}$/.test(card)) return fail('Enter a valid smartcard/IUC number.');
     const plan = getCablePlans(env, prov).find((p) => p.code === String(x.planCode));
     if (!plan) return fail('That cable package is not available. Please refresh and choose again.');
-    return purchase(env, user, { pin: x.pin, type: 'cable', label: `${plan.name} → ${card}`, price: plan.price, cost: plan.cost, kind: 'cable', pk: `cable|${prov}|${plan.code}`, params: { provider: prov, planCode: plan.code, smartcard: card, amount: plan.cost } });
+    return purchase(env, user, { pin: x.pin, type: 'cable', label: `${plan.name} → ${card}`, price: plan.price, cost: plan.cost, kind: 'cable', pk: `cable|${prov}|${plan.code}`, params: { provider: prov, planCode: plan.code, smartcard: card, amount: plan.cost, maxCost: plan.cost } });
   },
   async 'verify-meter'(x, env) {
     const disco = C.ELECTRICITY_DISCOS.find((d) => d.code === String(x.discoCode)), type = String(x.meterType || '').toLowerCase(), meter = String(x.meterNumber || '').trim();
-    if (!disco) return fail('Select a distribution company.');
+    if (!disco || !discoAvailable(env, disco.code)) return fail('Select a distribution company.');
     if (!['prepaid', 'postpaid'].includes(type)) return fail('Select prepaid or postpaid.');
     if (!/^\d{6,15}$/.test(meter)) return fail('Enter a valid meter number.');
     try { const v = await verifyMeter(env, disco.code, meter, type); return v.ok ? json({ name: v.name, address: v.address }) : fail(v.error); }
@@ -843,12 +893,12 @@ const FUNCTIONS = {
   },
   async 'buy-electricity'(x, env, user) {
     const amt = money(x.unitsAmount), disco = C.ELECTRICITY_DISCOS.find((d) => d.code === String(x.discoCode)), type = String(x.meterType || '').toLowerCase();
-    if (!disco) return fail('Select a distribution company.');
+    if (!disco || !discoAvailable(env, disco.code)) return fail('Select a distribution company.');
     if (!['prepaid', 'postpaid'].includes(type)) return fail('Select prepaid or postpaid.');
     if (!/^\d{6,15}$/.test(String(x.meterNumber || ''))) return fail('Enter a valid meter number.');
     if (!(amt >= C.ELECTRICITY_MIN && amt <= C.ELECTRICITY_MAX)) return fail(`Amount must be between ₦${C.ELECTRICITY_MIN} and ₦${C.ELECTRICITY_MAX}.`);
     const fee = feeOf(env, 'electricity', amt);   // your service fee (Admin Panel -> Settings -> Profit)
-    return purchase(env, user, { pin: x.pin, type: 'electricity', label: `${disco.name} ${type} → ${x.meterNumber}`, price: amt + fee, cost: amt * C.ELECTRICITY_COST_RATE, kind: 'electricity', params: { disco: disco.id, meterType: type, meterNumber: String(x.meterNumber), amount: amt } });
+    return purchase(env, user, { pin: x.pin, type: 'electricity', label: `${disco.name} ${type} → ${x.meterNumber}`, price: amt + fee, cost: amt * C.ELECTRICITY_COST_RATE, kind: 'electricity', params: { disco: disco.id, discoCode: disco.code, meterType: type, meterNumber: String(x.meterNumber), amount: amt } });
   },
   async 'get-sms-info'(x, env) {
     return json({ available: smsPrice(env) > 0, price: smsPrice(env), max_recipients: smsMax(env) });
@@ -873,7 +923,7 @@ const FUNCTIONS = {
     if (!t) return fail('Select an exam type.');
     if (!t.available) return fail(`${t.name} is coming soon.`);
     if (!q) return fail('Quantity must be between 1 and 10.');
-    return purchase(env, user, { pin: x.pin, type: 'exam', label: `${t.name} x${q}`, price: priceOf(env, 'exam', t.cost) * q, cost: t.cost * q, kind: 'exam', pk: `exam|${String(x.examType)}`, quantity: q, params: { examId: t.id } });
+    return purchase(env, user, { pin: x.pin, type: 'exam', label: `${t.name} x${q}`, price: priceOf(env, 'exam', t.cost) * q, cost: t.cost * q, kind: 'exam', pk: `exam|${String(x.examType)}`, quantity: q, params: { examId: t.id, maxCost: t.cost * q } });
   },
   async 'buy-data-card'(x, env, user) {
     const net = String(x.network || '').toLowerCase(), plan = findDataPlan(env, net, x.planCode), q = qtyOf(x.quantity, 100);
@@ -1275,12 +1325,13 @@ FUNCTIONS['pv-create-account'] = async (x, env, user) => {
     r = await fetch(pvBase(c) + '/pms/api/external/request/customerReservedAccount/', { method: 'POST', headers: { 'api-key': env.PV_API_KEY, 'api-secret': env.PV_API_SECRET, 'content-type': 'application/json' }, body: JSON.stringify(payload) });
     data = await r.json().catch(() => ({}));
   } catch (e) { await logError(env, { code: 'pv_account_net', service: 'payvessel', userId: user.id, detail: String(e?.message).slice(0, 200) }); return fail('We could not reach the bank right now. Please try again shortly.', 502); }
-  if (r.status === 400 && data?.errors && (data.errors.bvn || data.errors.nin) && !bvn && !nin) return fail('ID_REQUIRED');
+  const pvWhy = String(data?.message || '') + ' ' + (data?.errors ? JSON.stringify(data.errors) : '');   // PayVessel's own reason (errors can be an object OR a list)
+  if (r.status === 400 && !bvn && !nin && (data?.errors?.bvn || data?.errors?.nin || /\b(bvn|nin)\b/i.test(pvWhy))) return fail('ID_REQUIRED');
   const list = Array.isArray(data?.banks) ? data.banks : (data?.banks ? [data.banks] : []);
   const a = list.find((b) => String(b.bankCode || '') === bank.code) || list.find((b) => String(b.bankName || '').toLowerCase().includes(bank.name.split(' ')[0].toLowerCase())) || (list.length === 1 ? list[0] : null);
   const exp = type === 'DYNAMIC' ? new Date(a?.expire_date) : null;
   if (!(r.status === 200 || r.status === 201) || data?.status !== true || !a || !/^\d{6,20}$/.test(String(a.accountNumber || '')) || !a.trackingReference || (type === 'DYNAMIC' && !(exp.getTime() > Date.now()))) {
-    await logError(env, { code: 'pv_account', service: 'payvessel', userId: user.id, detail: `HTTP ${r?.status} ${String(data?.message || '').slice(0, 160)} ${data?.errors ? Object.keys(data.errors).join(',') : ''}` });
+    await logError(env, { code: 'pv_account', service: 'payvessel', userId: user.id, detail: `HTTP ${r?.status} ${pvWhy.replace(/\s+/g, ' ').trim().slice(0, 300)}` });
     return fail(r?.status === 400 ? 'We could not create this account. Please check your details and try again.' : 'We could not create your account number right now. Please try again later.', r?.status === 400 ? 400 : 502);
   }
   const id = uid(), kyc = bvn ? 'bvn' : nin ? 'nin' : 'none', cap = type === 'STATIC' && bk === '9psb' && kyc === 'none' ? PV_NO_KYC_CAP : null;
@@ -1533,6 +1584,56 @@ function lgCompare(env, parsed) {
   }
   return { changes, news, notes, missing, partial, unsupported: parsed.unsupported.slice(0, 30), read: parsed.counts };
 }
+FUNCTIONS['admin-providers'] = async (x, env, user, req) => {
+  if (!user.is_admin) return fail('Admin permission required.', 403);
+  const db = env.DB, act = String(x.action || 'status');
+  if (act === 'status') {
+    const cnt = {}, last = {};
+    for (const r of (await db.prepare('SELECT product, COUNT(*) n, MAX(updated_at) u FROM ea_plans GROUP BY product').all()).results) { cnt[r.product] = r.n; last[r.product] = r.u; }
+    const origin = new URL(req.url).origin;
+    return json({
+      providers: [
+        { id: 'legitdataway', name: 'Legitdataway', token_set: providerToken(env, 'legitdataway'), enabled: providerOn(env, 'legitdataway'), fixed: ['airtime', 'data-card', 'airtime-card', 'bulk-sms'] },
+        { id: 'easyaccess', name: 'EasyAccess', token_set: providerToken(env, 'easyaccess'), enabled: providerOn(env, 'easyaccess'), sandbox: env.EASYACCESS_TEST === '1', webhook: origin + '/api/webhook/easyaccess?k=' + await eaWebhookKey(env), supports: ['data', 'cable', 'electricity', 'exam'] },
+      ],
+      routes: Object.fromEntries(['data', 'cable', 'electricity', 'exam'].map((k) => [k, providerFor(env, k)])),
+      ready: Object.fromEntries(['data', 'cable', 'electricity', 'exam', 'airtime', 'data-card', 'airtime-card'].map((k) => [k, providerReady(env, k)])),
+      ea_plans: Object.fromEntries([...Object.keys(EA_PRODUCTS), ...EA_OTHER].map((p) => [p, { count: cnt[p] || 0, updated: last[p] || null }])),
+      ea_discos: Object.keys(EA_DISCOS),
+    });
+  }
+  if (act === 'ea_test') {
+    if (!env.EASYACCESS_TOKEN) return fail('Save the EasyAccess token first.');
+    try {
+      const r = await ea(env, 'GET', '/wallet-balance', null, true);
+      if (r.json.status === 'success') return json({ ok: true, balance: Number(r.json.balance) || 0, email: String(r.json.email || '') });
+      return fail(r.status === 401 ? 'EasyAccess rejected the token. Check it and save again.' : 'EasyAccess did not accept the request (' + r.status + ').');
+    } catch (e) { console.error('ea test', e); return fail('Could not reach EasyAccess. Try again.', 503); }
+  }
+  if (act === 'ea_sync') {
+    if (!env.EASYACCESS_TOKEN) return fail('Save the EasyAccess token first.');
+    const report = [];
+    for (const prod of [...Object.keys(EA_PRODUCTS), ...EA_OTHER]) {
+      try {
+        const r = await ea(env, 'GET', '/get-plans?product_type=' + prod, null, true);
+        if (r.status === 401) return fail('EasyAccess rejected the token.');
+        let items = [];
+        for (const v of Object.values(r.json || {})) if (Array.isArray(v) && v.length && v[0] && v[0].plan_id != null) { items = v; break; }
+        items = items.filter((i) => i && i.plan_id != null && Number(i.price) > 0 && String(i.name || '').length);
+        if (!items.length) { report.push({ product: prod, count: 0, note: 'none returned (old plans kept)' }); continue; }
+        const stmts = [db.prepare('DELETE FROM ea_plans WHERE product=?').bind(prod)];
+        for (const i of items) stmts.push(db.prepare('INSERT OR REPLACE INTO ea_plans(product,plan_id,name,price,validity) VALUES(?,?,?,?,?)').bind(prod, String(i.plan_id).slice(0, 20), String(i.name).slice(0, 120), Number(i.price), String(i.validity || '').slice(0, 30)));
+        await db.batch(stmts);
+        report.push({ product: prod, count: items.length });
+      } catch (e) { console.error('ea sync', prod, e); report.push({ product: prod, count: 0, note: 'error' }); }
+    }
+    pbCache.at = 0; settingsCache.at = 0;
+    await auditLog(env, user, 'providers', 'ea_sync', null, JSON.stringify(report.map((r) => r.product + ':' + r.count)));
+    return json({ ok: true, report });
+  }
+  return fail('Unknown action.');
+};
+
 FUNCTIONS['admin-prices'] = async (x, env, user) => {
   if (!user.is_admin) return fail('Admin permission required.', 403);
   const db = env.DB, act = String(x.action || 'list');
@@ -1545,7 +1646,7 @@ FUNCTIONS['admin-prices'] = async (x, env, user) => {
     const rows = pbRows(env), R = (env.__PB && env.__PB.rules) || {}, out = [], cats = [...new Set(rows.filter((r) => r.kind === 'data').map((r) => r.category))].sort();
     const mk = (network, category, list) => {
       const own = R[network + '|' + category] || {}, eff = network === '*' ? null : dataRule(env, network, category), sorted = [...list].sort((a, b) => a.cost - b.cost), mid = sorted[Math.floor(sorted.length / 2)];
-      return { network, category, plans: list.length, enabled: own.enabled == null ? null : own.enabled === 1, pct: own.pct ?? null, fixed: own.fixed ?? null, eff_on: eff ? eff.enabled : null, sample: mid ? { size: mid.size, valid: mid.valid, cost: mid.cost, price: mid.sell } : null };
+      return { network, category, plans: list.length, enabled: own.enabled == null ? null : own.enabled === 1, pct: own.pct ?? null, fixed: own.fixed ?? null, agent_pct: own.agent_pct ?? null, eff_on: eff ? eff.enabled : null, sample: mid ? { size: mid.size, valid: mid.valid, cost: mid.cost, price: mid.sell } : null };
     };
     for (const c of cats) out.push(mk('*', c, rows.filter((r) => r.kind === 'data' && r.category === c && !r.added)));
     for (const n of PB_NETS) for (const c of cats) { const l = rows.filter((r) => r.kind === 'data' && r.network === n && r.category === c); if (l.length) out.push(mk(n, c, l)); }
@@ -1558,15 +1659,16 @@ FUNCTIONS['admin-prices'] = async (x, env, user) => {
     if (network !== '*' && !PB_NETS.includes(network)) return fail('Choose a network.');
     if (!cats.has(category)) return fail('Unknown plan type.');
     const nz = (v, max) => { if (v === null || v === undefined || v === '') return { v: null }; const n = Number(v); return Number.isFinite(n) && n >= 0 && n <= max ? { v: Math.round(n * 100) / 100 } : { err: true }; };
-    const pct = nz(x.pct, 300), fixed = nz(x.fixed, 100000);
+    const pct = nz(x.pct, 300), fixed = nz(x.fixed, 100000), apct = nz(x.agent_pct, 300);
     if (pct.err) return fail('Profit percent must be a number from 0 to 300 (or leave it empty).');
     if (fixed.err) return fail('Fixed profit must be a naira amount from 0 to 100,000 (or leave it empty).');
+    if (apct.err) return fail('Agent profit percent must be a number from 0 to 300 (or leave it empty).');
     const en = x.enabled === null || x.enabled === undefined || x.enabled === '' ? null : (x.enabled ? 1 : 0);
     const before = (env.__PB && env.__PB.rules && env.__PB.rules[network + '|' + category]) || null;
-    const st = (en === null && pct.v === null && fixed.v === null)
+    const st = (en === null && pct.v === null && fixed.v === null && apct.v === null)
       ? db.prepare('DELETE FROM data_rules WHERE network=? AND category=?').bind(network, category)
-      : db.prepare('INSERT INTO data_rules(network,category,enabled,pct,fixed) VALUES(?,?,?,?,?) ON CONFLICT(network,category) DO UPDATE SET enabled=excluded.enabled, pct=excluded.pct, fixed=excluded.fixed, updated_at=CURRENT_TIMESTAMP').bind(network, category, en, pct.v, fixed.v);
-    await done([st], { network, category, ...(before || {}) }, { network, category, enabled: en, pct: pct.v, fixed: fixed.v }, 'rule');
+      : db.prepare('INSERT INTO data_rules(network,category,enabled,pct,fixed,agent_pct) VALUES(?,?,?,?,?,?) ON CONFLICT(network,category) DO UPDATE SET enabled=excluded.enabled, pct=excluded.pct, fixed=excluded.fixed, agent_pct=excluded.agent_pct, updated_at=CURRENT_TIMESTAMP').bind(network, category, en, pct.v, fixed.v, apct.v);
+    await done([st], { network, category, ...(before || {}) }, { network, category, enabled: en, pct: pct.v, fixed: fixed.v, agent_pct: apct.v }, 'rule');
     return json({ ok: true });
   }
   if (act === 'alerts') { const items = await flagsOpen(); return json({ open: items.length, items }); }
@@ -1616,6 +1718,21 @@ FUNCTIONS['admin-prices'] = async (x, env, user) => {
   return fail('Unknown action.');
 };
 
+FUNCTIONS['agent-panel'] = async (x, env, user, req) => {
+  if (!user.is_agent) return fail('This page is only for agents.', 403);
+  const db = env.DB, SVC = "t.type IN ('data','airtime','cable','electricity','exam','data-card','airtime-card')";
+  const p = await db.prepare('SELECT referral_code FROM profiles WHERE id=?').bind(user.id).first();
+  const tot = await db.prepare(`SELECT COUNT(*) n, COALESCE(SUM(amount),0) s FROM transactions t WHERE user_id=? AND direction='out' AND status='successful' AND ${SVC}`).bind(user.id).first();
+  const cb = await db.prepare("SELECT COALESCE(SUM(amount),0) s, COUNT(*) n, COALESCE(SUM(CASE WHEN created_at >= datetime('now','start of month') THEN amount END),0) m FROM agent_cashback WHERE user_id=?").bind(user.id).first();
+  const hist = (await db.prepare("SELECT c.tx_id,c.svc,c.base,c.pct,c.amount,c.created_at,t.label FROM agent_cashback c LEFT JOIN transactions t ON t.id=c.tx_id WHERE c.user_id=? ORDER BY c.created_at DESC LIMIT 30").bind(user.id).all()).results;
+  const cust = (await db.prepare(`SELECT p.full_name,p.username,p.created_at, (SELECT COUNT(*) FROM transactions t WHERE t.user_id=p.id AND t.direction='out' AND t.status='successful' AND ${SVC}) n, (SELECT COALESCE(SUM(amount),0) FROM transactions t WHERE t.user_id=p.id AND t.direction='out' AND t.status='successful' AND ${SVC}) s FROM referrals r JOIN profiles p ON p.id=r.referee_id WHERE r.referrer_id=? ORDER BY p.created_at DESC LIMIT 100`).bind(user.id).all()).results;
+  const rate = (k) => { const v = Number(env[k]); return Number.isFinite(v) && v > 0 ? v : 0; };
+  return json({ code: p?.referral_code || '', link: p?.referral_code ? `${appBase(env, req)}/r/${p.referral_code}` : '',
+    purchases: { count: tot.n, total: money(tot.s) }, cashback: { total: money(cb.s), count: cb.n, month: money(cb.m) },
+    rates: { data: rate('AGENT_CB_DATA'), airtime: rate('AGENT_CB_AIRTIME'), cable: rate('AGENT_CB_CABLE'), electricity: rate('AGENT_CB_ELECTRICITY'), exam: rate('AGENT_CB_EXAM') },
+    history: hist.map((h) => ({ id: h.tx_id, svc: h.svc, label: h.label || h.svc, base: money(h.base), pct: h.pct, amount: money(h.amount), at: h.created_at })),
+    customers: cust.map((c) => ({ name: c.full_name || c.username, username: c.username, joined: c.created_at, purchases: c.n, spent: money(c.s) })) });
+};
 FUNCTIONS['admin-notify'] = async (x, env, user) => {
   if (!user.is_admin) return fail('Admin permission required.', 403);
   await snSeed(env);
@@ -3039,14 +3156,14 @@ FUNCTIONS['admin-manage-users'] = async (x, env, user) => {
     case 'list_users': {
       const q = '%' + String(x.query || '').trim().toLowerCase() + '%', where = USER_FILTER[x.filter] || USER_FILTER.all;
       const cond = `(lower(p.full_name) LIKE ? OR p.username LIKE ? OR lower(u.email) LIKE ? OR p.phone LIKE ?) AND ${where}`;
-      const rows = (await db.prepare(`SELECT p.id,p.full_name,p.username,u.email,p.phone,p.balance_ngn,p.atc_balance,p.is_banned,p.is_admin,p.created_at FROM profiles p JOIN users u ON u.id=p.id WHERE ${cond} ORDER BY p.created_at DESC LIMIT ? OFFSET ?`).bind(q, q, q, q, PAGE, page(x.offset)).all()).results;
+      const rows = (await db.prepare(`SELECT p.id,p.full_name,p.username,u.email,p.phone,p.balance_ngn,p.atc_balance,p.is_banned,p.is_admin,p.is_agent,p.created_at FROM profiles p JOIN users u ON u.id=p.id WHERE ${cond} ORDER BY p.created_at DESC LIMIT ? OFFSET ?`).bind(q, q, q, q, PAGE, page(x.offset)).all()).results;
       const total = (await db.prepare(`SELECT COUNT(*) n FROM profiles p JOIN users u ON u.id=p.id WHERE ${cond}`).bind(q, q, q, q).first()).n;
       return json({ users: rows, total, page_size: PAGE });
     }
     case 'search': // kept for older screens
       return FUNCTIONS['admin-manage-users']({ ...x, action: 'list_users' }, env, user);
     case 'get_user': {
-      const u = await db.prepare('SELECT p.id,p.full_name,p.username,u.email,p.phone,p.balance_ngn,p.exchange_balance,p.atc_balance,p.is_banned,p.is_admin,p.referral_code,p.referral_code_used,p.pin_locked_until,p.created_at FROM profiles p JOIN users u ON u.id=p.id WHERE p.id=?').bind(target).first();
+      const u = await db.prepare('SELECT p.id,p.full_name,p.username,u.email,p.phone,p.balance_ngn,p.exchange_balance,p.atc_balance,p.is_banned,p.is_admin,p.is_agent,p.referral_code,p.referral_code_used,p.pin_locked_until,p.created_at FROM profiles p JOIN users u ON u.id=p.id WHERE p.id=?').bind(target).first();
       if (!u) return fail('User not found.', 404);
       const va = await db.prepare('SELECT account_number,bank_name FROM virtual_accounts WHERE user_id=?').bind(target).first();
       const tot = await db.prepare("SELECT COALESCE(SUM(CASE WHEN type='fund' AND status='successful' THEN amount END),0) deposited, COALESCE(SUM(CASE WHEN direction='out' AND status='successful' AND type NOT IN ('airtime-to-cash','withdrawal','adjustment') THEN amount END),0) spent, COUNT(*) txs FROM transactions WHERE user_id=?").bind(target).first();
@@ -3106,6 +3223,12 @@ FUNCTIONS['admin-manage-users'] = async (x, env, user) => {
       if (x.action === 'ban' && target === user.id) return fail('You cannot ban yourself.');
       if (x.action === 'ban' && t.is_admin) return fail('Remove admin rights first, then ban.');
       await db.batch([db.prepare('UPDATE profiles SET is_banned=? WHERE id=?').bind(x.action === 'ban' ? 1 : 0, target), log(x.action, target, x.reason)]);
+      return json({ ok: true });
+    }
+    case 'set_agent': {
+      if (!await exists(target)) return fail('User not found.', 404);
+      await db.batch([db.prepare('UPDATE profiles SET is_agent=? WHERE id=?').bind(x.isAgent ? 1 : 0, target), log(x.isAgent ? 'make_agent' : 'remove_agent', target)]);
+      if (x.isAgent) await notify(env, target, 'You are now an agent', 'You now pay agent prices and earn cashback. Open Profile \u2192 Agent Panel to see your cashback and customers.', { sound: 'wow' }).catch(() => {});
       return json({ ok: true });
     }
     case 'set_admin': {
@@ -3486,7 +3609,8 @@ async function services(env) {
   const smsOn = Number(env.SMS_PRICE_PER_UNIT) > 0;
   return rows.map((s) => {
     let on = !!s.enabled;
-    if (on && ['data', 'airtime', 'cable', 'electricity', 'exam', 'data-card', 'airtime-card'].includes(s.key)) on = !!env.LEGITDATAWAY_TOKEN;
+    if (on && ['data', 'airtime', 'cable', 'electricity', 'exam', 'data-card', 'airtime-card'].includes(s.key)) on = providerReady(env, s.key);   // provider switched ON in Admin -> Providers and has a key
+    if (on && s.key === 'data') on = getDataPlans(env, false).length > 0;
     if (on && s.key === 'cable') on = CABLE_PROVIDERS.some((p) => getCablePlans(env, p).length > 0);   // no packages in catalog.js = coming soon
     if (on && s.key === 'exchange') on = env.EXCHANGE_ENABLED === '1' && !!env.FLW_SECRET_KEY;
     if (on && s.key === 'referral') on = env.REFERRAL_ENABLED !== '0';
@@ -4173,6 +4297,13 @@ return { shoyiInit, shoyiPublic, SHOYI_FUNCTIONS, SHOYI_SETTINGS, supRemind };
 
 const SETTINGS = {
   ...SHOYI_SETTINGS,   // SHOYI on/off, AI key, model, support hours
+  apk_url:              { env: 'APK_URL',              type: 'text',   group: 'App download', label: 'Android app (APK) download link', def: '', allowEmpty: true, maxLen: 300, pattern: /^(https:\/\/[^\s<>"']+|\/[A-Za-z0-9._\-\/]+)$/, hint: 'Shown as a Download button only in the browser (never inside the installed app), only on Android phones. Use the full https link or a path like /umarshoyisub.apk. Empty = no button.' },
+  agent_data_percent:   { env: 'AGENT_DATA_PERCENT',   type: 'number', group: 'Agent', label: 'Agents: data profit (%)', def: '', min: 0, max: 300, allowEmpty: true, hint: 'What agents pay on data = Legitdataway cost + this %. Empty = agents pay the same as customers. Each plan type can have its own (Legitdataway tab). Agents never pay more than customers.' },
+  agent_cb_data:        { env: 'AGENT_CB_DATA',        type: 'number', group: 'Agent', label: 'Agent cashback on Data (%)', def: '', min: 0, max: 50, allowEmpty: true, hint: '% of what the agent paid, added to their Main Wallet. Empty = 0.' },
+  agent_cb_airtime:     { env: 'AGENT_CB_AIRTIME',     type: 'number', group: 'Agent', label: 'Agent cashback on Airtime (%)', def: '', min: 0, max: 50, allowEmpty: true, hint: 'Empty = 0.' },
+  agent_cb_cable:       { env: 'AGENT_CB_CABLE',       type: 'number', group: 'Agent', label: 'Agent cashback on Cable TV (%)', def: '', min: 0, max: 50, allowEmpty: true, hint: 'Empty = 0.' },
+  agent_cb_electricity: { env: 'AGENT_CB_ELECTRICITY', type: 'number', group: 'Agent', label: 'Agent cashback on Electricity (%)', def: '', min: 0, max: 50, allowEmpty: true, hint: 'Empty = 0.' },
+  agent_cb_exam:        { env: 'AGENT_CB_EXAM',        type: 'number', group: 'Agent', label: 'Agent cashback on Exam PINs (%)', def: '', min: 0, max: 50, allowEmpty: true, hint: 'Empty = 0.' },
   flw_fund_enabled:     { env: 'FLW_FUND_ENABLED',     type: 'bool',   group: 'Funding', label: 'Flutterwave account number on the Fund Wallet page', def: '1', hint: 'Off = customers no longer see or create the Flutterwave account number. Money already sent to old numbers is still credited.' },
   exchange_enabled:     { env: 'EXCHANGE_ENABLED',     type: 'bool',   group: 'Exchange', label: 'Exchange', def: '0', hint: 'Turn the Exchange feature on or off' },
   exchange_currencies:  { env: 'EXCHANGE_CURRENCIES',  type: 'currencies', group: 'Exchange', label: 'Countries / currencies customers can pay in', def: X_DEFAULT_CURRENCIES, hint: 'Open a currency only after Flutterwave confirms it on your account' },
@@ -4210,6 +4341,14 @@ const SETTINGS = {
   pv_api_key:           { env: 'PV_API_KEY',           type: 'secret', group: 'PayVessel', label: 'PayVessel API key', minLen: 8 },
   pv_api_secret:        { env: 'PV_API_SECRET',        type: 'secret', group: 'PayVessel', label: 'PayVessel secret key (starts with PVSECRET-)', minLen: 12 },
   legitdataway_token:   { env: 'LEGITDATAWAY_TOKEN',   type: 'secret', group: 'Keys', label: 'Legitdataway API token', minLen: 8 },
+  easyaccess_token:     { env: 'EASYACCESS_TOKEN',     type: 'secret', group: 'Keys', label: 'EasyAccess API token', minLen: 8 },
+  easyaccess_test:      { env: 'EASYACCESS_TEST',      type: 'bool',   group: 'Providers', label: 'EasyAccess sandbox (test) mode', def: '0', hint: 'ON = purchases go to the EasyAccess TEST address and deliver nothing. Use it only to test; switch OFF before selling.' },
+  provider_legitdataway_enabled: { env: 'PROVIDER_LEGITDATAWAY_ENABLED', type: 'bool', group: 'Providers', label: 'Legitdataway switched on', def: '1' },
+  provider_easyaccess_enabled:   { env: 'PROVIDER_EASYACCESS_ENABLED',   type: 'bool', group: 'Providers', label: 'EasyAccess switched on', def: '1' },
+  provider_data:        { env: 'PROVIDER_DATA',        type: 'text', group: 'Providers', label: 'Data provider', def: '', allowEmpty: true, maxLen: 20, pattern: /^(legitdataway|easyaccess)?$/ },
+  provider_cable:       { env: 'PROVIDER_CABLE',       type: 'text', group: 'Providers', label: 'Cable TV provider', def: '', allowEmpty: true, maxLen: 20, pattern: /^(legitdataway|easyaccess)?$/ },
+  provider_electricity: { env: 'PROVIDER_ELECTRICITY', type: 'text', group: 'Providers', label: 'Electricity provider', def: '', allowEmpty: true, maxLen: 20, pattern: /^(legitdataway|easyaccess)?$/ },
+  provider_exam:        { env: 'PROVIDER_EXAM',        type: 'text', group: 'Providers', label: 'Exam PIN provider', def: '', allowEmpty: true, maxLen: 20, pattern: /^(legitdataway|easyaccess)?$/ },
 };
 // Profit per service (customer price = provider cost in catalog.js + this profit). Empty = the default shown in the hint.
 const PROFIT_SVCS = [['data', 'Data'], ['airtime', 'Airtime (extra on top of the amount)'], ['cable', 'Cable TV'], ['electricity', 'Electricity (service fee on the amount)'], ['exam', 'Exam PIN (per PIN)'], ['data_card', 'Data Card (per card)'], ['recharge_card', 'Recharge Card (per card)']];
@@ -4242,15 +4381,16 @@ async function loadSettings(env) {
 let pbCache = { at: 0, v: {} };
 async function loadPriceBook(env) {   // the prices edited in Admin -> Legitdataway (kept 15 s; cleared when you save)
   if (Date.now() - pbCache.at < 15000) return pbCache.v;
-  const v = { data: {}, cable: {}, exam: {}, rules: {} };
+  const v = { data: {}, cable: {}, exam: {}, rules: {}, ea: {} };
   try {
     for (const r of (await env.DB.prepare('SELECT kind,ref,cost,enabled,added,meta FROM price_book').all()).results) {
       if (!v[r.kind]) continue;
       let meta = null; try { meta = r.meta ? JSON.parse(r.meta) : null; } catch {}
       v[r.kind][r.ref] = { cost: r.cost == null ? null : Number(r.cost), enabled: r.enabled === 0 ? 0 : 1, added: r.added === 1, meta };
     }
-    for (const r of (await env.DB.prepare('SELECT network,category,enabled,pct,fixed FROM data_rules').all()).results) v.rules[r.network + '|' + r.category] = { enabled: r.enabled == null ? null : (r.enabled === 0 ? 0 : 1), pct: r.pct == null ? null : Number(r.pct), fixed: r.fixed == null ? null : Number(r.fixed) };
-  } catch (e) { console.error('price book load failed (catalog.js prices are used)', e); return { data: {}, cable: {}, exam: {}, rules: {} }; }
+    for (const r of (await env.DB.prepare('SELECT network,category,enabled,pct,fixed,agent_pct FROM data_rules').all()).results) v.rules[r.network + '|' + r.category] = { enabled: r.enabled == null ? null : (r.enabled === 0 ? 0 : 1), pct: r.pct == null ? null : Number(r.pct), fixed: r.fixed == null ? null : Number(r.fixed), agent_pct: r.agent_pct == null ? null : Number(r.agent_pct) };
+    for (const r of (await env.DB.prepare('SELECT product,plan_id,name,price,validity FROM ea_plans ORDER BY price').all()).results) (v.ea[r.product] = v.ea[r.product] || []).push(r);
+  } catch (e) { console.error('price book load failed (catalog.js prices are used)', e); return { data: {}, cable: {}, exam: {}, rules: {}, ea: {} }; }
   pbCache = { at: Date.now(), v };
   return v;
 }
@@ -4320,9 +4460,11 @@ async function route(req, env) {
   if (path.startsWith('/api/challenge/image/') && method === 'GET') return chRoutePublic(req, env, path);   // challenge prize picture (public, cached)
   if (path === '/api/health') return json({ ok: true, service: env.APP_NAME || 'Worker', database: 'connected', auth: String(env.AUTH_SECRET || '').length >= 32, flutterwave: !!env.FLW_SECRET_KEY, legitdataway: !!env.LEGITDATAWAY_TOKEN, webhook: String(env.FLW_WEBHOOK_HASH || '').length >= 16 });
   if (path === '/api/payment/return' && method === 'GET') return paymentReturn(req, env);
+  if (path === '/api/public-config' && method === 'GET') return json({ apk_url: String(env.APK_URL || '') });   // public: the Download-app button on the website
   if (path === '/api/webhook/flutterwave' && method === 'POST') return flutterwaveWebhook(req, env);
   if (path === '/api/webhook/payvessel' && method === 'POST') return pvWebhook(req, env);
   if (path === '/api/webhook/legitdataway' && method === 'POST') return lgwWebhook(req, env, url);
+  if (path === '/api/webhook/easyaccess' && method === 'POST') return eaWebhook(req, env, url);
 
   if (path === '/api/referral/check' && method === 'GET') {   // public: lets the sign-up form say whether a code is valid
     const code = String(url.searchParams.get('code') || '').trim().toUpperCase();

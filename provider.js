@@ -32,12 +32,16 @@ async function lgw(env, method, path, body) {
 /* ------------------------------------------------------------ providers (Admin -> Providers) */
 // Each service is sold by ONE provider, chosen in Admin -> Providers. Airtime, cards and bulk SMS always use Legitdataway.
 export const ROUTABLE = ['data', 'cable', 'electricity', 'exam'];
+export const VP_KINDS = ['cable', 'electricity'];   // VendPower is offered for these two
 export function providerFor(env, kind) {
   if (!ROUTABLE.includes(kind)) return 'legitdataway';
-  return String((env && env['PROVIDER_' + kind.toUpperCase()]) || '') === 'easyaccess' ? 'easyaccess' : 'legitdataway';
+  const v = String((env && env['PROVIDER_' + kind.toUpperCase()]) || '');
+  if (v === 'easyaccess') return 'easyaccess';
+  if (v === 'vendpower' && VP_KINDS.includes(kind)) return 'vendpower';
+  return 'legitdataway';
 }
-export const providerOn = (env, prov) => (prov === 'easyaccess' ? env.PROVIDER_EASYACCESS_ENABLED !== '0' : env.PROVIDER_LEGITDATAWAY_ENABLED !== '0');
-export const providerToken = (env, prov) => !!(prov === 'easyaccess' ? env.EASYACCESS_TOKEN : env.LEGITDATAWAY_TOKEN);
+export const providerOn = (env, prov) => (prov === 'easyaccess' ? env.PROVIDER_EASYACCESS_ENABLED !== '0' : prov === 'vendpower' ? env.PROVIDER_VENDPOWER_ENABLED !== '0' : env.PROVIDER_LEGITDATAWAY_ENABLED !== '0');
+export const providerToken = (env, prov) => !!(prov === 'easyaccess' ? env.EASYACCESS_TOKEN : prov === 'vendpower' ? env.VENDPOWER_API_KEY : env.LEGITDATAWAY_TOKEN);
 // A service can be sold when its provider is switched ON in Admin and has a key.
 export function providerReady(env, kind) { const pr = providerFor(env, kind); return providerOn(env, pr) && providerToken(env, pr); }
 
@@ -54,7 +58,25 @@ const EA_CABLE = { dstv: 1, gotv: 2, startimes: 3 };
 // EasyAccess electricity company numbers. Only the ones its docs name are listed (1=EKEDC 2=IKEDC 3=PHEDC 4=KEDCO, the rest says "etc.").
 // A company that is not here is shown as unavailable while electricity is routed to EasyAccess: add its number here once you have the full list.
 export const EA_DISCOS = { 'eko-electric': 1, 'ikeja-electric': 2, 'portharcourt-electric': 3, 'kano-electric': 4 };
-export const discoAvailable = (env, code) => providerFor(env, 'electricity') !== 'easyaccess' || EA_DISCOS[code] != null;
+/* ---- VendPower (https://api.vendpower.ng): cable plans and electricity companies are synced from its API into the same ea_plans table (products vp_dstv, vp_gotv, vp_startimes, vp_disco) */
+export const VP_PRODUCTS = ['vp_dstv', 'vp_gotv', 'vp_startimes', 'vp_disco'];
+const vpKey = (name) => String(name || '').toLowerCase().replace(/\(.*?\)/g, '').replace(/electricity|electric|distribution|company|plc|disco/g, '').replace(/[^a-z]/g, '');
+// Our company -> VendPower's row, matched by NAME from the synced list (no hard-coded numbers). meterType 'prepaid' | 'postpaid'.
+export function vpDisco(env, code, meterType) {
+  const d = C.ELECTRICITY_DISCOS.find((x) => x.code === code); if (!d) return null;
+  const key = vpKey(d.name); if (key.length < 3) return null;
+  const rows = eaRows(env, 'vp_disco').filter((r) => vpKey(r.name).includes(key));
+  if (!rows.length) return null;
+  const want = String(meterType || '').toUpperCase();
+  const r = rows.find((x) => String(x.validity).split('|')[1] === want) || (meterType ? null : rows[0]);
+  if (!r) return null;
+  const [disco_code, vend_type] = String(r.validity).split('|');
+  return { disco_code, vend_type, min: Number(r.price) || 0 };
+}
+export const discoAvailable = (env, code) => {
+  const pr = providerFor(env, 'electricity');
+  return pr === 'easyaccess' ? EA_DISCOS[code] != null : pr === 'vendpower' ? !!vpDisco(env, code) : true;
+};
 const eaRows = (env, product) => ((env && env.__PB && env.__PB.ea) || {})[product] || [];
 const eaSize = (name) => { const m = String(name || '').match(/^\s*([\d.]+)\s*(MB|GB|TB)/i); return m ? m[1] + m[2].toUpperCase() : String(name || ''); };
 function eaDataBase(env) {
@@ -116,8 +138,12 @@ export function effDataBundles(env, withHidden) {
   return out;
 }
 export function effCablePlans(env, provider, withHidden) {
-  const pb = PBK(env, 'cable'), out = [], ea = providerFor(env, 'cable') === 'easyaccess';
-  for (const b of (ea ? eaRows(env, provider).map((r) => ({ code: 'ea' + r.plan_id, name: String(r.name), cost: Number(r.price) })) : (C.CABLE_PLANS[provider] || []))) {
+  const pb = PBK(env, 'cable'), out = [], mode = providerFor(env, 'cable'), ea = mode !== 'legitdataway';
+  const vpFee = 1 + (Number(env.VENDPOWER_CABLE_FEE_PCT != null && env.VENDPOWER_CABLE_FEE_PCT !== '' ? env.VENDPOWER_CABLE_FEE_PCT : 1) || 0) / 100;   // VendPower debits a little more than the listed price
+  const base = mode === 'easyaccess' ? eaRows(env, provider).map((r) => ({ code: 'ea' + r.plan_id, name: String(r.name), cost: Number(r.price) }))
+    : mode === 'vendpower' ? eaRows(env, 'vp_' + provider).map((r) => ({ code: 'vp' + r.plan_id, name: String(r.name), cost: Math.ceil(Number(r.price) * vpFee) }))
+    : (C.CABLE_PLANS[provider] || []);
+  for (const b of base) {
     const o = pb[provider + '|' + String(b.code)];
     if (o && o.enabled === 0 && !withHidden) continue;
     out.push({ code: String(b.code), name: b.name, cost: o && o.cost != null ? o.cost : b.cost, ...(o ? { edited: o.cost != null, hidden: o.enabled === 0, file_cost: b.cost } : {}) });
@@ -171,6 +197,12 @@ export function clearProviderCaches() { /* the catalog is read from catalog.js o
 /* ------------------------------------------------------- verification */
 // Legitdataway has no smartcard check: the customer sees the number they typed.
 export async function verifySmartcard(env, prov, card) {
+  if (providerFor(env, 'cable') === 'vendpower') {
+    const r = await vp(env, 'POST', '/cable/validate', { biller_code: String(prov).toUpperCase(), customer_id: card });
+    if (r.status === 200 && r.json.success !== false && r.json.data && r.json.data.customer_name) return { ok: true, name: String(r.json.data.customer_name), status: '', due: '' };
+    if (r.status >= 500 || r.status === 429) throw new Error('VendPower verify error (' + r.status + ')');
+    return { ok: false, error: 'We could not verify this smartcard/IUC number. Please check it and try again.' };
+  }
   if (providerFor(env, 'cable') !== 'easyaccess') return { ok: true, name: '', status: '', due: '', unverified: true };
   const r = await ea(env, 'POST', '/verify-tv', { company: EA_CABLE[prov], iucno: card }, true);
   if (r.json.status === 'success' && r.json.customer_name) return { ok: true, name: String(r.json.customer_name), status: String(r.json.customer_status || r.json.current_package || ''), due: String(r.json.due_date || '') };
@@ -180,6 +212,13 @@ export async function verifySmartcard(env, prov, card) {
 export async function verifyMeter(env, disco, meterNumber, meterType) {
   const d = C.ELECTRICITY_DISCOS.find((x) => x.code === disco || String(x.id) === String(disco));
   if (!d) return { ok: false, error: 'Select a distribution company.' };
+  if (providerFor(env, 'electricity') === 'vendpower') {
+    const v = vpDisco(env, d.code, meterType); if (!v) return { ok: false, error: 'This electricity company is not available right now.' };
+    const r = await vp(env, 'POST', '/electricity/validate-meter', { meter_number: meterNumber, disco_code: v.disco_code, meter_type: v.vend_type });
+    if (r.status === 200 && r.json.data && r.json.data.customer_name) return { ok: true, name: String(r.json.data.customer_name), address: String(r.json.data.customer_address || '') };
+    if (r.status >= 500 || r.status === 429) throw new Error('VendPower verify error (' + r.status + ')');
+    return { ok: false, error: 'We could not verify this meter number. Please check it and try again.' };
+  }
   if (providerFor(env, 'electricity') === 'easyaccess') {
     if (EA_DISCOS[d.code] == null) return { ok: false, error: 'This electricity company is not available right now.' };
     const r = await ea(env, 'POST', '/verify-electricity', { company: EA_DISCOS[d.code], metertype: meterType === 'postpaid' ? 2 : 1, meterno: meterNumber, amount: 1000 }, true);
@@ -246,7 +285,7 @@ function interpretEA(r) {
   const j = r.json || {}, st = String(j.status || '').toLowerCase(), code = Number(j.code != null ? j.code : r.status);
   if (r.status === 401 || r.status === 403 || code === 401) { console.error('EasyAccess: API token rejected'); return { ok: false, definite: true, error: 'This service is temporarily unavailable. Please try again later.' }; }
   if ((st === 'success' || st === 'successful') && (code === 200 || code === 201)) return { ok: true, ref: j.reference || null, token: j.token || j.meter_token || '', units: j.units || j.unit || '', cost: money(j.amount_paid), raw: j };
-  if (['processing', 'pending', 'queued'].includes(st)) return { pending: true };
+  if (['processing', 'pending', 'queued'].includes(st)) return { pending: true, ref: j.reference || null };
   if (st === 'failed' || code === 400 || r.status === 400) {
     if (/insufficient|low balance|wallet/i.test(String(j.true_response || j.message))) { console.error('EasyAccess wallet balance is too low:', j.true_response || j.message); return { ok: false, definite: true, error: 'This service is temporarily unavailable. Please try again later.' }; }
     return { ok: false, definite: true, error: safeProviderMessage(j.true_response || j.message), detail: String(j.true_response || j.message || '').slice(0, 200) };
@@ -260,14 +299,14 @@ async function runEasy(env, kind, p) {
   switch (kind) {
     case 'data': res = interpretEA(await ea(env, 'POST', '/purchase-data', { network: EA_NET[p.network], dataplan: Number(eaStr(p.planCode)), mobileno: localPhone(p.phone), client_reference: p.requestRef, ...(maxPay ? { max_amount_payable: maxPay } : {}) })); break;
     case 'cable': {
-      const v = await ea(env, 'POST', '/verify-tv', { company: EA_CABLE[p.provider], iucno: p.smartcard });   // EasyAccess refuses a subscription for a card that was not verified first
+      let v; try { v = await ea(env, 'POST', '/verify-tv', { company: EA_CABLE[p.provider], iucno: p.smartcard }); } catch (e) { return { ok: false, definite: true, error: 'We could not verify this smartcard right now. Your wallet was refunded. Please try again.' }; }   // EasyAccess refuses a subscription for a card that was not verified first
       if (v.json.status !== 'success') return { ok: false, definite: true, error: 'We could not verify this smartcard/IUC number. Your wallet was refunded. Please check it and try again.' };
       res = interpretEA(await ea(env, 'POST', '/pay-tv', { company: EA_CABLE[p.provider], package: Number(eaStr(p.planCode)), iucno: p.smartcard, ...(maxPay ? { max_amount_payable: maxPay } : {}) })); break;
     }
     case 'electricity': {
       const company = EA_DISCOS[p.discoCode], mt = p.meterType === 'postpaid' ? 2 : 1;
       if (company == null) return { ok: false, definite: true, error: 'This electricity company is not available right now. Your wallet was refunded.' };
-      const v = await ea(env, 'POST', '/verify-electricity', { company, metertype: mt, meterno: p.meterNumber, amount: Math.round(Number(p.amount)) });
+      let v; try { v = await ea(env, 'POST', '/verify-electricity', { company, metertype: mt, meterno: p.meterNumber, amount: Math.round(Number(p.amount)) }); } catch (e) { return { ok: false, definite: true, error: 'We could not verify this meter right now. Your wallet was refunded. Please try again.' }; }
       if (v.json.status !== 'success') return { ok: false, definite: true, error: 'We could not verify this meter number. Your wallet was refunded. Please check it and try again.' };
       res = interpretEA(await ea(env, 'POST', '/pay-electricity', { company, metertype: mt, meterno: p.meterNumber, amount: String(Math.round(Number(p.amount))) })); break;
     }
@@ -289,8 +328,62 @@ export async function eaQuery(env, reference) {
   return { state: s === 'successful' || s === 'success' ? 'success' : s === 'failed' ? 'failed' : 'pending' };
 }
 
+/* ---- VendPower calls. The sandbox and the live API share one address; only the key differs (a vp_sandbox_ key = fake money). */
+export async function vp(env, method, path, body) {
+  if (!env.VENDPOWER_API_KEY) throw new Error('VENDPOWER_API_KEY is not set');
+  const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 28000);
+  try {
+    const r = await fetch('https://api.vendpower.ng/api/v1' + path, { method, signal: ctl.signal, headers: { 'x-api-key': env.VENDPOWER_API_KEY, accept: 'application/json', ...(body ? { 'content-type': 'application/json' } : {}) }, body: body ? JSON.stringify(body) : undefined });
+    return { status: r.status, json: await r.json().catch(() => ({})) };
+  } finally { clearTimeout(timer); }
+}
+const vpBad = (m) => /insufficient|balance|wallet/i.test(String(m || ''));
+// success = HTTP 200 AND data.status success. 201/202/processing/pending = keep waiting. 400/402/422/404 or failed/refunded = nothing delivered -> refund.
+// 429, 5xx and anything unexpected stay pending and are settled later by asking VendPower (GET /transactions/{reference}).
+function interpretVP(r) {
+  const j = r.json || {}, d = j.data || {}, st = String(d.status || '').toLowerCase();
+  if (r.status === 401 || r.status === 403) { console.error('VendPower: API key rejected or product not enabled for it (' + r.status + ')'); return { ok: false, definite: true, error: 'This service is temporarily unavailable. Please try again later.' }; }
+  if (r.status === 409) return { pending: true, ref: (j.errors && j.errors.reference) || null };
+  if (r.status === 200 && st === 'success') return { ok: true, ref: d.reference || null, token: d.token || '', units: d.units || '', cost: money(d.charge != null ? d.charge : d.amount), data: d };
+  if (r.status === 201 || r.status === 202 || st === 'processing' || st === 'pending') return { pending: true, ref: d.reference || null };
+  if (r.status === 400 || r.status === 402 || r.status === 404 || r.status === 422 || st === 'failed' || st === 'refunded') {
+    if (vpBad(j.message)) { console.error('VendPower wallet balance is too low:', j.message); return { ok: false, definite: true, error: 'This service is temporarily unavailable. Please try again later.' }; }
+    return { ok: false, definite: true, error: safeProviderMessage(j.message), detail: String(j.message || '').slice(0, 200) };
+  }
+  throw new Error(`VendPower unexpected response (${r.status}): ${st} ${String(j.message || '').slice(0, 80)}`);
+}
+// Ask VendPower what happened to a purchase (its reference is the idempotency key we sent = our transaction id).
+export async function vpTxStatus(env, ref) {
+  const r = await vp(env, 'GET', '/transactions/' + encodeURIComponent(ref));
+  if (r.status === 404) return { state: 'missing' };
+  const d = (r.json && r.json.data) || {}, st = String(d.status || '').toLowerCase();
+  if (r.status !== 200) return { state: 'pending' };
+  return { state: st === 'success' ? 'success' : (st === 'failed' || st === 'refunded') ? 'failed' : 'pending', data: d };
+}
+async function runVendpower(env, kind, p) {
+  const key = p.requestRef;
+  if (kind === 'cable') {
+    const biller = String(p.provider).toUpperCase();
+    let v; try { v = await vp(env, 'POST', '/cable/validate', { biller_code: biller, customer_id: p.smartcard }); } catch (e) { return { ok: false, definite: true, error: 'We could not verify this smartcard right now. Your wallet was refunded. Please try again.' }; }
+    if (v.status !== 200 || !(v.json.data && v.json.data.customer_name)) return { ok: false, definite: true, error: 'We could not verify this smartcard/IUC number. Your wallet was refunded. Please check it and try again.' };
+    const res = interpretVP(await vp(env, 'POST', '/cable/purchase', { biller_code: biller, plan_id: String(p.planCode).replace(/^vp/, ''), customer_id: p.smartcard, ...(p.customerPhone ? { customer_phone: p.customerPhone } : {}), idempotency_key: key }));
+    delete res.data; return res;
+  }
+  if (kind === 'electricity') {
+    const d = vpDisco(env, p.discoCode, p.meterType);
+    if (!d) return { ok: false, definite: true, error: 'This electricity company is not available right now. Your wallet was refunded.' };
+    let v; try { v = await vp(env, 'POST', '/electricity/validate-meter', { meter_number: p.meterNumber, disco_code: d.disco_code, meter_type: d.vend_type }); } catch (e) { return { ok: false, definite: true, error: 'We could not verify this meter right now. Your wallet was refunded. Please try again.' }; }
+    if (v.status !== 200 || !(v.json.data && v.json.data.customer_name)) return { ok: false, definite: true, error: 'We could not verify this meter number. Your wallet was refunded. Please check it and try again.' };
+    const res = interpretVP(await vp(env, 'POST', '/electricity/purchase', { disco_code: d.disco_code, meter_type: d.vend_type, meter_number: p.meterNumber, amount: Math.round(Number(p.amount)), customer_phone: p.customerPhone || localPhone(p.phone || '') || '', idempotency_key: key }));
+    if (res.ok && !res.token) { console.error('VendPower: electricity token missing in a successful reply', key); res.ref = res.ref || 'Token was not returned. Contact support.'; }
+    delete res.data; return res;
+  }
+  return NOT_AVAILABLE;
+}
+
 export async function runProvider(env, kind, p) {
   if (providerFor(env, kind) === 'easyaccess') return runEasy(env, kind, p);
+  if (providerFor(env, kind) === 'vendpower') return runVendpower(env, kind, p);
   const id = p.requestRef, net = C.NETWORK_IDS[p.network];
   let res;
   switch (kind) {

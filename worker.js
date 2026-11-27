@@ -1,7 +1,7 @@
 // UMARSHOYI-SUB — Cloudflare Worker (D1 database)
 // Auth, wallet, Flutterwave funding (+webhook, virtual account), purchases, OTP,
 // airtime-to-cash withdrawals and admin tools. The VTU provider lives in provider.js.
-import { providerFor, providerOn, providerToken, providerReady, discoAvailable, ea, eaQuery, EA_PRODUCTS, EA_OTHER, EA_DISCOS, runProvider, sendSms, convertAirtimeToCash, getDataPlans, getCablePlans, dataRule, dataPriceOf, profitCfg, effDataBundles, effCablePlans, effExamTypes, CABLE_PROVIDERS, verifySmartcard, verifyMeter, checkStatus, clearProviderCaches, priceOf, feeOf, publicCatalog, PROFIT_DEFAULTS } from './provider.js';
+import { vp, vpTxStatus, vpDisco, VP_PRODUCTS, providerFor, providerOn, providerToken, providerReady, discoAvailable, ea, eaQuery, EA_PRODUCTS, EA_OTHER, EA_DISCOS, runProvider, sendSms, convertAirtimeToCash, getDataPlans, getCablePlans, dataRule, dataPriceOf, profitCfg, effDataBundles, effCablePlans, effExamTypes, CABLE_PROVIDERS, verifySmartcard, verifyMeter, checkStatus, clearProviderCaches, priceOf, feeOf, publicCatalog, PROFIT_DEFAULTS } from './provider.js';
 import * as C from './catalog.js';
 
 /* ------------------------------------------------------------------ schema */
@@ -64,6 +64,7 @@ const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS payvessel_hooks (id TEXT PRIMARY KEY, reference TEXT NOT NULL UNIQUE, status TEXT NOT NULL, reason TEXT, event TEXT, user_id TEXT, account_id TEXT, amount REAL, fee REAL, credit_amount REAL, payload TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
   `CREATE INDEX IF NOT EXISTS idx_pv_hook ON payvessel_hooks(status, created_at)`,
   `CREATE TABLE IF NOT EXISTS price_book (kind TEXT NOT NULL, ref TEXT NOT NULL, cost REAL, enabled INTEGER NOT NULL DEFAULT 1, added INTEGER NOT NULL DEFAULT 0, meta TEXT, updated_at TEXT DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (kind, ref))`,
+  `CREATE TABLE IF NOT EXISTS a2c_sessions (token TEXT PRIMARY KEY, user_id TEXT NOT NULL, net TEXT NOT NULL, phone TEXT NOT NULL, vp_session TEXT NOT NULL, balance REAL, expires_at INTEGER NOT NULL, used INTEGER NOT NULL DEFAULT 0, created_at TEXT DEFAULT CURRENT_TIMESTAMP)`,
   `CREATE TABLE IF NOT EXISTS ea_plans (product TEXT NOT NULL, plan_id TEXT NOT NULL, name TEXT, price REAL, validity TEXT, updated_at TEXT DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (product, plan_id))`,
   `CREATE TABLE IF NOT EXISTS data_rules (network TEXT NOT NULL, category TEXT NOT NULL, enabled INTEGER, pct REAL, fixed REAL, updated_at TEXT DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (network, category))`,
   `CREATE TABLE IF NOT EXISTS agent_cashback (tx_id TEXT PRIMARY KEY, user_id TEXT NOT NULL, svc TEXT NOT NULL, base REAL NOT NULL, pct REAL NOT NULL, amount REAL NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
@@ -753,8 +754,19 @@ async function pbFlag(env, txId) {
 }
 // Legitdataway cannot be asked about a transaction (checkStatus always says 'pending'), so this only matters if that ever changes.
 async function reconcileTx(env, t) {
-  const s = await checkStatus(env, t.id);
-  if (s.state === 'success') { await settlePurchase(env, t.id, 'success'); }
+  const row = await env.DB.prepare('SELECT metadata, provider_ref FROM transactions WHERE id=?').bind(t.id).first();
+  let m = {}; try { m = JSON.parse(row?.metadata || '{}') || {}; } catch {}
+  let s;
+  if (m.provider === 'vendpower' && providerToken(env, 'vendpower')) s = await vpTxStatus(env, t.id);
+  else if (m.provider === 'easyaccess' && row?.provider_ref && /^[A-Za-z0-9_-]{6,60}$/.test(row.provider_ref)) s = await eaQuery(env, row.provider_ref);
+  else s = await checkStatus(env, t.id);
+  if (s.state === 'success') {
+    const needsDelivery = m.provider === 'easyaccess' && (m.kind === 'electricity' || m.kind === 'exam');   // EasyAccess's status check does not return the token / PINs: an admin must fetch them from the EasyAccess dashboard
+    if (needsDelivery) { console.error('reconcile: EasyAccess says success but the token/PINs are only in the purchase reply; resolve by hand', t.id); return 'pending'; }
+    const d = s.data || {};
+    await settlePurchase(env, t.id, 'success', d.token ? { ref: `Token: ${d.token}${d.units ? ' \u00b7 ' + d.units + ' units' : ''}` } : {});
+    if (d.charge != null) await recordRealCost(env, t.id, d.charge);
+  }
   else if (s.state === 'failed') await settlePurchase(env, t.id, 'failed');
   else if (s.state === 'missing') {      // provider never saw it: safe to refund once enough time has passed
     const age = Date.now() - Date.parse(String(t.created_at).replace(' ', 'T') + 'Z');
@@ -764,8 +776,10 @@ async function reconcileTx(env, t) {
 }
 async function reconcilePending(env) {
   await ensureSchema(env);
-  const rows = (await env.DB.prepare("SELECT id,created_at FROM transactions WHERE status='pending' AND type IN ('data','airtime','cable','electricity') AND created_at < datetime('now','-90 seconds') ORDER BY created_at LIMIT 20").all()).results;
+  const rows = (await env.DB.prepare("SELECT id,created_at FROM transactions WHERE status='pending' AND type IN ('data','airtime','cable','electricity','exam') AND created_at < datetime('now','-90 seconds') ORDER BY created_at LIMIT 20").all()).results;
   for (const t of rows) { try { await reconcileTx(env, t); } catch (e) { console.error('reconcile failed', t.id, e); } }
+  await a2cReconcile(env).catch((e) => console.error('a2c reconcile failed', e));
+  await pvWithdrawReconcile(env).catch((e) => console.error('pv withdraw reconcile failed', e));
 }
 
 const PENDING_MSG = 'Your request is being processed. Check Transaction History for the result. Please do not pay again.';
@@ -781,7 +795,7 @@ async function purchase(env, user, { pin, type, label, price, cost, kind, params
   const DUP = "NOT EXISTS (SELECT 1 FROM transactions WHERE user_id=? AND json_extract(metadata,'$.dkey')=? AND ((status='pending' AND created_at >= datetime('now','-30 minutes')) OR (status IN ('pending','successful') AND created_at >= datetime('now','-10 seconds'))))";
   const r = await env.DB.batch([
     env.DB.prepare(`UPDATE profiles SET balance_ngn=balance_ngn-? WHERE id=? AND balance_ngn>=? AND is_banned=0 AND ${DUP}`).bind(price, user.id, price, user.id, dkey),
-    env.DB.prepare("INSERT INTO transactions(id,user_id,type,label,amount,direction,status,metadata) SELECT ?,?,?,?,?,'out','pending',? WHERE changes() > 0").bind(txId, user.id, type, label, price, JSON.stringify({ cost: money(cost), catalog_cost: money(cost), kind, item: String(label).split(' \u2192 ')[0].slice(0, 80), dkey, ...(pk ? { pk } : {}), ...(quantity > 1 ? { qty: quantity } : {}) })),
+    env.DB.prepare("INSERT INTO transactions(id,user_id,type,label,amount,direction,status,metadata) SELECT ?,?,?,?,?,'out','pending',? WHERE changes() > 0").bind(txId, user.id, type, label, price, JSON.stringify({ cost: money(cost), catalog_cost: money(cost), kind, provider: providerFor(env, kind), item: String(label).split(' \u2192 ')[0].slice(0, 80), dkey, ...(pk ? { pk } : {}), ...(quantity > 1 ? { qty: quantity } : {}) })),
   ]);
   if (r[0].meta.changes !== 1) {
     const dup = await env.DB.prepare(`SELECT 1 x FROM transactions WHERE user_id=? AND json_extract(metadata,'$.dkey')=? AND ((status='pending' AND created_at >= datetime('now','-30 minutes')) OR (status IN ('pending','successful') AND created_at >= datetime('now','-10 seconds')))`).bind(user.id, dkey).first();
@@ -790,9 +804,12 @@ async function purchase(env, user, { pin, type, label, price, cost, kind, params
   }
 
   let res;
-  try { res = await runProvider(env, kind, { ...params, quantity, requestRef: txId }); }
+  try {
+    if (providerFor(env, kind) === 'vendpower') { const ph = (await env.DB.prepare('SELECT phone FROM profiles WHERE id=?').bind(user.id).first())?.phone; if (validPhone(ph)) params = { ...params, customerPhone: String(ph).startsWith('234') ? '0' + String(ph).slice(3) : String(ph) }; }
+    res = await runProvider(env, kind, { ...params, quantity, requestRef: txId });
+  }
   catch (e) { console.error('provider error', e); await logError(env, { code: 'provider_unknown', service: kind, txRef: txId, userId: user.id, detail: e?.message }); return json({ data: { pending: true, id: txId, message: PENDING_MSG } }); } // stays pending; webhook/cron resolves it
-  if (res.pending) return json({ data: { pending: true, id: txId, message: PENDING_MSG } });
+  if (res.pending) { if (res.ref) await env.DB.prepare('UPDATE transactions SET provider_ref=? WHERE id=? AND provider_ref IS NULL').bind(String(res.ref).slice(0, 80), txId).run().catch(() => {}); return json({ data: { pending: true, id: txId, message: PENDING_MSG } }); }
   if (res.ok) {
     const ref = res.pins ? JSON.stringify(res.pins) : (res.token ? `Token: ${res.token}${res.units ? ' \u00b7 ' + res.units + ' units' : ''}` : (res.ref || null));
     await settlePurchase(env, txId, 'success', { ref });
@@ -869,7 +886,7 @@ const FUNCTIONS = {
     const prov = String(x.provider || '').toLowerCase(), card = String(x.smartcard || '').trim();
     if (!CABLE_PROVIDERS.includes(prov)) return fail('Select DStv, GOtv or Startimes.');
     if (!/^\d{8,15}$/.test(card)) return fail('Enter a valid smartcard/IUC number.');
-    if (providerFor(env, 'cable') === 'easyaccess') {
+    if (providerFor(env, 'cable') !== 'legitdataway') {
       try { const v = await verifySmartcard(env, prov, card); return v.ok ? json({ name: v.name, status: v.status, due: v.due }) : fail(v.error); }
       catch (e) { console.error('verify smartcard error', e); return fail('Could not verify the card right now. Please try again.', 503); }
     }
@@ -947,7 +964,7 @@ const FUNCTIONS = {
 let bankCache = null;
 // Flutterwave tells us how a bank transfer ended. References that start with UMSW- are customer withdrawals.
 async function settleTransfer(env, reference, status) {
-  if (!String(reference).startsWith('UMSW-')) return;
+  if (!/^UMS[WP]-/.test(String(reference))) return;
   const wd = await env.DB.prepare('SELECT id,user_id,net FROM withdrawals WHERE reference=?').bind(reference).first();
   if (!wd) return;
   if (status === 'SUCCESSFUL') {
@@ -1100,7 +1117,17 @@ const maskAcct = (n) => '******' + String(n).slice(-4);
 const cfgNum = (env, key, dflt) => { const v = Number(env[key]); return env[key] !== undefined && env[key] !== '' && Number.isFinite(v) ? v : dflt; };
 const wdCfg = (env) => ({ fee: money(cfgNum(env, 'WITHDRAW_FEE_FLAT', 0)), min: cfgNum(env, 'WITHDRAW_MIN_AMOUNT', 1000) });
 /* Bank-withdrawal fee, per wallet: fixed part + percent of the amount. A wallet with no fee of its own uses the general fixed fee. Moving money to your own Main Wallet is always free. */
+function wdTier(spec, amount) {   // "1000-9999:100,10000-49999:150,50000-:200"  (from-to:fee, whole naira, both ends included, empty "to" = no upper limit)
+  for (const part of String(spec || '').split(',')) {
+    const m = part.trim().match(/^(\d+)-(\d*):(\d+(?:\.\d+)?)$/); if (!m) continue;
+    const lo = Number(m[1]), hi = m[2] === '' ? Infinity : Number(m[2]);
+    if (amount >= lo && amount <= hi) return Number(m[3]);
+  }
+  return null;
+}
 function wdFee(env, wallet, amount) {
+  const tier = wdTier(env[wallet === 'atc' ? 'WITHDRAW_TIERS_ATC' : 'WITHDRAW_TIERS_EX'], amount);
+  if (tier !== null) return money(tier);
   const k = wallet === 'atc' ? ['WITHDRAW_FEE_ATC_FLAT', 'WITHDRAW_FEE_ATC_PCT'] : ['WITHDRAW_FEE_EX_FLAT', 'WITHDRAW_FEE_EX_PCT'];
   const has = (n) => env[n] !== undefined && String(env[n]).trim() !== '';
   const flat = has(k[0]) ? Number(env[k[0]]) : cfgNum(env, 'WITHDRAW_FEE_FLAT', 0), pct = has(k[1]) ? Number(env[k[1]]) : 0;
@@ -1584,6 +1611,127 @@ function lgCompare(env, parsed) {
   }
   return { changes, news, notes, missing, partial, unsupported: parsed.unsupported.slice(0, 30), read: parsed.counts };
 }
+/* ----------------------------------------------------------------- Airtime to Cash through VendPower
+   Flow: OTP sent by MTN to the customer's line -> customer confirms it -> customer picks an amount and gives the line's Share & Sell PIN ->
+   VendPower moves the airtime and tells us the result -> we credit the customer's Airtime-to-Cash Wallet with the % YOU set (never more than VendPower paid us).
+   The Share & Sell PIN is passed straight through: it is never saved and never written to a log. */
+const A2C_NETS = ['mtn', 'airtel', 'glo', '9mobile'];
+let a2cCache = { at: 0, key: '', rows: [] };
+async function a2cBillers(env) {
+  if (Date.now() - a2cCache.at < 300000 && a2cCache.key === env.VENDPOWER_API_KEY && a2cCache.rows.length) return a2cCache.rows;
+  const r = await vp(env, 'GET', '/airtime-to-cash/billers');
+  const rows = r.status === 200 && Array.isArray(r.json.data) ? r.json.data : [];
+  a2cCache = { at: Date.now(), key: env.VENDPOWER_API_KEY, rows };
+  return rows;
+}
+const a2cOn = (env) => env.A2C_ENABLED === '1' && providerOn(env, 'vendpower') && providerToken(env, 'vendpower');
+const a2cPct = (env, net) => { const v = Number(env['A2C_PCT_' + String(net).toUpperCase()]); return v > 0 && v <= 100 ? v : 0; };
+const a2cLocal = (p) => { const d = String(p).replace(/\D/g, ''); return d.startsWith('234') ? '0' + d.slice(3) : d; };
+const a2cBiller = async (env, net) => (await a2cBillers(env)).find((b) => String(b.network || b.code).toLowerCase() === net);
+
+FUNCTIONS['a2c-info'] = async (x, env) => {
+  if (!a2cOn(env)) return json({ enabled: false, networks: [] });
+  let rows = []; try { rows = await a2cBillers(env); } catch (e) { console.error('a2c billers', e); }
+  const networks = rows.map((b) => { const net = String(b.network || b.code).toLowerCase(); return { network: net, min: Math.max(Number(b.min_amount) || 100, 100), max: Number(b.max_amount) || 50000, pct: a2cPct(env, net) }; }).filter((n) => A2C_NETS.includes(n.network) && n.pct > 0);
+  return json({ enabled: networks.length > 0, networks });
+};
+FUNCTIONS['a2c-send-otp'] = async (x, env, user) => {
+  const net = String(x.network || '').toLowerCase(), phone = String(x.phone || '').trim();
+  if (!a2cOn(env)) return fail('Airtime to Cash is not available right now.', 503);
+  if (!A2C_NETS.includes(net)) return fail('Select a network.');
+  if (!validPhone(phone)) return fail('Enter a valid phone number.');
+  let b; try { b = await a2cBiller(env, net); } catch (e) { console.error('a2c biller', e); return fail('Airtime to Cash is not available right now.', 503); }
+  if (!b || !a2cPct(env, net)) return fail(`${net.toUpperCase()} is not available for Airtime to Cash yet.`);
+  const w = await rateWait(env, 'a2cotp:' + user.id, 5, 3600); if (w) return tooMany(w);
+  await rateHit(env, 'a2cotp:' + user.id, 3600);
+  let r; try { r = await vp(env, 'POST', '/airtime-to-cash/otp/send', { biller_code: b.code, phone: a2cLocal(phone) }); } catch (e) { return fail('We could not reach the network right now. Please try again shortly.', 502); }
+  if (r.status !== 200 || !(r.json.data && r.json.data.otp_sent)) { await logError(env, { code: 'a2c_otp', service: 'vendpower', userId: user.id, detail: `HTTP ${r.status} ${String(r.json.message || '').slice(0, 160)}` }); return fail('We could not send the code to this number. Check the number and network, then try again.'); }
+  return json({ data: { sent: true } });
+};
+FUNCTIONS['a2c-verify-otp'] = async (x, env, user) => {
+  const net = String(x.network || '').toLowerCase(), phone = String(x.phone || '').trim(), otp = String(x.otp || '').trim();
+  if (!a2cOn(env)) return fail('Airtime to Cash is not available right now.', 503);
+  if (!A2C_NETS.includes(net) || !validPhone(phone)) return fail('Start again.');
+  if (!/^\d{4,8}$/.test(otp)) return fail('Enter the code you received.');
+  const w = await rateWait(env, 'a2cver:' + user.id, 10, 3600); if (w) return tooMany(w);
+  await rateHit(env, 'a2cver:' + user.id, 3600);
+  let b, r; try { b = await a2cBiller(env, net); r = await vp(env, 'POST', '/airtime-to-cash/otp/verify', { biller_code: b && b.code, phone: a2cLocal(phone), otp }); } catch (e) { return fail('We could not reach the network right now. Please try again shortly.', 502); }
+  const d = (r.json && r.json.data) || {};
+  if (r.status !== 200 || !d.session_id) return fail('Wrong or expired code. Please try again.');
+  const token = uid() + uid().slice(0, 8), exp = now() + Math.min(900, Number(d.expires_in) || 900);
+  await env.DB.batch([
+    env.DB.prepare('DELETE FROM a2c_sessions WHERE expires_at < ?').bind(now() - 3600),
+    env.DB.prepare('INSERT INTO a2c_sessions(token,user_id,net,phone,vp_session,balance,expires_at) VALUES(?,?,?,?,?,?,?)').bind(token, user.id, net, a2cLocal(phone), String(d.session_id).slice(0, 200), d.airtime_balance != null ? Number(d.airtime_balance) : null, exp),
+  ]);
+  return json({ data: { token, balance: d.airtime_balance != null ? Number(d.airtime_balance) : null, pct: a2cPct(env, net), min: Math.max(Number(b && b.min_amount) || 100, 100), max: Number(b && b.max_amount) || 50000 } });
+};
+// Credit the wallet exactly once, only while the request is still pending (safe to call twice).
+async function finalizeA2c(env, txId, payout, ref) {
+  const t = await env.DB.prepare("SELECT user_id, label FROM transactions WHERE id=? AND status='pending' AND type='airtime-to-cash'").bind(txId).first();
+  if (!t || !(payout > 0)) return false;
+  const r = await env.DB.batch([
+    env.DB.prepare("UPDATE profiles SET atc_balance=atc_balance+? WHERE id=? AND EXISTS(SELECT 1 FROM transactions WHERE id=? AND status='pending')").bind(payout, t.user_id, txId),
+    ledgerIfChanged(env, { userId: t.user_id, wallet: 'atc', dir: 'in', amount: payout, ref: 'a2c-' + txId, type: 'airtime-to-cash', note: String(t.label || 'Airtime to Cash').slice(0, 80) }),
+    env.DB.prepare("UPDATE transactions SET status='successful', amount=?, provider_ref=?, updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='pending'").bind(payout, ref ? String(ref).slice(0, 80) : null, txId),
+  ]);
+  if (r[2].meta.changes !== 1) return false;
+  await notify(env, t.user_id, 'Airtime-to-Cash successful', `₦${Number(payout).toLocaleString()} has been added to your Airtime-to-Cash Wallet.`, { sound: 'wow', category: 'atc_update' });
+  return true;
+}
+const a2cFail = (env, txId) => env.DB.prepare("UPDATE transactions SET status='failed', updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='pending' AND type='airtime-to-cash'").bind(txId).run();
+const a2cPayout = (face, pct, receive) => { const want = Math.floor(face * pct / 100), got = Number(receive); return got > 0 ? Math.min(want, Math.floor(got)) : want; };
+FUNCTIONS['a2c-convert'] = async (x, env, user) => {
+  if (!a2cOn(env)) return fail('Airtime to Cash is not available right now.', 503);
+  const amount = Math.floor(Number(x.amount)), sharePin = String(x.sharePin || '');
+  if (!/^\d{4,6}$/.test(sharePin)) return fail('Enter the Share & Sell PIN of this line.');
+  const s = await env.DB.prepare('SELECT * FROM a2c_sessions WHERE token=? AND user_id=?').bind(String(x.token || ''), user.id).first();
+  if (!s || s.used || s.expires_at < now()) return fail('Your session expired. Please start again.');
+  let b; try { b = await a2cBiller(env, s.net); } catch (e) { return fail('Airtime to Cash is not available right now.', 503); }
+  const min = Math.max(Number(b && b.min_amount) || 100, 100), max = Number(b && b.max_amount) || 50000, pct = a2cPct(env, s.net);
+  if (!b || !pct) return fail('This network is not available right now.');
+  if (!(amount >= min && amount <= max)) return fail(`Amount must be between ₦${min.toLocaleString()} and ₦${max.toLocaleString()}.`);
+  if (s.balance != null && amount > s.balance) return fail(`You only have ₦${Number(s.balance).toLocaleString()} airtime on this line.`);
+  const pinErr = await verifyPin(env, user.id, x.pin); if (pinErr) return fail(pinErr);
+  const claim = await env.DB.prepare('UPDATE a2c_sessions SET used=1 WHERE token=? AND used=0').bind(s.token).run();
+  if (claim.meta.changes !== 1) return fail('Your session expired. Please start again.');
+  const txId = uid();
+  await env.DB.prepare("INSERT INTO transactions(id,user_id,type,label,amount,direction,status,wallet,metadata) VALUES(?,?,'airtime-to-cash',?,?,'in','pending','atc',?)")
+    .bind(txId, user.id, `Airtime to Cash (${s.net.toUpperCase()} ₦${amount})`, Math.floor(amount * pct / 100), JSON.stringify({ provider: 'vendpower', face: amount, pct, network: s.net })).run();
+  let r;
+  try { r = await vp(env, 'POST', '/airtime-to-cash/convert', { biller_code: b.code, session_id: s.vp_session, amount, pin: sharePin, idempotency_key: txId }); }
+  catch (e) { console.error('a2c convert network error'); return json({ data: { pending: true, id: txId, message: PENDING_MSG } }); }   // unknown result: stays pending, settled by asking VendPower
+  const d = (r.json && r.json.data) || {}, st = String(d.status || '').toLowerCase(), msg = String(r.json && r.json.message || '');
+  if (r.status === 200 && st === 'success') {
+    const payout = a2cPayout(amount, pct, d.receive_amount != null ? d.receive_amount : d.amount);
+    await finalizeA2c(env, txId, payout, d.reference || txId);
+    return json({ data: { credited: payout } });
+  }
+  if (r.status === 201 || r.status === 202 || r.status === 409 || st === 'processing' || st === 'pending') return json({ data: { pending: true, id: txId, message: PENDING_MSG } });
+  if (r.status === 400 || r.status === 402 || r.status === 404 || r.status === 422 || r.status === 401 || r.status === 403 || st === 'failed' || st === 'refunded') {
+    await a2cFail(env, txId);
+    await env.DB.prepare('UPDATE a2c_sessions SET used=0 WHERE token=?').bind(s.token).run();   // the customer may correct the PIN and try again
+    await logError(env, { code: 'a2c_failed', service: 'vendpower', txRef: txId, userId: user.id, status: r.status, detail: msg.slice(0, 200) });
+    if (r.status === 401 || r.status === 403) return fail('This service is temporarily unavailable. Please try again later.', 503);
+    if (/pin/i.test(msg)) return fail('The Share & Sell PIN looks wrong. Please check it and try again.');
+    if (/balance|insufficient|airtime/i.test(msg)) return fail('This line does not have enough airtime for that amount.');
+    return fail('We could not convert this airtime. Please check your details and try again.');
+  }
+  return json({ data: { pending: true, id: txId, message: PENDING_MSG } });   // 429 / 5xx / anything unexpected: wait for the result
+};
+async function a2cReconcile(env) {
+  if (!providerToken(env, 'vendpower')) return;
+  const rows = (await env.DB.prepare("SELECT id, created_at, metadata FROM transactions WHERE type='airtime-to-cash' AND status='pending' AND json_extract(metadata,'$.provider')='vendpower' AND created_at < datetime('now','-90 seconds') ORDER BY created_at LIMIT 20").all()).results;
+  for (const t of rows) {
+    try {
+      let m = {}; try { m = JSON.parse(t.metadata || '{}') || {}; } catch {}
+      const s = await vpTxStatus(env, t.id), d = s.data || {};
+      if (s.state === 'success') await finalizeA2c(env, t.id, a2cPayout(Number(m.face), Number(m.pct), d.receive_amount != null ? d.receive_amount : d.amount), d.reference || t.id);
+      else if (s.state === 'failed') await a2cFail(env, t.id);
+      else if (s.state === 'missing' && Date.now() - Date.parse(String(t.created_at).replace(' ', 'T') + 'Z') > 10 * 60 * 1000) await a2cFail(env, t.id);   // VendPower never saw it
+    } catch (e) { console.error('a2c reconcile failed', t.id, e); }
+  }
+}
+
 FUNCTIONS['admin-providers'] = async (x, env, user, req) => {
   if (!user.is_admin) return fail('Admin permission required.', 403);
   const db = env.DB, act = String(x.action || 'status');
@@ -1595,11 +1743,18 @@ FUNCTIONS['admin-providers'] = async (x, env, user, req) => {
       providers: [
         { id: 'legitdataway', name: 'Legitdataway', token_set: providerToken(env, 'legitdataway'), enabled: providerOn(env, 'legitdataway'), fixed: ['airtime', 'data-card', 'airtime-card', 'bulk-sms'] },
         { id: 'easyaccess', name: 'EasyAccess', token_set: providerToken(env, 'easyaccess'), enabled: providerOn(env, 'easyaccess'), sandbox: env.EASYACCESS_TEST === '1', webhook: origin + '/api/webhook/easyaccess?k=' + await eaWebhookKey(env), supports: ['data', 'cable', 'electricity', 'exam'] },
+        { id: 'vendpower', name: 'VendPower', token_set: providerToken(env, 'vendpower'), enabled: providerOn(env, 'vendpower'), sandbox: String(env.VENDPOWER_API_KEY || '').startsWith('vp_sandbox_'), supports: ['cable', 'electricity', 'airtime-to-cash'] },
       ],
+      withdraw: { provider: wdProvider(env), pv_ready: !!(env.PV_API_KEY && env.PV_API_SECRET), flw_ready: !!env.FLW_SECRET_KEY, pv_live: pvCfg(env).live },
       routes: Object.fromEntries(['data', 'cable', 'electricity', 'exam'].map((k) => [k, providerFor(env, k)])),
       ready: Object.fromEntries(['data', 'cable', 'electricity', 'exam', 'airtime', 'data-card', 'airtime-card'].map((k) => [k, providerReady(env, k)])),
-      ea_plans: Object.fromEntries([...Object.keys(EA_PRODUCTS), ...EA_OTHER].map((p) => [p, { count: cnt[p] || 0, updated: last[p] || null }])),
+      ea_plans: Object.fromEntries([...Object.keys(EA_PRODUCTS), ...EA_OTHER, ...VP_PRODUCTS].map((p) => [p, { count: cnt[p] || 0, updated: last[p] || null }])),
       ea_discos: Object.keys(EA_DISCOS),
+      vp_fee_pct: Number(env.VENDPOWER_CABLE_FEE_PCT != null && env.VENDPOWER_CABLE_FEE_PCT !== '' ? env.VENDPOWER_CABLE_FEE_PCT : 1),
+      vp_discos: C.ELECTRICITY_DISCOS.map((d) => ({ code: d.code, name: d.name, matched: !!vpDisco(env, d.code) })),
+      a2c: await (async () => { const o = { on: a2cOn(env), enabled_setting: env.A2C_ENABLED === '1', pct: Object.fromEntries(A2C_NETS.map((n) => [n, a2cPct(env, n)])), billers: [] };
+        if (providerToken(env, 'vendpower')) { try { o.billers = (await a2cBillers(env)).map((b) => ({ network: String(b.network || b.code).toLowerCase(), convert_percent: Number(b.convert_percent) || null, min: Number(b.min_amount) || null, max: Number(b.max_amount) || null })); } catch (e) { o.error = true; } }
+        return o; })(),
     });
   }
   if (act === 'ea_test') {
@@ -1609,6 +1764,49 @@ FUNCTIONS['admin-providers'] = async (x, env, user, req) => {
       if (r.json.status === 'success') return json({ ok: true, balance: Number(r.json.balance) || 0, email: String(r.json.email || '') });
       return fail(r.status === 401 ? 'EasyAccess rejected the token. Check it and save again.' : 'EasyAccess did not accept the request (' + r.status + ').');
     } catch (e) { console.error('ea test', e); return fail('Could not reach EasyAccess. Try again.', 503); }
+  }
+  if (act === 'wd_pv_test') {
+    if (!(env.PV_API_KEY && env.PV_API_SECRET)) return fail('Save the PayVessel key and secret first (Settings → PayVessel).');
+    try {
+      const r = await pvWallet(env, 'GET', '/balance/');
+      if (r.status === 200 && r.j.data) return json({ ok: true, balance: Number(r.j.data.available_balance) || 0, live: pvCfg(env).live });
+      return fail(r.status === 401 || r.status === 403 ? 'PayVessel did not accept the key, secret, or this server address (' + r.status + ').' : 'PayVessel did not answer correctly (' + r.status + ').');
+    } catch (e) { console.error('pv wd test', e); return fail('Could not reach PayVessel. Try again.', 503); }
+  }
+  if (act === 'vp_test') {
+    if (!env.VENDPOWER_API_KEY) return fail('Save the VendPower key first.');
+    try {
+      const sandbox = String(env.VENDPOWER_API_KEY).startsWith('vp_sandbox_');
+      let r = await vp(env, 'GET', '/wallet/balance');
+      if (r.status === 401 || r.status === 403) return fail('VendPower rejected the key, or this key does not have the products enabled.');
+      if (r.status !== 200) r = await vp(env, 'GET', '/electricity/discos');
+      if (r.status !== 200) return fail('VendPower did not accept the request (' + r.status + ').');
+      const d = (r.json && r.json.data) || {}, bal = Number(d.balance != null ? d.balance : d.wallet_balance);
+      return json({ ok: true, sandbox, balance: Number.isFinite(bal) ? bal : null });
+    } catch (e) { console.error('vp test', e); return fail('Could not reach VendPower. Try again.', 503); }
+  }
+  if (act === 'vp_sync') {
+    if (!env.VENDPOWER_API_KEY) return fail('Save the VendPower key first.');
+    const report = [], put = async (prod, items) => {
+      if (!items.length) { report.push({ product: prod, count: 0, note: 'none returned (old plans kept)' }); return; }
+      const stmts = [db.prepare('DELETE FROM ea_plans WHERE product=?').bind(prod)];
+      for (const i of items) stmts.push(db.prepare('INSERT OR REPLACE INTO ea_plans(product,plan_id,name,price,validity) VALUES(?,?,?,?,?)').bind(prod, String(i.id).slice(0, 60), String(i.name).slice(0, 120), Number(i.price), String(i.validity || '').slice(0, 60)));
+      await db.batch(stmts); report.push({ product: prod, count: items.length });
+    };
+    try {
+      const c = await vp(env, 'GET', '/cable/billers');
+      if (c.status === 401 || c.status === 403) return fail('VendPower rejected the key, or cable is not enabled for it.');
+      const billers = Array.isArray(c.json.data) ? c.json.data : [];
+      for (const code of ['dstv', 'gotv', 'startimes']) {
+        const b = billers.find((x) => String(x.code || x.name).toLowerCase() === code);
+        await put('vp_' + code, ((b && b.plans) || []).filter((p) => p && Number(p.amount) > 0 && (p.api_cable_plan_id || p.id)).map((p) => ({ id: p.api_cable_plan_id || p.id, name: p.name, price: p.amount })));
+      }
+      const e = await vp(env, 'GET', '/electricity/discos');
+      await put('vp_disco', (Array.isArray(e.json.data) ? e.json.data : []).filter((d) => d && d.disco_code && d.vend_type).map((d) => ({ id: d.id != null ? d.id : d.code, name: d.name, price: Number(d.min_amount) || 0, validity: d.disco_code + '|' + String(d.vend_type).toUpperCase() })));
+    } catch (err) { console.error('vp sync', err); return fail('Could not finish syncing with VendPower. Try again.', 503); }
+    pbCache.at = 0; settingsCache.at = 0; a2cCache.at = 0;
+    await auditLog(env, user, 'providers', 'vp_sync', null, JSON.stringify(report.map((r) => r.product + ':' + r.count)));
+    return json({ ok: true, report });
   }
   if (act === 'ea_sync') {
     if (!env.EASYACCESS_TOKEN) return fail('Save the EasyAccess token first.');
@@ -2229,7 +2427,8 @@ function txcRef(t) {      // a plain reference only: never a token or PIN list
   if (!r || r.startsWith('Token:') || r.startsWith('[') || r.startsWith('{')) return null;
   return r.length <= 80 ? r : null;
 }
-const txcProvider = (t, meta) => ({ data: 'Legitdataway', airtime: 'Legitdataway', cable: 'Legitdataway', electricity: 'Legitdataway', exchange: 'Flutterwave', withdrawal: 'Flutterwave' }[t.type] || (t.type === 'fund' && meta.provider === 'flutterwave' ? 'Flutterwave' : null));
+// Customers never see the names of the companies behind a service (Legitdataway, EasyAccess, Flutterwave, PayVessel): everything is shown under our own name.
+const txcProvider = (t, meta, env) => (['data', 'airtime', 'cable', 'electricity', 'exam', 'data-card', 'airtime-card', 'bulk-sms', 'exchange', 'withdrawal'].includes(t.type) || (t.type === 'fund' && meta.provider) ? String((env && env.APP_NAME) || 'UMARSHOYI-SUB') : null);
 const txcDate = (s) => (/^\d{4}-\d{2}-\d{2}( \d{2}:\d{2}:\d{2})?$/.test(String(s || '')) ? String(s) : null);
 
 function txcWhere(x, userId) {
@@ -2294,7 +2493,7 @@ FUNCTIONS['txc-detail'] = async (x, env, user) => {
   const status = refunded ? 'refunded' : t.status, svc = txcService(t), sp = txcSplit(t), hash = await txHash(env, t);
   const prof = await env.DB.prepare('SELECT full_name, username FROM profiles WHERE id=?').bind(user.id).first();
   const out = { id: t.id, service: svc, type: t.type, wallet: t.wallet, status, raw_status: t.status, direction: t.direction, amount: t.amount, created_at: t.created_at, updated_at: t.updated_at || null, description: sp.desc,
-    customer: { name: prof?.full_name || '', username: prof?.username || '' }, hash, short_hash: hash.slice(0, 16), provider: { name: txcProvider(t, meta), reference: txcRef(t), transaction_id: null }, beneficiary: null, breakdown: [], token: null, pins: null, timeline: [] };
+    customer: { name: prof?.full_name || '', username: prof?.username || '' }, hash, short_hash: hash.slice(0, 16), provider: { name: txcProvider(t, meta, env), reference: txcRef(t), transaction_id: null }, beneficiary: null, breakdown: [], token: null, pins: null, timeline: [] };
   const pr = String(t.provider_ref || '');
   if (pr.startsWith('Token:')) out.token = pr.slice(6).trim();
   if (pr.startsWith('[') || pr.startsWith('{')) { try { out.pins = JSON.parse(pr); } catch {} }
@@ -2432,6 +2631,69 @@ async function wdQuote(env, user, x) {
   if (!(net > 0)) return { error: 'The amount is too small after the fee.' };
   return { q: { wallet, amount, fee, net, balance: bal, remaining: money(bal - amount), dest: toMain ? 'main' : 'bank' } };
 }
+/* Bank withdrawals are paid either by Flutterwave (default) or by PayVessel's wallet transfer (chosen in Admin -> Providers).
+   PayVessel pays out of YOUR PayVessel wallet balance, so keep it funded. Its bank codes are not the same as Flutterwave's, so the bank is matched by NAME,
+   and the account is re-checked with PayVessel before any money is sent. Nothing is sent when the bank or the name does not match. */
+const wdProvider = (env) => (String(env.WITHDRAW_PROVIDER || '') === 'payvessel' ? 'payvessel' : 'flutterwave');
+const wdReady = (env) => (wdProvider(env) === 'payvessel' ? !!(env.PV_API_KEY && env.PV_API_SECRET) : !!env.FLW_SECRET_KEY);
+async function pvWallet(env, method, path, payload) {
+  const r = await fetch(pvBase(pvCfg(env)) + '/pms/api/external/request/wallet' + path, { method, headers: { 'api-key': env.PV_API_KEY, 'api-secret': env.PV_API_SECRET, 'content-type': 'application/json' }, body: payload ? JSON.stringify(payload) : undefined });
+  const j = await r.json().catch(() => ({}));
+  return { status: r.status, j };
+}
+let pvBankCache = { at: 0, key: '', rows: [] };
+const bankKey = (s) => String(s || '').toLowerCase().replace(/\b(plc|limited|ltd|bank|microfinance|mfb|nigeria|of)\b/g, '').replace(/[^a-z0-9]/g, '');
+async function pvBankCode(env, bank) {
+  if (Date.now() - pvBankCache.at > 3600000 || pvBankCache.key !== env.PV_API_KEY || !pvBankCache.rows.length) {
+    const r = await pvWallet(env, 'GET', '/banks/');
+    pvBankCache = { at: Date.now(), key: env.PV_API_KEY, rows: r.status === 200 && Array.isArray(r.j.data) ? r.j.data.filter((b) => b.is_active !== false) : [] };
+  }
+  const want = bankKey(bank.bank_name), hit = want ? pvBankCache.rows.filter((b) => bankKey(b.bank_name) === want || bankKey(b.bank_short_name) === want) : [];
+  return hit.length === 1 ? String(hit[0].bank_code) : null;
+}
+const nameOverlap = (a, b) => { const t = (s) => String(s || '').toLowerCase().split(/[^a-z]+/).filter((k) => k.length > 2); const A = t(a), B = new Set(t(b)); return A.some((k) => B.has(k)); };
+async function pvWithdraw(env, id, reference, q, bank) {
+  const back = async (why, msg) => { await reverseWithdrawal(env, id, why); return fail(msg + ' Your money was returned to your wallet.', 502); };
+  const pend = (m) => json({ data: { id, status: 'pending', message: m || 'Your withdrawal is being processed. Check your history for the result.' } });
+  let code;   // nothing has been sent yet in these two steps, so any failure here is a safe refund
+  try {
+    code = await pvBankCode(env, bank);
+    if (!code) { await logError(env, { code: 'pv_wd_bank', service: 'payvessel', txRef: id, detail: 'bank not matched: ' + String(bank.bank_name).slice(0, 60) }); return await back('Bank not supported for this payout', 'This bank is not available for withdrawal right now.'); }
+    const v = await pvWallet(env, 'POST', '/validate-account/', { account_number: bank.account_number, bank_code: code });
+    const nm = v.j && v.j.data && v.j.data.account_name;
+    if (v.status !== 200 || !nm || !nameOverlap(nm, bank.account_name)) { await logError(env, { code: 'pv_wd_validate', service: 'payvessel', txRef: id, status: v.status, detail: String(v.j && v.j.message || '').slice(0, 160) }); return await back('Account could not be verified', 'We could not verify this bank account for withdrawal.'); }
+  } catch (e) { console.error('pv payout prep', e); return await back('Payout service unreachable', 'We could not reach the payment service.'); }
+  let r;
+  try { r = await pvWallet(env, 'POST', '/transfer/', { amount: Number(q.net).toFixed(2), account_number: bank.account_number, bank_code: code, account_name: bank.account_name, narration: (env.APP_NAME || 'Withdrawal').slice(0, 40), reference }); }
+  catch (e) { console.error('pv transfer network', e); return pend(); }   // may have gone through: stays pending, settled by asking PayVessel
+  const d = (r.j && r.j.data) || {}, st = String(d.status || '').toLowerCase();
+  if (r.status === 200 && r.j.status === true) {
+    if (d.session_id) await env.DB.prepare("UPDATE transactions SET metadata=json_set(COALESCE(metadata,'{}'),'$.pv_session',?) WHERE id=?").bind(String(d.session_id).slice(0, 120), id).run();
+    if (st === 'success') { await settleTransfer(env, reference, 'SUCCESSFUL'); return json({ data: { id, status: 'successful', message: 'Your withdrawal was sent.' } }); }
+    if (st === 'failed') { await logError(env, { code: 'pv_wd_failed', service: 'payvessel', txRef: id, detail: 'failed at start' }); return await back('The bank transfer failed', 'The transfer could not be completed.'); }
+    await env.DB.prepare("UPDATE withdrawals SET status='processing', updated_at=CURRENT_TIMESTAMP WHERE id=? AND status='pending'").bind(id).run();
+    return json({ data: { id, status: 'processing', message: 'Your withdrawal is on its way.' } });
+  }
+  if (r.status >= 400 && r.status < 500 || (r.status === 200 && r.j.status === false)) {
+    await logError(env, { code: 'pv_wd_refused', service: 'payvessel', txRef: id, status: r.status, detail: String(r.j && r.j.message || '').replace(/\s+/g, ' ').slice(0, 200) });
+    return await back('The transfer was refused', 'The transfer could not be started.');
+  }
+  return pend();   // 5xx or anything unexpected: do not refund, we cannot know
+}
+async function pvWithdrawReconcile(env) {
+  if (!(env.PV_API_KEY && env.PV_API_SECRET)) return;
+  const rows = (await env.DB.prepare("SELECT w.id,w.reference,t.metadata FROM withdrawals w JOIN transactions t ON t.id=w.id WHERE w.status IN ('pending','processing') AND w.reference LIKE 'UMSP-%' AND w.created_at < datetime('now','-60 seconds') ORDER BY w.created_at LIMIT 20").all()).results;
+  for (const t of rows) {
+    try {
+      let m = {}; try { m = JSON.parse(t.metadata || '{}') || {}; } catch {}
+      if (!m.pv_session) continue;   // PayVessel never told us a session: the admin settles it from the Withdrawals list
+      const r = await pvWallet(env, 'POST', '/transfer-status/', { reference: t.reference, session_id: m.pv_session });
+      const st = String(r.j && r.j.data && r.j.data.status || '').toLowerCase();
+      if (r.status === 200 && st === 'success') await settleTransfer(env, t.reference, 'SUCCESSFUL');
+      else if (r.status === 200 && (st === 'failed' || st === 'reversed')) await settleTransfer(env, t.reference, 'FAILED');
+    } catch (e) { console.error('pv withdraw reconcile failed', t.id, e); }
+  }
+}
 FUNCTIONS['withdraw-quote'] = async (x, env, user) => { const r = await wdQuote(env, user, x); return r.error ? fail(r.error) : json({ quote: r.q }); };
 FUNCTIONS['withdraw-create'] = async (x, env, user) => {
   const r = await wdQuote(env, user, x); if (r.error) return fail(r.error);
@@ -2453,9 +2715,10 @@ FUNCTIONS['withdraw-create'] = async (x, env, user) => {
   }
   const bank = await env.DB.prepare('SELECT * FROM bank_accounts WHERE id=? AND user_id=?').bind(String(x.bankAccountId || ''), user.id).first();
   if (!bank) return fail('Choose one of your saved bank accounts.');
-  if (!env.FLW_SECRET_KEY) return fail('Withdrawals are not available yet.', 503);
+  if (!wdReady(env)) return fail('Withdrawals are not available yet.', 503);
   const pinErr = await verifyPin(env, user.id, x.pin); if (pinErr) return fail(pinErr);
-  const id = uid(), reference = 'UMSW-' + id, col = WALLET_COL[q.wallet];
+  const viaPv = wdProvider(env) === 'payvessel';
+  const id = uid(), reference = (viaPv ? 'UMSP-' : 'UMSW-') + id, col = WALLET_COL[q.wallet];
   // One atomic step: take the money out of the wallet, create the withdrawal, the history line and the ledger line.
   // The wallet check inside the UPDATE stops two quick taps from withdrawing the same money twice.
   const b = await env.DB.batch([
@@ -2466,6 +2729,7 @@ FUNCTIONS['withdraw-create'] = async (x, env, user) => {
   ]);
   if (b[0].meta.changes !== 1) return fail('Your balance changed. Please check it and try again.');
   await notify(env, user.id, 'Withdrawal submitted', `Your withdrawal of \u20a6${q.amount.toLocaleString()} is being processed.`, { sound: 'none', category: 'withdrawal_update' });
+  if (viaPv) return pvWithdraw(env, id, reference, q, bank);
   let t;
   try { t = await flw(env, 'POST', '/transfers', { account_bank: bank.bank_code, account_number: bank.account_number, amount: q.net, currency: 'NGN', reference, narration: (env.APP_NAME || 'Withdrawal').slice(0, 40), debit_currency: 'NGN' }); }
   catch (e) { console.error('transfer error', e); return json({ data: { id, status: 'pending', message: 'Your withdrawal is being processed. Check your history for the result.' } }); } // stays pending; the webhook or admin settles it
@@ -3610,6 +3874,8 @@ async function services(env) {
   return rows.map((s) => {
     let on = !!s.enabled;
     if (on && ['data', 'airtime', 'cable', 'electricity', 'exam', 'data-card', 'airtime-card'].includes(s.key)) on = providerReady(env, s.key);   // provider switched ON in Admin -> Providers and has a key
+    if (on && s.key === 'a2c') on = a2cOn(env);
+    if (on && s.key === 'electricity') on = C.ELECTRICITY_DISCOS.some((d) => discoAvailable(env, d.code));
     if (on && s.key === 'data') on = getDataPlans(env, false).length > 0;
     if (on && s.key === 'cable') on = CABLE_PROVIDERS.some((p) => getCablePlans(env, p).length > 0);   // no packages in catalog.js = coming soon
     if (on && s.key === 'exchange') on = env.EXCHANGE_ENABLED === '1' && !!env.FLW_SECRET_KEY;
@@ -3621,7 +3887,7 @@ async function services(env) {
 function liveConfig(env, svc) {
   const L = [];
   L.push('Services: ' + svc.map((s) => `${s.name}=${s.available ? 'AVAILABLE' : 'NOT AVAILABLE'}${s.note ? ' (' + s.note + ')' : ''}`).join('; '));
-  L.push(`Withdrawals: minimum N${cfgNum(env, 'WITHDRAW_MIN_AMOUNT', 1000)}, fee N${money(cfgNum(env, 'WITHDRAW_FEE_FLAT', 0))} per withdrawal unless a wallet has its own fee (Airtime-to-Cash: N${money(wdFee(env, 'atc', 0))} + ${Number(env.WITHDRAW_FEE_ATC_PCT) || 0}%, Exchange: N${money(wdFee(env, 'exchange', 0))} + ${Number(env.WITHDRAW_FEE_EX_PCT) || 0}%); the fee is taken from the amount. Only Exchange Wallet and Airtime-to-Cash Wallet.`);
+  L.push(`Withdrawals: minimum N${cfgNum(env, 'WITHDRAW_MIN_AMOUNT', 1000)}, fee N${money(cfgNum(env, 'WITHDRAW_FEE_FLAT', 0))} per withdrawal unless a wallet has its own fee (Airtime-to-Cash: N${money(wdFee(env, 'atc', 0))} + ${Number(env.WITHDRAW_FEE_ATC_PCT) || 0}%, Exchange: N${money(wdFee(env, 'exchange', 0))} + ${Number(env.WITHDRAW_FEE_EX_PCT) || 0}%); the fee is taken from the amount${env.WITHDRAW_TIERS_ATC || env.WITHDRAW_TIERS_EX ? ' (the fee can also depend on the amount; the app shows the exact fee before confirming)' : ''}. Only Exchange Wallet and Airtime-to-Cash Wallet.`);
   L.push(`Referral: ${env.REFERRAL_ENABLED === '0' ? 'switched off' : 'on, reward ' + (env.REFERRAL_RULE_TEXT || ('N' + cfgNum(env, 'REFERRAL_REWARD', 500))) + ' paid to the Main Wallet only after the person invited makes a verified qualifying deposit (registering alone earns nothing)'}.`);
   if (svc.find((s) => s.key === 'exchange')?.available) L.push(`Exchange: fee ${cfgNum(env, 'EXCHANGE_FEE_PERCENT', 10)}%, limit about ${cfgNum(env, 'EXCHANGE_MIN_AMOUNT', 5)} to ${cfgNum(env, 'EXCHANGE_MAX_AMOUNT', 100)} USD per transfer, ${cfgNum(env, 'EXCHANGE_DAILY_COUNT', 3)} per day, currencies: ${String(env.EXCHANGE_CURRENCIES || 'USD,GBP,EUR,GHS')}.`);
   L.push(env.SHOYI_SUPPORT_HOURS ? `Human support hours: ${env.SHOYI_SUPPORT_HOURS}. (Whether an agent is online right now is NOT known.)` : 'Human support hours: not configured. Never promise a response time.');
@@ -4319,6 +4585,9 @@ const SETTINGS = {
   withdraw_fee_atc_pct: { env: 'WITHDRAW_FEE_ATC_PCT', type: 'number', group: 'Withdrawals', label: 'Airtime-to-Cash withdrawal: percent of the amount (%)', def: '', min: 0, max: 50, allowEmpty: true, hint: 'Added to the fixed fee. Empty = 0' },
   withdraw_fee_ex_flat: { env: 'WITHDRAW_FEE_EX_FLAT', type: 'number', group: 'Withdrawals', label: 'Exchange withdrawal: fixed fee (naira)', def: '', min: 0, max: 100000, allowEmpty: true, hint: 'Empty = use the fee above' },
   withdraw_fee_ex_pct:  { env: 'WITHDRAW_FEE_EX_PCT',  type: 'number', group: 'Withdrawals', label: 'Exchange withdrawal: percent of the amount (%)', def: '', min: 0, max: 50, allowEmpty: true, hint: 'Added to the fixed fee. Empty = 0' },
+  withdraw_tiers_atc:   { env: 'WITHDRAW_TIERS_ATC',   type: 'text', group: 'Withdrawals', label: 'Airtime-to-Cash withdrawal fee by amount', def: '', allowEmpty: true, maxLen: 300, pattern: /^\s*\d+-\d*:\d+(\.\d+)?(\s*,\s*\d+-\d*:\d+(\.\d+)?)*\s*$|^$/, hint: 'Format from-to:fee, separated by commas. Example: 100-4999:50,5000-19999:100,20000-:150 means ₦50 for ₦100 to ₦4,999, ₦100 for ₦5,000 to ₦19,999, ₦150 for ₦20,000 and above. Leave the "to" empty for no upper limit. An amount that matches no range uses the fixed fee + percent above. Empty = not used.' },
+  withdraw_tiers_ex:    { env: 'WITHDRAW_TIERS_EX',    type: 'text', group: 'Withdrawals', label: 'Exchange withdrawal fee by amount', def: '', allowEmpty: true, maxLen: 300, pattern: /^\s*\d+-\d*:\d+(\.\d+)?(\s*,\s*\d+-\d*:\d+(\.\d+)?)*\s*$|^$/, hint: 'Same format as above, for the Exchange wallet. Empty = not used.' },
+  withdraw_provider:    { env: 'WITHDRAW_PROVIDER',    type: 'text', group: 'Withdrawals', label: 'Pay withdrawals with', def: 'flutterwave', maxLen: 20, pattern: /^(flutterwave|payvessel)$/, hint: 'flutterwave or payvessel. Easier to change in Admin → Providers.' },
   withdraw_min_amount:  { env: 'WITHDRAW_MIN_AMOUNT',  type: 'number', group: 'Withdrawals', label: 'Minimum withdrawal (naira)', def: '1000', min: 100, max: 10000000, hint: 'Default 1000' },
   app_url:              { env: 'APP_URL',              type: 'url',    group: 'App', label: 'Website address used in referral links', def: '', allowEmpty: true, hint: 'For example https://umarshoyi.com. Empty = this website' },
   service_notice_on:    { env: 'SERVICE_NOTICE_ON',    type: 'bool',   group: 'App', label: 'Show the "Service Update" card on Home', def: '1' },
@@ -4341,13 +4610,21 @@ const SETTINGS = {
   pv_api_key:           { env: 'PV_API_KEY',           type: 'secret', group: 'PayVessel', label: 'PayVessel API key', minLen: 8 },
   pv_api_secret:        { env: 'PV_API_SECRET',        type: 'secret', group: 'PayVessel', label: 'PayVessel secret key (starts with PVSECRET-)', minLen: 12 },
   legitdataway_token:   { env: 'LEGITDATAWAY_TOKEN',   type: 'secret', group: 'Keys', label: 'Legitdataway API token', minLen: 8 },
+  vendpower_api_key:    { env: 'VENDPOWER_API_KEY',    type: 'secret', group: 'Keys', label: 'VendPower API key', minLen: 8 },
+  provider_vendpower_enabled: { env: 'PROVIDER_VENDPOWER_ENABLED', type: 'bool', group: 'Providers', label: 'VendPower switched on', def: '1' },
+  vendpower_cable_fee_pct: { env: 'VENDPOWER_CABLE_FEE_PCT', type: 'number', group: 'Providers', label: 'VendPower cable extra charge (%)', def: '1', min: 0, max: 20, hint: 'VendPower takes a little more than the listed cable price (their own example: N15,700 -> N15,857). Edit this once you see your real charge.' },
+  a2c_enabled:          { env: 'A2C_ENABLED',          type: 'bool',   group: 'Airtime to Cash', label: 'Airtime to Cash switched on', def: '0', hint: 'Needs the VendPower API key and VendPower switched on.' },
+  a2c_pct_mtn:          { env: 'A2C_PCT_MTN',          type: 'number', group: 'Airtime to Cash', label: 'MTN: % of airtime you pay the customer', def: '75', min: 1, max: 100, hint: 'Must be LOWER than what VendPower pays you (see Admin > Providers). Your profit is the difference.' },
+  a2c_pct_airtel:       { env: 'A2C_PCT_AIRTEL',       type: 'number', group: 'Airtime to Cash', label: 'Airtel: % of airtime you pay the customer', def: '70', min: 1, max: 100 },
+  a2c_pct_glo:          { env: 'A2C_PCT_GLO',          type: 'number', group: 'Airtime to Cash', label: 'Glo: % of airtime you pay the customer', def: '65', min: 1, max: 100 },
+  a2c_pct_9mobile:      { env: 'A2C_PCT_9MOBILE',      type: 'number', group: 'Airtime to Cash', label: '9mobile: % of airtime you pay the customer', def: '65', min: 1, max: 100 },
   easyaccess_token:     { env: 'EASYACCESS_TOKEN',     type: 'secret', group: 'Keys', label: 'EasyAccess API token', minLen: 8 },
   easyaccess_test:      { env: 'EASYACCESS_TEST',      type: 'bool',   group: 'Providers', label: 'EasyAccess sandbox (test) mode', def: '0', hint: 'ON = purchases go to the EasyAccess TEST address and deliver nothing. Use it only to test; switch OFF before selling.' },
   provider_legitdataway_enabled: { env: 'PROVIDER_LEGITDATAWAY_ENABLED', type: 'bool', group: 'Providers', label: 'Legitdataway switched on', def: '1' },
   provider_easyaccess_enabled:   { env: 'PROVIDER_EASYACCESS_ENABLED',   type: 'bool', group: 'Providers', label: 'EasyAccess switched on', def: '1' },
   provider_data:        { env: 'PROVIDER_DATA',        type: 'text', group: 'Providers', label: 'Data provider', def: '', allowEmpty: true, maxLen: 20, pattern: /^(legitdataway|easyaccess)?$/ },
-  provider_cable:       { env: 'PROVIDER_CABLE',       type: 'text', group: 'Providers', label: 'Cable TV provider', def: '', allowEmpty: true, maxLen: 20, pattern: /^(legitdataway|easyaccess)?$/ },
-  provider_electricity: { env: 'PROVIDER_ELECTRICITY', type: 'text', group: 'Providers', label: 'Electricity provider', def: '', allowEmpty: true, maxLen: 20, pattern: /^(legitdataway|easyaccess)?$/ },
+  provider_cable:       { env: 'PROVIDER_CABLE',       type: 'text', group: 'Providers', label: 'Cable TV provider', def: '', allowEmpty: true, maxLen: 20, pattern: /^(legitdataway|easyaccess|vendpower)?$/ },
+  provider_electricity: { env: 'PROVIDER_ELECTRICITY', type: 'text', group: 'Providers', label: 'Electricity provider', def: '', allowEmpty: true, maxLen: 20, pattern: /^(legitdataway|easyaccess|vendpower)?$/ },
   provider_exam:        { env: 'PROVIDER_EXAM',        type: 'text', group: 'Providers', label: 'Exam PIN provider', def: '', allowEmpty: true, maxLen: 20, pattern: /^(legitdataway|easyaccess)?$/ },
 };
 // Profit per service (customer price = provider cost in catalog.js + this profit). Empty = the default shown in the hint.

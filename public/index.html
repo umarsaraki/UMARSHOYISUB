@@ -2960,6 +2960,8 @@ function settingField(s){
       + `</div><div style="font-size:11px; color:var(--sub); margin-top:6px;">${esc(s.hint)}</div></div>`;
   }
   if(s.type === 'bool') return `<div class="field"><label>${esc(s.label)} ${tag}</label><select id="${id}"><option value="1" ${s.value === '1' ? 'selected' : ''}>On</option><option value="0" ${s.value !== '1' ? 'selected' : ''}>Off</option></select></div>`;
+  if(s.key === 'withdraw_provider') return '';   // chosen in Admin → Providers
+  if(s.type === 'text') return `<div class="field"><label>${esc(s.label)} ${tag}</label><input id="${id}" type="text" autocomplete="off" value="${esc(s.value)}" placeholder="${esc(s.key.startsWith('withdraw_tiers') ? 'e.g. 1000-9999:100,10000-49999:150,50000-:200' : '')}"><div style="font-size:11px; color:var(--sub); margin-top:6px; line-height:1.5;">${esc(s.hint)}</div></div>`;
   if(s.type === 'number') return `<div class="field"><label>${esc(s.label)} ${tag}</label><input id="${id}" type="number" inputmode="decimal" value="${esc(s.value)}" placeholder="${esc(s.hint)}"></div>`;
   return `<div class="field"><label>${esc(s.label)} <span style="font-weight:700; color:${s.is_set ? 'var(--green)' : 'var(--danger)'};">${s.is_set ? '\u2713 set (' + SRC_LABEL[s.source] + ')' : '\u2717 not set'}</span></label><input id="${id}" type="password" autocomplete="new-password" placeholder="${s.is_set ? 'Leave empty to keep the current key' : 'Paste the key here'}"></div>`;
 }

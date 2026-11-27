@@ -960,7 +960,7 @@ html[data-theme=dark] .pf-wal b{color:#d6e3ff}
       updateUser: async({password})=>api('/api/auth/password',{method:'PATCH',body:JSON.stringify({password})})
     }
   };
-  const MONEY = /^(buy-|exchange-create|withdraw-create|transfer-user)/;
+  const MONEY = /^(buy-|a2c-convert|exchange-create|withdraw-create|transfer-user)/;
   async function invokeFnRaw(name, options){
     const money = MONEY.test(name);
     if(money && UMAlert._inflight[name]) return {data:null,errMsg:UMAlert.text('dup'),code:'duplicate'};   // a second tap while the first is still running
@@ -1377,9 +1377,11 @@ html[data-theme=dark] .pf-wal b{color:#d6e3ff}
     <div id="a2cStep3" style="display:none;">
       <div class="sv-h">Amount to Convert</div>
       <div class="sv-chips" data-fill="a2cAmount" data-amts="500,1000,2000,5000,10000"></div>
-      <div class="field"><label>Amount of Airtime Sent (₦, min ₦500)</label><input id="a2cAmount" type="number" inputmode="numeric" placeholder="1000"></div>
+      <div class="hint" id="a2cBal" style="font-size:12px;color:var(--sub);margin-bottom:8px;"></div>
+      <div class="field"><label id="a2cAmtLbl">Amount of Airtime to Convert (₦)</label><input id="a2cAmount" type="number" inputmode="numeric" placeholder="1000" oninput="a2cRefresh()"></div>
+      <div class="field"><label>Share &amp; Sell PIN of this line</label><input id="a2cSharePin" type="password" autocomplete="off" inputmode="numeric" maxlength="6" placeholder="Network share PIN"><div style="font-size:11px;color:var(--sub);margin-top:4px;">This is the PIN your network gave you for sending airtime (not your app PIN). We never save it.</div></div>
       <div class="hint sv-note" style="background:var(--soft); border-radius:12px; padding:14px; font-size:12px; color:var(--sub); line-height:1.6; margin:0 0 14px;">
-        A ₦30 fee applies for every ₦100 converted. Your balance stays in your Airtime-to-Cash Wallet until you choose to withdraw it to your bank.
+        <span id="a2cRateTxt">You receive a percentage of the airtime you convert.</span> Your balance stays in your Airtime-to-Cash Wallet until you choose to withdraw it to your bank.
       </div>
       <div class="sv-sum" id="svSum-a2c"><div class="sv-sum-h"><svg class="ic"><use href="#i-receipt"/></svg>Order Summary</div><div class="sv-rows" id="svRows-a2c"></div></div>
       <div class="field sv-pin"><label>Transaction PIN</label><input id="a2cPin" type="password" autocomplete="one-time-code" inputmode="numeric" maxlength="4" placeholder="••••"></div>
@@ -2665,7 +2667,7 @@ function loadLegalDates(){
 
 async function invokeFn(name, opts){
   try { return await invokeFnRaw(name, opts); }
-  finally { if(/^(buy-|verify-otp|atc-withdraw|exchange-create)/.test(name)) wipePinFields(); }
+  finally { if(/^(buy-|a2c-convert|verify-otp|atc-withdraw|exchange-create)/.test(name)) wipePinFields(); }
 }
 /* ---------- Privacy: wipe typed details ---------- */
 function wipeInputs(root){
@@ -2969,7 +2971,7 @@ async function adminLoadSettings(){
   adminSettings = data.items;
   const sec = (g) => `<div class="section-title" style="padding:0; margin:20px 0 10px;">${g}</div>` + adminSettings.filter(s => s.group === g).map(settingField).join('');
   box.innerHTML = (data.keys_can_be_saved ? '' : '<div class="err-text" style="margin-bottom:10px;">AUTH_SECRET is missing or too short in Cloudflare, so keys cannot be saved here yet.</div>')
-    + sec('App download') + sec('Funding') + sec('Agent') + sec('Exchange') + sec('Withdrawals') + sec('Profit') + sec('Pricing') + sec('PayVessel') + sec('Keys')
+    + sec('App download') + sec('Funding') + sec('Agent') + sec('Airtime to Cash') + sec('Exchange') + sec('Withdrawals') + sec('Profit') + sec('Pricing') + sec('PayVessel') + sec('Keys')
     + `<div style="background:var(--soft); border-radius:12px; padding:14px; font-size:12px; line-height:1.7; margin:18px 0; word-break:break-all;">Put these web addresses in your dashboards:<br>
         <b>Flutterwave webhook:</b> ${esc(location.origin)}/api/webhook/flutterwave<br>
         <b>Legitdataway callback:</b> shown on the Overview tab (it has a secret).<br>
@@ -3188,14 +3190,30 @@ async function sendNotification(){
 
 /* ---------- Airtime to Cash (OTP-verified via WhatsApp) ---------- */
 let selectedA2CNetwork = 'mtn';
-let a2cVerifiedPhone = null;
-function renderA2CNetworkGrid(){
-  a2cResetFlow();
-  loadAtcBalance();
-  document.getElementById('a2cNetworkGrid').innerHTML = NETWORKS.map(n => `
-    <div class="net-item ${n.id===selectedA2CNetwork?'selected':''}" onclick="selectedA2CNetwork='${n.id}'; renderA2CNetworkGrid();">
+let a2cVerifiedPhone = null, a2cToken = null, a2cInfo = null, a2cLim = null;
+async function a2cLoadInfo(){
+  try { const { data } = await invokeFn('a2c-info', { body: {} }); a2cInfo = data || { enabled: false, networks: [] }; } catch (e) { a2cInfo = { enabled: false, networks: [] }; }
+  renderA2CNetworkGrid(true);
+}
+function a2cNet(id){ return (a2cInfo?.networks || []).find(n => n.network === id); }
+function renderA2CNetworkGrid(keep){
+  if(!keep){ a2cResetFlow(); loadAtcBalance(); if(!a2cInfo) a2cLoadInfo(); }
+  const err = document.getElementById('a2cStep1Err');
+  if(a2cInfo){
+    if(!a2cInfo.enabled){ err.textContent = 'Airtime to Cash is not available right now. Please check back later.'; }
+    else if(!a2cNet(selectedA2CNetwork)){ const f = a2cInfo.networks[0]; if(f) selectedA2CNetwork = f.network; else err.textContent = ''; }
+  }
+  document.getElementById('a2cNetworkGrid').innerHTML = NETWORKS.map(n => { const ok = !!a2cNet(n.id);
+    return `<div class="net-item ${n.id===selectedA2CNetwork?'selected':''}" style="${ok?'':'opacity:.4'}" onclick="${ok?`selectedA2CNetwork='${n.id}'; a2cResetFlow(); renderA2CNetworkGrid(true);`:`showToast('${n.name} is not available for Airtime to Cash yet','error')`}">
       <div class="net-badge" style="background:${n.color}">${n.name.slice(0,2).toUpperCase()}</div>
-      <div class="net-name">${n.name}</div></div>`).join('');
+      <div class="net-name">${n.name}</div></div>`; }).join('');
+}
+function a2cRefresh(){
+  const l = a2cLim; if(!l) return;
+  const amt = parseFloat(document.getElementById('a2cAmount').value) || 0;
+  document.getElementById('a2cRateTxt').textContent = `You receive ${l.pct}% of the airtime you convert (₦${Math.floor(100*l.pct/100)} for every ₦100).`;
+  document.getElementById('a2cAmtLbl').textContent = `Amount of Airtime to Convert (₦${l.min.toLocaleString()} – ₦${l.max.toLocaleString()})`;
+  const rows = document.getElementById('svRows-a2c'); if(rows && amt) rows.innerHTML = [['Network', selectedA2CNetwork.toUpperCase()],['Phone number', a2cVerifiedPhone||''],['Airtime amount','₦'+amt.toLocaleString()],['You receive','₦'+Math.floor(amt*l.pct/100).toLocaleString()+' in your Airtime-to-Cash wallet']].map(r=>`<div class="sv-row"><span>${r[0]}</span><b>${r[1]}</b></div>`).join('');
 }
 function loadAtcBalance(){
   document.getElementById('atcBalanceDisplay').textContent = Number(profile?.atc_balance ?? 0).toLocaleString(undefined,{minimumFractionDigits:2});
@@ -3233,7 +3251,8 @@ function a2cResetFlow(){
   document.getElementById('a2cStep1').style.display = 'block';
   document.getElementById('a2cStep2').style.display = 'none';
   document.getElementById('a2cStep3').style.display = 'none';
-  a2cVerifiedPhone = null;
+  a2cVerifiedPhone = null; a2cToken = null; a2cLim = null;
+  ['a2cSharePin','a2cOtpCode'].forEach(i => { const e = document.getElementById(i); if(e) e.value = ''; });
 }
 async function a2cSendOtp(){
   const phone = document.getElementById('a2cPhone').value.trim();
@@ -3241,7 +3260,7 @@ async function a2cSendOtp(){
   if(!phone){ errEl.textContent = 'Enter the phone number'; return; }
 
   setLoading('a2cSendOtpBtn', true);
-  const { data, errMsg } = await invokeFn('send-otp', { body: { phone } });
+  const { data, errMsg } = await invokeFn('a2c-send-otp', { body: { phone, network: selectedA2CNetwork } });
   setLoading('a2cSendOtpBtn', false, 'Send OTP to Confirm');
   if(errMsg){ errEl.textContent = errMsg; return; }
 
@@ -3256,11 +3275,14 @@ async function a2cVerifyOtp(){
   if(!/^\d{6}$/.test(code)){ errEl.textContent = 'Enter the 6-digit code'; return; }
 
   setLoading('a2cVerifyBtn', true);
-  const { data, errMsg } = await invokeFn('verify-otp', { body: { phone, code } });
+  const { data, errMsg } = await invokeFn('a2c-verify-otp', { body: { phone, otp: code, network: selectedA2CNetwork } });
   setLoading('a2cVerifyBtn', false, 'Verify Code');
   if(errMsg){ errEl.textContent = errMsg; return; }
 
-  a2cVerifiedPhone = phone;
+  a2cVerifiedPhone = phone; a2cToken = data.token;
+  const d = data.data || data; a2cToken = d.token; a2cLim = { pct: d.pct, min: d.min, max: d.max };
+  document.getElementById('a2cBal').textContent = d.balance != null ? `Airtime on this line: ₦${Number(d.balance).toLocaleString()}` : '';
+  a2cRefresh();
   document.getElementById('a2cStep2').style.display = 'none';
   document.getElementById('a2cStep3').style.display = 'block';
 }
@@ -3268,17 +3290,21 @@ async function a2cConvert(){
   const amt = parseFloat(document.getElementById('a2cAmount').value);
   const pin = document.getElementById('a2cPin').value.trim();
   const errEl = document.getElementById('a2cStep3Err'); errEl.textContent = '';
-  if(!amt || amt < 500){ errEl.textContent = 'Minimum conversion amount is ₦500'; return; }
+  const sharePin = document.getElementById('a2cSharePin').value.trim();
+  const l = a2cLim || { min: 100, max: 50000 };
+  if(!amt || amt < l.min || amt > l.max){ errEl.textContent = `Amount must be between ₦${l.min.toLocaleString()} and ₦${l.max.toLocaleString()}`; return; }
+  if(!/^\d{4,6}$/.test(sharePin)){ errEl.textContent = 'Enter the Share & Sell PIN of this line'; return; }
   if(!/^\d{4}$/.test(pin)){ errEl.textContent = 'Enter your 4-digit transaction PIN'; return; }
 
   setLoading('a2cConvertBtn', true);
-  const { data, errMsg } = await invokeFn('verify-otp', {
-    body: { phone: a2cVerifiedPhone, network: selectedA2CNetwork, amount: amt, pin, finalize: true }
-  });
+  const { data: res, errMsg } = await invokeFn('a2c-convert', { body: { token: a2cToken, amount: amt, sharePin, pin } });
   setLoading('a2cConvertBtn', false, 'Convert to Cash');
   if(errMsg){ errEl.textContent = errMsg; return; }
+  const data = res?.data || res || {};
 
-  showToast(`₦${Number(data.credited).toLocaleString()} added to your Airtime-to-Cash balance`, 'success');
+  if(data.pending){ showToast(data.message || 'Your request is being processed. Your balance will update shortly.', 'success'); }
+  else showToast(`₦${Number(data.credited).toLocaleString()} added to your Airtime-to-Cash balance`, 'success');
+  document.getElementById('a2cSharePin').value = '';
   document.getElementById('a2cAmount').value = '';
   document.getElementById('a2cPin').value = '';
   document.getElementById('a2cPhone').value = '';
@@ -4393,7 +4419,7 @@ async function checkUnreadNotifications() {
     cur = r.data; const d = cur, sign = d.direction === 'in' ? '+' : '-';
     const dot = { done: 'ok', pending: 'wait', failed: 'bad', refunded: 'ref' };
     const tl = d.timeline.map((e) => `<div class="tl ${dot[e.state] || 'ok'}"><i></i><div><b>${E(e.label)}</b><span>${e.at ? E(day(e.at) + ' \u2022 ' + hour(e.at)) : (e.note === 'Current status' ? 'Current status' : 'Time not recorded')}</span>${e.note && e.note !== 'Current status' ? `<em>${E(e.note)}</em>` : ''}</div></div>`).join('');
-    const prov = (d.provider.name || d.provider.reference || d.token || d.pins) ? `<div class="txc-card"><h3>Provider information</h3>${d.provider.name ? kv('Provider', E(d.provider.name)) : ''}${d.provider.reference ? kv('Provider reference', E(d.provider.reference), d.provider.reference) : ''}${d.token ? kv('Electricity token', E(d.token), d.token) : ''}${d.pins ? `<div class="pins"><span>PIN details</span>${pinHtml(d.pins)}</div>` : ''}</div>` : '';
+    const prov = (d.provider.name || d.provider.reference || d.token || d.pins) ? `<div class="txc-card"><h3>Service information</h3>${d.provider.name ? kv('Processed by', E(d.provider.name)) : ''}${d.provider.reference ? kv('Reference', E(d.provider.reference), d.provider.reference) : ''}${d.token ? kv('Electricity token', E(d.token), d.token) : ''}${d.pins ? `<div class="pins"><span>PIN details</span>${pinHtml(d.pins)}</div>` : ''}</div>` : '';
     const ben = d.beneficiary ? `<div class="txc-card"><h3>Beneficiary</h3>${d.beneficiary.rows.map((x) => kv(x[0], E(x[1]))).join('')}</div>` : '';
     const brk = `<div class="txc-card"><h3>Financial breakdown</h3>${d.breakdown.map((x) => `<div class="kv ${x[2] === 'total' ? 'tot' : ''}"><span>${E(x[0])}</span><b>${x[2] === 'raw' ? E(Number(x[1]).toLocaleString('en-US', { maximumFractionDigits: 4 })) : N(x[1])}</b></div>`).join('')}</div>`;
     const A = d.actions, btn = (k, ic, l, extra) => `<button class="txc-act" data-txc="${k}" ${extra || ''}><span>${ic}</span>${l}</button>`;
@@ -4417,7 +4443,7 @@ async function checkUnreadNotifications() {
   const NGN = (n) => 'NGN ' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   function wrap(s, n) { const out = []; s = pdfText(s); while (s.length > n) { let i = s.lastIndexOf(' ', n); if (i < n * 0.5) i = n; out.push(s.slice(0, i)); s = s.slice(i).trim(); } out.push(s); return out; }
   function receiptRows(d) {
-    const R = [['Transaction ID', d.id]]; if (d.provider.reference) R.push(['Provider reference', d.provider.reference]); if (d.provider.name) R.push(['Provider', d.provider.name]);
+    const R = [['Transaction ID', d.id]]; if (d.provider.reference) R.push(['Reference', d.provider.reference]); if (d.provider.name) R.push(['Processed by', d.provider.name]);
     R.push(['Service', d.service]); if (d.description && d.description !== d.service) R.push(['Description', d.description]);
     if (d.beneficiary) d.beneficiary.rows.forEach((x, i) => R.push([x[0], i === 0 && ['phone', 'meter', 'card'].includes(d.beneficiary.kind) ? mid(x[1], x[1].length > 11 ? 3 : 4) : x[1]]));   // only the number itself is masked
     d.breakdown.forEach((x) => R.push([x[0], x[2] === 'raw' ? Number(x[1]).toLocaleString('en-US', { maximumFractionDigits: 4 }) : NGN(x[1])]));
@@ -5507,7 +5533,7 @@ html[data-theme=dark] .sv-h,html[data-theme=dark] .sv-pg .field label,html[data-
       const st = (i) => $('a2cStep' + i).style.display !== 'none', cur = st(3) ? 3 : st(2) ? 2 : 1;
       document.querySelectorAll('#svSteps div').forEach((d) => { const s = +d.dataset.s; d.classList.toggle('on', s === cur); d.classList.toggle('done', s < cur); });
       const a = parseFloat($('a2cAmount').value) || 0;
-      put($('svRows-a2c'), [row('Network', netName(g(() => selectedA2CNetwork, ''))), row('Phone number', g(() => a2cVerifiedPhone, '') || ''), row('Airtime amount', a ? N(a) : ''), row('Service fee', '₦30 for every ₦100 converted'), row('You receive', 'Credited to your Airtime-to-Cash wallet after conversion', 1)].join(''));
+      put($('svRows-a2c'), [row('Network', netName(g(() => selectedA2CNetwork, ''))), row('Phone number', g(() => a2cVerifiedPhone, '') || ''), row('Airtime amount', a ? N(a) : ''), row('You receive', (g(() => a2cLim.pct, 0) && a ? '₦' + Math.floor(a * a2cLim.pct / 100).toLocaleString() + ' (' + a2cLim.pct + '%)' : 'Credited to your Airtime-to-Cash wallet'), 1)].join(''));
     },
     exchange() {
       const xi = g(() => xInfo, null), sel = $('xCurrency'), cv = sel.value;
@@ -7120,7 +7146,7 @@ window.UMSound = (function () {
   const call = (b) => invokeFn('admin-providers', { body: b || {} });
   const save = (values) => adminCall({ action: 'save_settings', values });
   let S = null, busy = false;
-  const SERV = [['data', 'Data (incl. Awoof)'], ['cable', 'Cable TV'], ['electricity', 'Electricity'], ['exam', 'Exam PIN']];
+  const SERV = [['data', 'Data (incl. Awoof)'], ['cable', 'Cable TV'], ['electricity', 'Electricity'], ['exam', 'Exam PIN']], VPOK = ['cable', 'electricity'];
   const PNAME = { mtn_cg: 'MTN Corporate Gifting', mtn_awoof: 'MTN Awoof', mtn_sme: 'MTN SME', mtn_gifting: 'MTN Gifting', glo_cg: 'Glo Corporate Gifting', glo_awoof: 'Glo Awoof', glo_gifting: 'Glo Gifting', airtel_cg: 'Airtel Corporate Gifting', airtel_awoof: 'Airtel Awoof', airtel_gifting: 'Airtel Gifting', '9mobile_sme': '9mobile SME', '9mobile_gifting': '9mobile Gifting', dstv: 'DStv', gotv: 'GOtv', startimes: 'Startimes', waec: 'WAEC', neco: 'NECO', nabteb: 'NABTEB', nbais: 'NBAIS' };
   function inject() {
     const tabs = $('adminTabs'), panel = $('page-admin-panel'); if (!tabs || !panel || $('atab-prov')) return;
@@ -7140,14 +7166,16 @@ window.UMSound = (function () {
     S = r.data; draw();
   }
   function draw() {
-    const box = $('atab-prov'), L = S.providers[0], A = S.providers[1];
-    const tot = (S.ea_plans ? Object.values(S.ea_plans).reduce((n, p) => n + p.count, 0) : 0);
+    const box = $('atab-prov'), L = S.providers.find((p) => p.id === 'legitdataway'), A = S.providers.find((p) => p.id === 'easyaccess'), V = S.providers.find((p) => p.id === 'vendpower') || {};
+    const eaOnly = Object.entries(S.ea_plans || {}).filter(([k]) => !k.startsWith('vp_')), vpOnly = Object.entries(S.ea_plans || {}).filter(([k]) => k.startsWith('vp_'));
+    const tot = eaOnly.reduce((n, [, p]) => n + p.count, 0), vpTot = vpOnly.reduce((n, [, p]) => n + p.count, 0);
+    const A2 = S.a2c || { billers: [], pct: {} };
     const opt = (v, cur, lbl) => `<option value="${v}" ${cur === v ? 'selected' : ''}>${lbl}</option>`;
     let h = '<div class="hint" style="background:var(--soft);border-radius:12px;padding:12px;font-size:12px;color:var(--sub);line-height:1.6;margin-bottom:12px;">Each service is sold by <b>one</b> provider. Choose below, and switch a provider ON/OFF. When a provider is OFF (or has no key) its services show as unavailable and customers are never charged.</div>';
     h += '<div class="mg-card"><div class="mg-h">Which provider sells what</div>';
     for (const [k, nm] of SERV) {
       const cur = S.routes[k], rdy = S.ready[k];
-      h += `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--line);"><div style="flex:1;min-width:0;"><b>${nm}</b><div style="font-size:11px;color:${rdy ? '#0a8f4e' : '#c2410c'}">${rdy ? 'Available' : 'Not available (provider off / no key / no plans)'}</div></div><select id="pr-${k}" style="padding:8px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--text);">${opt('legitdataway', cur, 'Legitdataway')}${opt('easyaccess', cur, 'EasyAccess')}</select></div>`;
+      h += `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--line);"><div style="flex:1;min-width:0;"><b>${nm}</b><div style="font-size:11px;color:${rdy ? '#0a8f4e' : '#c2410c'}">${rdy ? 'Available' : 'Not available (provider off / no key / no plans)'}</div></div><select id="pr-${k}" style="padding:8px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--text);">${opt('legitdataway', cur, 'Legitdataway')}${opt('easyaccess', cur, 'EasyAccess')}${VPOK.includes(k) ? opt('vendpower', cur, 'VendPower') : ''}</select></div>`;
     }
     h += `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--line);"><div style="flex:1"><b>Airtime, Data Card, Recharge Card, Bulk SMS</b><div style="font-size:11px;color:var(--sub)">Always Legitdataway for now</div></div><span style="font-size:12px;font-weight:700;">Legitdataway 🔒</span></div>`;
     h += '<button class="btn-primary" id="prSaveRoutes" style="margin-top:10px;width:100%;">Save routing</button></div>';
@@ -7160,8 +7188,28 @@ window.UMSound = (function () {
       <div style="display:flex;align-items:center;gap:10px;margin-top:12px;"><div style="flex:1"><b style="font-size:13px;">Sandbox (test) mode</b><div style="font-size:11px;color:#c2410c;">ON = nothing is really delivered. Keep it OFF when selling.</div></div>${sw('prEaTest', A.sandbox)}</div>
       <div style="margin-top:12px;font-size:12px;"><b>Webhook address</b> (give it to EasyAccess, keep it secret):<div id="prHook" style="word-break:break-all;background:var(--soft);padding:8px;border-radius:8px;margin-top:4px;font-size:11px;">${E(A.webhook)}</div><button class="btn-ghost" id="prCopy" style="margin-top:6px;">Copy address</button></div>
       <div style="margin-top:12px;font-size:12px;color:var(--sub);">Synced plans: <b>${tot}</b>${tot ? '' : ' — press “Sync plans” after saving the token.'}</div>
-      <details style="margin-top:6px;font-size:11.5px;color:var(--sub);"><summary>Plans per product</summary>${Object.entries(S.ea_plans).map(([p, v]) => `<div>${E(PNAME[p] || p)}: ${v.count}${v.updated ? ' · ' + E(v.updated) : ''}</div>`).join('')}</details>
+      <details style="margin-top:6px;font-size:11.5px;color:var(--sub);"><summary>Plans per product</summary>${eaOnly.map(([p, v]) => `<div>${E(PNAME[p] || p)}: ${v.count}${v.updated ? ' · ' + E(v.updated) : ''}</div>`).join('')}</details>
       <div style="margin-top:8px;font-size:11px;color:var(--sub);">Electricity companies available on EasyAccess: ${E(S.ea_discos.join(', '))}. Others are hidden until their EasyAccess numbers are added.</div></div>`;
+    const feeV = (S.vp_fee_pct != null ? S.vp_fee_pct : 1);
+    h += `<div class="mg-card"><div style="display:flex;align-items:center;gap:10px;"><div style="flex:1"><div class="mg-h" style="margin:0">VendPower</div><div class="mg-s">Cable TV, Electricity, Airtime to Cash</div></div>${sw('prVpOn', V.enabled)}</div>
+      <div style="margin-top:10px;font-size:12px;color:var(--sub);">API key: <b>${V.token_set ? 'saved' : 'not set'}</b>${V.sandbox ? ' · <b style="color:#c2410c">SANDBOX key (fake money)</b>' : ''}</div>
+      <div style="display:flex;gap:8px;margin-top:6px;"><input id="prVpTok" type="password" autocomplete="off" placeholder="${V.token_set ? 'Leave empty to keep the saved key' : 'Paste VendPower API key'}" style="flex:1;min-width:0;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--text);"><button class="btn-primary" id="prVpTokSave" style="width:auto;padding:0 14px;">Save</button></div>
+      <div style="display:flex;gap:8px;margin-top:10px;"><button class="btn-ghost" id="prVpTest" style="flex:1;">Test connection</button><button class="btn-ghost" id="prVpSync" style="flex:1;">Sync plans</button></div>
+      <div id="prVpMsg" style="font-size:12px;margin-top:8px;color:var(--sub);"></div>
+      <div style="margin-top:12px;font-size:12px;color:var(--sub);">Synced rows: <b>${vpTot}</b>${vpTot ? '' : ' — press “Sync plans” after saving the key.'}</div>
+      <details style="margin-top:6px;font-size:11.5px;color:var(--sub);"><summary>Electricity companies found on VendPower</summary>${(S.vp_discos || []).map((d) => `<div>${d.matched ? '✅' : '❌'} ${E(d.name)}</div>`).join('')}<div style="margin-top:4px;">❌ = not listed on VendPower, so customers will not see it while electricity is routed to VendPower.</div></details>
+      <details style="margin-top:6px;font-size:11.5px;color:var(--sub);"><summary>Plans per product</summary>${vpOnly.map(([p, v]) => `<div>${E(PNAME[p] || p)}: ${v.count}${v.updated ? ' · ' + E(v.updated) : ''}</div>`).join('')}</details>
+      <div style="margin-top:12px;font-size:12px;"><b>Extra charge on cable (%)</b><div style="font-size:11px;color:var(--sub);margin:2px 0 6px;">VendPower takes a little more than the listed cable price (their own example: ₦15,700 → ₦15,857 = 1%). Check your real charge in Transactions and edit this.</div><div style="display:flex;gap:8px;"><input id="prVpFee" type="number" min="0" max="20" step="0.1" value="${feeV}" style="width:90px;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--text);"><button class="btn-ghost" id="prVpFeeSave" style="width:auto;padding:0 14px;">Save</button></div></div></div>`;
+    h += `<div class="mg-card"><div class="mg-h">Airtime to Cash (VendPower)</div>
+      <div class="mg-s">${A2.on ? '<b style="color:#0a8f4e">ON</b> for customers' : '<b style="color:#c2410c">OFF</b> for customers'} — switch it and set your % in <b>Settings → Airtime to Cash</b>.</div>
+      ${A2.billers.length ? '<div style="margin-top:8px;font-size:12px;">' + A2.billers.map((b) => { const mine = A2.pct[b.network] || 0, theirs = b.convert_percent; const bad = theirs != null && mine >= theirs; return `<div style="padding:6px 0;border-top:1px solid var(--line);"><b>${E(b.network.toUpperCase())}</b>: VendPower pays you <b>${theirs != null ? theirs + '%' : '?'}</b> · you pay customers <b>${mine || 'not set'}%</b>${bad ? ' <span style="color:#c2410c">⚠ you would make no profit or a loss</span>' : theirs != null && mine ? ` <span style="color:#0a8f4e">(profit ≈ ${(theirs - mine).toFixed(1)}%)</span>` : ''}</div>`; }).join('') + '</div>' : '<div style="margin-top:8px;font-size:12px;color:var(--sub);">' + (V.token_set ? (S.a2c && S.a2c.error ? 'Could not read the networks from VendPower. Press Test connection.' : 'No networks listed yet by VendPower for this key (the key may not have Airtime to Cash enabled).') : 'Save the VendPower key first.') + '</div>'}
+      <div style="margin-top:8px;font-size:11px;color:var(--sub);">Customers' Share &amp; Sell PINs are passed to VendPower and never saved. Credits to the customer are capped at what VendPower actually paid you.</div></div>`;
+    const WD = S.withdraw || {};
+    h += `<div class="mg-card"><div class="mg-h">Bank withdrawals</div><div class="mg-s">Who pays customers' Airtime-to-Cash and Exchange withdrawals to their bank.</div>
+      <select id="prWdProv" style="width:100%;margin-top:10px;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--text);"><option value="flutterwave" ${WD.provider !== 'payvessel' ? 'selected' : ''}>Flutterwave</option><option value="payvessel" ${WD.provider === 'payvessel' ? 'selected' : ''}>PayVessel</option></select>
+      <div style="display:flex;gap:8px;margin-top:10px;"><button class="btn-primary" id="prWdSave" style="flex:1;">Save</button><button class="btn-ghost" id="prWdTest" style="flex:1;">Check PayVessel balance</button></div>
+      <div id="prWdMsg" style="font-size:12px;margin-top:8px;color:var(--sub);"></div>
+      <div style="margin-top:10px;font-size:11.5px;color:var(--sub);line-height:1.6;">PayVessel pays from <b>your PayVessel wallet balance</b>, so keep money in it. Flutterwave pays from your Flutterwave balance and needs its server address whitelisted. Changing this only affects NEW withdrawals; old ones finish with the provider they started with. Fees by amount are set in <b>Settings → Withdrawals</b>.</div></div>`;
     box.innerHTML = h;
     const msg = (t, bad) => { const m = $('prMsg'); m.style.color = bad ? '#c2410c' : '#0a8f4e'; m.textContent = t; };
     const run = async (fn) => { if (busy) return; busy = true; try { await fn(); } finally { busy = false; } };
@@ -7172,6 +7220,15 @@ window.UMSound = (function () {
     $('prTokSave').onclick = () => run(async () => { const t = $('prTok').value.trim(); if (!t) return msg('Paste the token first.', true); const r = await save({ easyaccess_token: t }); if (r.errMsg) return msg(r.errMsg, true); $('prTok').value = ''; showToast('Token saved'); load(); });
     $('prTest').onclick = () => run(async () => { msg('Testing…'); const r = await call({ action: 'ea_test' }); if (r.errMsg) return msg(r.errMsg, true); msg('Connected. EasyAccess wallet balance: ₦' + Number(r.data.balance).toLocaleString()); });
     $('prSync').onclick = () => run(async () => { msg('Syncing plans… this takes a few seconds'); const r = await call({ action: 'ea_sync' }); if (r.errMsg) return msg(r.errMsg, true); const n = r.data.report.reduce((a, p) => a + p.count, 0); await load(); const m = $('prMsg'); if (m) { m.style.color = '#0a8f4e'; m.textContent = 'Done: ' + n + ' plans saved.'; } });
+    const vmsg = (t, bad) => { const m = $('prVpMsg'); if (m) { m.style.color = bad ? '#c2410c' : '#0a8f4e'; m.textContent = t; } };
+    $('prVpOn').onchange = () => run(async () => { const r = await save({ provider_vendpower_enabled: $('prVpOn').checked ? '1' : '0' }); if (r.errMsg) showToast(r.errMsg); load(); });
+    $('prVpTokSave').onclick = () => run(async () => { const t = $('prVpTok').value.trim(); if (!t) return vmsg('Paste the key first.', true); const r = await save({ vendpower_api_key: t }); if (r.errMsg) return vmsg(r.errMsg, true); $('prVpTok').value = ''; showToast('Key saved'); load(); });
+    $('prVpTest').onclick = () => run(async () => { vmsg('Testing…'); const r = await call({ action: 'vp_test' }); if (r.errMsg) return vmsg(r.errMsg, true); vmsg('Connected' + (r.data.sandbox ? ' (SANDBOX key: fake money)' : '') + (r.data.balance != null ? '. VendPower wallet: ₦' + Number(r.data.balance).toLocaleString() : '.')); });
+    $('prVpSync').onclick = () => run(async () => { vmsg('Syncing… this takes a few seconds'); const r = await call({ action: 'vp_sync' }); if (r.errMsg) return vmsg(r.errMsg, true); const n = r.data.report.reduce((a, p) => a + p.count, 0); await load(); vmsg('Done: ' + n + ' rows saved.'); });
+    $('prVpFeeSave').onclick = () => run(async () => { const v = $('prVpFee').value; const r = await save({ vendpower_cable_fee_pct: v }); if (r.errMsg) return showToast(r.errMsg); showToast('Saved'); load(); });
+    const wmsg = (t, bad) => { const m = $('prWdMsg'); if (m) { m.style.color = bad ? '#c2410c' : '#0a8f4e'; m.textContent = t; } };
+    $('prWdSave').onclick = () => run(async () => { const v = $('prWdProv').value; if (v === 'payvessel' && !WD.pv_ready) return wmsg('Save the PayVessel API key and secret first (Settings → PayVessel).', true); const r = await save({ withdraw_provider: v }); if (r.errMsg) return wmsg(r.errMsg, true); showToast('Saved'); load(); });
+    $('prWdTest').onclick = () => run(async () => { wmsg('Checking…'); const r = await call({ action: 'wd_pv_test' }); if (r.errMsg) return wmsg(r.errMsg, true); wmsg('Connected (' + (r.data.live ? 'live' : 'sandbox') + '). PayVessel wallet: ₦' + Number(r.data.balance).toLocaleString()); });
     $('prCopy').onclick = () => { try { navigator.clipboard.writeText(A.webhook); showToast('Copied'); } catch (e) { showToast('Select and copy it manually'); } };
   }
 })();

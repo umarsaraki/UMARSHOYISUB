@@ -3589,7 +3589,7 @@ FUNCTIONS['admin-manage-users'] = async (x, env, user) => {
         if (!def) return fail('Unknown setting: ' + k);
         if (def.type === 'secret' && String(raw ?? '').trim() === '') continue;      // empty key box = keep the current key
         const v = validateSetting(def, raw);
-        if (v === null) return fail(`Invalid value for "${def.label}".${def.hint ? ' ' + def.hint + '.' : ''}`);
+        if (v === null) return fail(def.tiers ? `Invalid value for "${def.label}". Write each step as from-to:fee and separate steps with commas, for example 200-4999:50,5000-19999:100,20000-:150 (no commas inside numbers).` : `Invalid value for "${def.label}".${def.hint ? ' ' + def.hint + '.' : ''}`);
         if (def.type === 'secret') {
           if (!authSecretOk(env)) return fail('AUTH_SECRET must be set in Cloudflare (32+ characters) before keys can be saved here.');
           updates.push([k, await encryptSetting(env, v)]); changed.push(`${k} (key replaced)`);
@@ -4585,8 +4585,8 @@ const SETTINGS = {
   withdraw_fee_atc_pct: { env: 'WITHDRAW_FEE_ATC_PCT', type: 'number', group: 'Withdrawals', label: 'Airtime-to-Cash withdrawal: percent of the amount (%)', def: '', min: 0, max: 50, allowEmpty: true, hint: 'Added to the fixed fee. Empty = 0' },
   withdraw_fee_ex_flat: { env: 'WITHDRAW_FEE_EX_FLAT', type: 'number', group: 'Withdrawals', label: 'Exchange withdrawal: fixed fee (naira)', def: '', min: 0, max: 100000, allowEmpty: true, hint: 'Empty = use the fee above' },
   withdraw_fee_ex_pct:  { env: 'WITHDRAW_FEE_EX_PCT',  type: 'number', group: 'Withdrawals', label: 'Exchange withdrawal: percent of the amount (%)', def: '', min: 0, max: 50, allowEmpty: true, hint: 'Added to the fixed fee. Empty = 0' },
-  withdraw_tiers_atc:   { env: 'WITHDRAW_TIERS_ATC',   type: 'text', group: 'Withdrawals', label: 'Airtime-to-Cash withdrawal fee by amount', def: '', allowEmpty: true, maxLen: 300, pattern: /^\s*\d+-\d*:\d+(\.\d+)?(\s*,\s*\d+-\d*:\d+(\.\d+)?)*\s*$|^$/, hint: 'Format from-to:fee, separated by commas. Example: 100-4999:50,5000-19999:100,20000-:150 means ₦50 for ₦100 to ₦4,999, ₦100 for ₦5,000 to ₦19,999, ₦150 for ₦20,000 and above. Leave the "to" empty for no upper limit. An amount that matches no range uses the fixed fee + percent above. Empty = not used.' },
-  withdraw_tiers_ex:    { env: 'WITHDRAW_TIERS_EX',    type: 'text', group: 'Withdrawals', label: 'Exchange withdrawal fee by amount', def: '', allowEmpty: true, maxLen: 300, pattern: /^\s*\d+-\d*:\d+(\.\d+)?(\s*,\s*\d+-\d*:\d+(\.\d+)?)*\s*$|^$/, hint: 'Same format as above, for the Exchange wallet. Empty = not used.' },
+  withdraw_tiers_atc:   { env: 'WITHDRAW_TIERS_ATC',   tiers: true, type: 'text', group: 'Withdrawals', label: 'Airtime-to-Cash withdrawal fee by amount', def: '', allowEmpty: true, maxLen: 300, pattern: /^\s*\d+-\d*:\d+(\.\d+)?(\s*,\s*\d+-\d*:\d+(\.\d+)?)*\s*$|^$/, hint: 'Format from-to:fee, separated by commas. Example: 100-4999:50,5000-19999:100,20000-:150 means ₦50 for ₦100 to ₦4,999, ₦100 for ₦5,000 to ₦19,999, ₦150 for ₦20,000 and above. Leave the "to" empty for no upper limit. An amount that matches no range uses the fixed fee + percent above. Empty = not used.' },
+  withdraw_tiers_ex:    { env: 'WITHDRAW_TIERS_EX',    tiers: true, type: 'text', group: 'Withdrawals', label: 'Exchange withdrawal fee by amount', def: '', allowEmpty: true, maxLen: 300, pattern: /^\s*\d+-\d*:\d+(\.\d+)?(\s*,\s*\d+-\d*:\d+(\.\d+)?)*\s*$|^$/, hint: 'Same format as above, for the Exchange wallet. Empty = not used.' },
   withdraw_provider:    { env: 'WITHDRAW_PROVIDER',    type: 'text', group: 'Withdrawals', label: 'Pay withdrawals with', def: 'flutterwave', allowEmpty: true, maxLen: 20, pattern: /^(flutterwave|payvessel)?$/, hint: 'flutterwave or payvessel. Easier to change in Admin → Providers.' },
   withdraw_min_amount:  { env: 'WITHDRAW_MIN_AMOUNT',  type: 'number', group: 'Withdrawals', label: 'Minimum withdrawal (naira)', def: '1000', min: 100, max: 10000000, hint: 'Default 1000' },
   app_url:              { env: 'APP_URL',              type: 'url',    group: 'App', label: 'Website address used in referral links', def: '', allowEmpty: true, hint: 'For example https://umarshoyi.com. Empty = this website' },
@@ -4677,8 +4677,9 @@ async function withSettings(env) {   // the env the rest of the code sees: Cloud
   try { const rr = await refRule(env); over.REFERRAL_ENABLED = rr.enabled ? '1' : '0'; over.REFERRAL_REWARD = rr.reward_type === 'fixed' ? String(rr.reward_value) : '0'; over.REFERRAL_RULE_TEXT = refRuleText(rr); } catch (e) { console.error('referral rule', e); }   // the Referral Manager (D1) is the one source of truth
   return { ...env, ...over };
 }
+const tiersNorm = (s) => String(s || '').replace(/[;\n\r]+/g, ',').replace(/[\u2013\u2014\u2212]/g, '-').replace(/=/g, ':').replace(/[\u20a6\s]/g, '').replace(/(to|up)/gi, '-').replace(/(\d)\+(?=[:,]|$)/g, '$1-').replace(/-+/g, '-').replace(/-(above|more|up|max|infinity)(?=:)/gi, '-').replace(/,+/g, ',').replace(/^,|,$/g, '');   // forgiving: "1000 - 9999 : 100", "₦50,000+:200", new lines
 function validateSetting(def, raw) {   // returns the cleaned value, or null when invalid
-  let v = String(raw ?? '').trim(); if (def.lower) v = v.toLowerCase();
+  let v = String(raw ?? '').trim(); if (def.lower) v = v.toLowerCase(); if (def.tiers) v = tiersNorm(v);
   if (def.type === 'bool') return v === '1' || v === '0' ? v : null;
   if (def.type === 'text' || def.type === 'url') {
     if (v === '') return def.allowEmpty ? '' : null;
